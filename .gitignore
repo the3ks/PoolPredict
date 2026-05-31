@@ -1,0 +1,15 @@
+bin/
+obj/
+.vs/
+.vscode/
+.idea/
+node_modules/
+.next/
+dist/
+coverage/
+*.user
+*.suo
+.env
+.env.*
+!.env.example
+[.]logs/
