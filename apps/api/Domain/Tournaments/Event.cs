@@ -4,16 +4,31 @@ namespace PoolPredict.Api.Domain.Tournaments;
 
 public sealed class Event : Entity
 {
-    public Event(Guid id, Guid tournamentId, string homeParticipant, string awayParticipant, DateTimeOffset startsAt)
+    public Event(
+        Guid id,
+        Guid tournamentId,
+        Guid homeParticipantId,
+        Guid awayParticipantId,
+        string homeParticipant,
+        string awayParticipant,
+        DateTimeOffset startsAt,
+        EventStatus status = EventStatus.Scheduled)
         : base(id)
     {
         TournamentId = tournamentId;
+        HomeParticipantId = homeParticipantId;
+        AwayParticipantId = awayParticipantId;
         HomeParticipant = homeParticipant;
         AwayParticipant = awayParticipant;
         StartsAt = startsAt;
+        Status = status;
     }
 
     public Guid TournamentId { get; }
+
+    public Guid HomeParticipantId { get; }
+
+    public Guid AwayParticipantId { get; }
 
     public string HomeParticipant { get; }
 
@@ -21,5 +36,5 @@ public sealed class Event : Entity
 
     public DateTimeOffset StartsAt { get; }
 
-    public EventStatus Status { get; private set; } = EventStatus.Scheduled;
+    public EventStatus Status { get; private set; }
 }

@@ -1,7 +1,7 @@
 :root {
   color-scheme: light;
   font-family: Arial, Helvetica, sans-serif;
-  background: #f4f6f8;
+  background: #f5f7f4;
   color: #17202a;
 }
 
@@ -13,10 +13,139 @@ body {
   margin: 0;
 }
 
+a {
+  color: #20323a;
+  font-weight: 700;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
 .shell {
   width: min(1120px, calc(100vw - 32px));
   margin: 0 auto;
   padding: 40px 0;
+}
+
+.authShell {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 24px;
+}
+
+.authCard {
+  width: min(440px, 100%);
+  border: 1px solid #d8dee6;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 28px;
+}
+
+.authCard h1 {
+  font-size: 34px;
+}
+
+.statusText,
+.mutedText {
+  color: #40515e;
+  line-height: 1.6;
+}
+
+.appShell {
+  display: grid;
+  min-height: 100vh;
+  grid-template-columns: 240px minmax(0, 1fr);
+  grid-template-rows: 64px minmax(0, 1fr);
+  grid-template-areas:
+    "topbar topbar"
+    "sidebar main";
+}
+
+.appTopbar {
+  grid-area: topbar;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid #d8dee6;
+  background: #ffffff;
+  padding: 0 24px;
+}
+
+.brandLink {
+  color: #17202a;
+  font-size: 18px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.appUser {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  color: #40515e;
+  font-size: 14px;
+}
+
+.compactButton {
+  min-height: 36px;
+  padding: 0 12px;
+}
+
+.appSidebar {
+  grid-area: sidebar;
+  border-right: 1px solid #d8dee6;
+  background: #ffffff;
+  padding: 18px;
+}
+
+.appSidebar nav {
+  display: grid;
+  gap: 6px;
+}
+
+.appSidebar a {
+  border-radius: 6px;
+  color: #40515e;
+  padding: 12px;
+  text-decoration: none;
+}
+
+.appSidebar a.active,
+.appSidebar a:hover {
+  background: #e5efe8;
+  color: #173525;
+}
+
+.appMain {
+  grid-area: main;
+  min-width: 0;
+  padding: 32px;
+}
+
+.pageStack {
+  display: grid;
+  gap: 20px;
+}
+
+.pageHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.pageHeader h1 {
+  font-size: 38px;
+}
+
+.narrowPanel {
+  max-width: 560px;
 }
 
 .topbar {
@@ -24,14 +153,14 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  padding: 32px 0;
+  padding: 24px 0 30px;
   border-bottom: 1px solid #d8dee6;
 }
 
 .eyebrow {
   margin: 0 0 8px;
   color: #3f6f7f;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   text-transform: uppercase;
 }
@@ -45,8 +174,14 @@ p {
 h1 {
   max-width: 720px;
   margin-bottom: 0;
-  font-size: 44px;
+  font-size: 42px;
   line-height: 1.05;
+  letter-spacing: 0;
+}
+
+h2 {
+  margin-bottom: 16px;
+  font-size: 24px;
 }
 
 .button {
@@ -54,6 +189,7 @@ h1 {
   min-height: 44px;
   align-items: center;
   justify-content: center;
+  border: 1px solid #20323a;
   border-radius: 6px;
   background: #20323a;
   color: #ffffff;
@@ -61,31 +197,329 @@ h1 {
   font-weight: 700;
   text-decoration: none;
   white-space: nowrap;
+  cursor: pointer;
 }
 
-.grid {
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.buttonSecondary {
+  border-color: #b8c2c9;
+  background: #ffffff;
+  color: #20323a;
+}
+
+.workspace {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
+  grid-template-columns: minmax(300px, 0.75fr) minmax(0, 1.25fr);
+  gap: 22px;
   padding-top: 28px;
 }
 
-.panel {
+.authSurface,
+.profilePanel,
+.poolWorkspace,
+.panel,
+.invitePanel {
   border: 1px solid #d8dee6;
   border-radius: 8px;
   background: #ffffff;
   padding: 24px;
 }
 
-.panel p,
-.panel li {
+.segmentedControl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 100%;
+  border: 1px solid #b8c2c9;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.segmentedControl button {
+  min-height: 42px;
+  border: 0;
+  background: #ffffff;
+  color: #40515e;
+  cursor: pointer;
+}
+
+.segmentedControl button.active {
+  background: #e5efe8;
+  color: #173525;
+  font-weight: 700;
+}
+
+.form,
+.googleForm {
+  display: grid;
+  gap: 16px;
+  margin-top: 22px;
+}
+
+.googleForm {
+  margin-top: 28px;
+  padding-top: 22px;
+  border-top: 1px solid #d8dee6;
+}
+
+label {
+  display: grid;
+  gap: 7px;
+  color: #334752;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+input,
+select {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid #b8c2c9;
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 0 12px;
+  color: #17202a;
+}
+
+input:focus,
+select:focus {
+  outline: 3px solid #c9dfd0;
+  outline-offset: 1px;
+}
+
+.statusRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 22px;
+  min-height: 28px;
+  color: #40515e;
+  font-size: 14px;
+}
+
+.statusDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #9aa7b1;
+}
+
+.statusDot.online {
+  background: #1d7f43;
+}
+
+.profileDetails,
+.emptyState {
+  margin-top: 28px;
+}
+
+.profileDetails.compact {
+  margin-top: 18px;
+}
+
+.profileDetails dl {
+  display: grid;
+  gap: 14px;
+  margin: 0 0 22px;
+}
+
+.profileDetails dl div {
+  display: grid;
+  gap: 4px;
+}
+
+dt {
+  color: #657684;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: #17202a;
+}
+
+.emptyState p {
+  margin-bottom: 0;
   color: #40515e;
   line-height: 1.6;
 }
 
-@media (max-width: 720px) {
+.poolWorkspace {
+  display: grid;
+  gap: 20px;
+}
+
+.poolHeader,
+.invitePanel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.poolHeader h2,
+.invitePanel h2 {
+  margin-bottom: 0;
+}
+
+.statusPill {
+  display: inline-flex;
+  max-width: 320px;
+  min-height: 32px;
+  align-items: center;
+  border: 1px solid #cfd7dd;
+  border-radius: 999px;
+  padding: 0 12px;
+  color: #40515e;
+  font-size: 13px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.poolGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(220px, 0.65fr);
+  gap: 16px;
+}
+
+.panel {
+  padding: 18px;
+}
+
+.buttonRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.poolList {
+  display: grid;
+  gap: 10px;
+}
+
+.poolCard {
+  border: 1px solid #d8dee6;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.poolCard.selected {
+  border-color: #2f7350;
+  box-shadow: inset 4px 0 0 #2f7350;
+}
+
+.poolCard button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 92px 116px;
+  width: 100%;
+  min-height: 74px;
+  gap: 12px;
+  border: 0;
+  background: transparent;
+  padding: 14px 16px;
+  color: #17202a;
+  text-align: left;
+  cursor: pointer;
+}
+
+.poolCardLink {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 92px 116px;
+  width: 100%;
+  min-height: 74px;
+  gap: 12px;
+  padding: 14px 16px;
+  color: #17202a;
+  text-align: left;
+  text-decoration: none;
+}
+
+.poolCard span {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.poolCard strong,
+.poolCard small,
+.poolCardLink strong,
+.poolCardLink small {
+  overflow-wrap: anywhere;
+}
+
+.poolCard small,
+.poolCardLink small {
+  color: #657684;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.detailList {
+  display: grid;
+  gap: 14px;
+  margin: 0 0 22px;
+}
+
+.detailList div {
+  display: grid;
+  gap: 4px;
+}
+
+.invitePanel {
+  flex-wrap: wrap;
+}
+
+.invitePanel code {
+  width: 100%;
+  border: 1px solid #b8c2c9;
+  border-radius: 6px;
+  background: #f5f7f4;
+  padding: 12px;
+  color: #17202a;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 760px) {
+  .appShell {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-areas:
+      "topbar"
+      "sidebar"
+      "main";
+  }
+
+  .appTopbar,
+  .pageHeader {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 18px;
+  }
+
+  .appSidebar {
+    border-right: 0;
+    border-bottom: 1px solid #d8dee6;
+  }
+
+  .appSidebar nav {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .appMain {
+    padding: 20px;
+  }
+
   .topbar,
-  .grid {
+  .workspace,
+  .poolGrid {
     grid-template-columns: 1fr;
   }
 
@@ -96,5 +530,16 @@ h1 {
 
   h1 {
     font-size: 34px;
+  }
+
+  .poolHeader,
+  .invitePanel {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .poolCard button,
+  .poolCardLink {
+    grid-template-columns: 1fr;
   }
 }

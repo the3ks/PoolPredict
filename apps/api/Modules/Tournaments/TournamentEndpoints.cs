@@ -15,6 +15,13 @@ public static class TournamentEndpoints
                 : Results.Ok(catalog.GetEvents(tournamentId));
         });
 
+        group.MapGet("/{tournamentId:guid}/participants", (Guid tournamentId, TournamentCatalog catalog) =>
+        {
+            return catalog.GetTournament(tournamentId) is null
+                ? Results.NotFound()
+                : Results.Ok(catalog.GetParticipants(tournamentId));
+        });
+
         return app;
     }
 }
