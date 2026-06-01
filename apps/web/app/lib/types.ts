@@ -4,10 +4,13 @@ export type Tournament = {
   id: string;
   name: string;
   sport: string;
+  startsOn: string;
+  endsOn: string;
 };
 
 export type PoolSummary = {
   id: string;
+  memberId?: string;
   name: string;
   tournamentId: string;
   profile: MarketProfile;
@@ -21,4 +24,40 @@ export type PoolInvite = {
   code: string;
   poolId: string;
   createdAt?: string;
+};
+
+export type TournamentEvent = {
+  id: string;
+  tournamentId: string;
+  homeParticipant: string;
+  awayParticipant: string;
+  startsAt: string;
+  status: string;
+};
+
+export type Market = {
+  id: string;
+  poolId: string;
+  eventId: string;
+  type: string;
+  period: string;
+  lineValue: number | null;
+  payoutMultiplier: number;
+  payoutConfigurationVersion: number;
+  status: string;
+};
+
+export type Prediction = {
+  id: string;
+  poolId: string;
+  memberId: string;
+  marketId: string;
+  selectedOption: string;
+  stake: number;
+  marketType: string;
+  marketPeriod: string;
+  lineValueSnapshot: number | null;
+  payoutMultiplierSnapshot: number;
+  payoutConfigurationVersionSnapshot: number;
+  submittedAt: string;
 };

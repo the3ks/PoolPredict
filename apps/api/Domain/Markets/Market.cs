@@ -12,7 +12,8 @@ public sealed class Market : Entity
         MarketPeriod period,
         decimal? lineValue,
         decimal payoutMultiplier,
-        int payoutConfigurationVersion)
+        int payoutConfigurationVersion,
+        MarketStatus status = MarketStatus.Open)
         : base(id)
     {
         PoolId = poolId;
@@ -22,6 +23,7 @@ public sealed class Market : Entity
         LineValue = lineValue;
         PayoutMultiplier = payoutMultiplier;
         PayoutConfigurationVersion = payoutConfigurationVersion;
+        Status = status;
     }
 
     public Guid PoolId { get; }
@@ -38,7 +40,7 @@ public sealed class Market : Entity
 
     public int PayoutConfigurationVersion { get; }
 
-    public MarketStatus Status { get; private set; } = MarketStatus.Open;
+    public MarketStatus Status { get; private set; }
 
     public void UpdateLineValue(decimal? lineValue)
     {

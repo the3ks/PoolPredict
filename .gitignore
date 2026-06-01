@@ -12,4 +12,5 @@ coverage/
 .env
 .env.*
 !.env.example
+apps/api/appsettings.Development.json
 [.]logs/

@@ -2,6 +2,8 @@
 
 import { useParams } from "next/navigation";
 import { useState } from "react";
+import { KeyRound, Plus } from "lucide-react";
+import { IconLabel, PageHeader } from "../../../../components/ui";
 import { apiUrl, readApiError } from "../../../../lib/api";
 import { getStoredToken } from "../../../../lib/auth";
 import { PoolInvite } from "../../../../lib/types";
@@ -35,13 +37,12 @@ export default function PoolInvitesPage() {
 
   return (
     <section className="pageStack">
-      <div className="pageHeader">
-        <div>
-          <p className="eyebrow">Invites</p>
-          <h1>Pool invites</h1>
-        </div>
-        <button className="button" type="button" onClick={createInvite}>Create invite</button>
-      </div>
+      <PageHeader
+        eyebrow="Invites"
+        title="Pool invites"
+        icon={KeyRound}
+        actions={<button className="button" type="button" onClick={createInvite}><IconLabel icon={Plus}>Create invite</IconLabel></button>}
+      />
       <section className="invitePanel">
         <div>
           <p className="eyebrow">Latest code</p>

@@ -6,11 +6,11 @@ See `docs/ImplementationStatus.md` for the latest implementation handoff notes.
 
 Current status:
 
-* Sprint 0 is partially complete
-* API and web skeletons exist
-* Docker Compose infrastructure exists
-* A small in-memory API vertical slice exists for tournaments, pools, generated markets and prediction submission
-* The web app is still a shell and has no working MVP forms yet
+* Sprint 0 through Sprint 4 are implemented for the current MVP scope
+* Sprint 6 is in progress
+* API and web apps have working auth, pool management, tournament browsing and admin provider sync
+* MariaDB persistence uses EF Core migrations when configured
+* The web app has a first working prediction form on the pool page
 
 ---
 
@@ -163,9 +163,15 @@ Jobs:
 
 * TournamentSyncJob
 
+Web:
+
+* Public running/upcoming tournament dashboard
+
 Acceptance:
 
-World Cup fixtures imported automatically.
+World Cup fixtures can be imported from the configured provider by a PlatformAdmin.
+
+Anonymous users can browse running and upcoming tournaments before signing in.
 
 ---
 
@@ -204,6 +210,22 @@ Pool owner selects profile and markets appear automatically.
 
 All MVP markets have lifecycle records and settlement-ready metadata.
 
+## Current Implementation Notes
+
+Implemented:
+
+* DB-backed MVP global payout defaults
+* Casual, Standard and Expert payout rule sets
+* Market generation from active payout defaults
+* PlatformAdmin payout defaults view on `/app/admin`
+* Settlement run and settlement log persistence tables
+
+Remaining:
+
+* Prediction-facing market entry UI
+* Event result storage
+* Settlement calculation and idempotent rerun service
+
 ---
 
 # Sprint 6
@@ -225,6 +247,22 @@ Features:
 Acceptance:
 
 Users can submit predictions before lock.
+
+## Current Implementation Notes
+
+Implemented:
+
+* Authenticated prediction submission
+* Member balance lookup for the signed-in pool member
+* Prediction history for the signed-in pool member
+* Pool page market picker grouped by match
+* Basic market option input for Winner, Handicap, Over/Under, Odd/Even and Correct Score
+
+Remaining:
+
+* Outcome display after settlement
+* Deeper per-market option validation
+* Event result storage for Sprint 7 settlement
 
 ---
 

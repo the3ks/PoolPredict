@@ -2,6 +2,8 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Plus, Waves } from "lucide-react";
+import { IconLabel, PageHeader } from "../../../components/ui";
 import { apiUrl, readApiError } from "../../../lib/api";
 import { getStoredToken } from "../../../lib/auth";
 import { MarketProfile, Tournament } from "../../../lib/types";
@@ -49,12 +51,7 @@ export default function NewPoolPage() {
 
   return (
     <section className="pageStack">
-      <div className="pageHeader">
-        <div>
-          <p className="eyebrow">Pools</p>
-          <h1>Create pool</h1>
-        </div>
-      </div>
+      <PageHeader eyebrow="Pools" title="Create pool" icon={Plus} />
       <form className="form panel narrowPanel" onSubmit={createPool}>
         <label>
           Pool name
@@ -80,7 +77,7 @@ export default function NewPoolPage() {
           Starting balance
           <input min={1} required type="number" value={startingBalance} onChange={(event) => setStartingBalance(Number(event.target.value))} />
         </label>
-        <button className="button" type="submit">Create pool</button>
+        <button className="button" type="submit"><IconLabel icon={Waves}>Create pool</IconLabel></button>
         <p className="statusText">{status}</p>
       </form>
     </section>

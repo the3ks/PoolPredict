@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { LogIn, UserPlus } from "lucide-react";
+import { IconLabel } from "../components/ui";
 import { apiUrl, readApiError } from "../lib/api";
 import { AuthResponse, storeToken } from "../lib/auth";
 
@@ -59,10 +61,10 @@ export default function RegisterPage() {
             Password
             <input autoComplete="new-password" minLength={8} required type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
           </label>
-          <button className="button" disabled={isBusy} type="submit">Create account</button>
+          <button className="button" disabled={isBusy} type="submit"><IconLabel icon={UserPlus}>Create account</IconLabel></button>
         </form>
         <p className="statusText">{status}</p>
-        <Link href="/login">Back to login</Link>
+        <Link href="/login"><IconLabel icon={LogIn}>Back to login</IconLabel></Link>
       </section>
     </main>
   );

@@ -3,6 +3,7 @@ using PoolPredict.Api.Domain.Common;
 using PoolPredict.Api.Domain.Markets;
 using PoolPredict.Api.Domain.Pools;
 using PoolPredict.Api.Infrastructure.Persistence;
+using PoolPredict.Api.Modules.Markets;
 using PoolPredict.Api.Modules.Tournaments;
 using System.Security.Cryptography;
 
@@ -10,17 +11,17 @@ namespace PoolPredict.Api.Modules.Pools;
 
 public sealed class PoolStore
 {
-    private const int PayoutConfigurationVersion = 1;
-
     private readonly List<Pool> _pools = [];
     private readonly List<PoolMember> _members = [];
     private readonly List<PoolInvite> _invites = [];
     private readonly List<Market> _markets = [];
-    private readonly IDbContextFactory<PoolPredictDbContext>? _dbContextFactory;
+    private readonly PayoutConfigurationStore _payoutConfigurations;
+    private readonly IDbContextFactory<PoolPredictDbContext> _dbContextFactory;
     private readonly object _gate = new();
 
-    public PoolStore(IDbContextFactory<PoolPredictDbContext>? dbContextFactory = null)
+    public PoolStore(PayoutConfigurationStore payoutConfigurations, IDbContextFactory<PoolPredictDbContext> dbContextFactory)
     {
+        _payoutConfigurations = payoutConfigurations;
         _dbContextFactory = dbContextFactory;
         LoadPersisted();
     }
@@ -47,7 +48,7 @@ public sealed class PoolStore
             var pool = new Pool(Ids.NewId(), ownerUserId, request.Name.Trim(), request.TournamentId, request.Profile, request.StartingBalance);
             var owner = new PoolMember(Ids.NewId(), pool.Id, ownerUserId, PoolMemberRole.Owner, DateTimeOffset.UtcNow);
             var generatedMarkets = catalog.GetEvents(request.TournamentId)
-                .SelectMany(matchEvent => GenerateMarkets(pool, matchEvent.Id))
+                .SelectMany(matchEvent => GenerateMarkets(pool, matchEvent.Id, _payoutConfigurations.GetActiveConfiguration()))
                 .ToArray();
 
             _pools.Add(pool);
@@ -99,7 +100,7 @@ public sealed class PoolStore
             var pool = _pools.SingleOrDefault(candidate => candidate.Id == poolId);
             return pool is null || membership is null
                 ? null
-                : ToDetails(pool, membership.Role);
+                : ToDetails(pool, membership);
         }
     }
 
@@ -171,13 +172,13 @@ public sealed class PoolStore
             var existing = _members.SingleOrDefault(member => member.PoolId == pool.Id && member.UserId == userId);
             if (existing is not null)
             {
-                return ToDetails(pool, existing.Role);
+                return ToDetails(pool, existing);
             }
 
             var member = new PoolMember(Ids.NewId(), pool.Id, userId, PoolMemberRole.Member, DateTimeOffset.UtcNow);
             _members.Add(member);
             PersistMember(member);
-            return ToDetails(pool, member.Role);
+            return ToDetails(pool, member);
         }
     }
 
@@ -186,6 +187,14 @@ public sealed class PoolStore
         lock (_gate)
         {
             return _members.Where(member => member.PoolId == poolId).ToArray();
+        }
+    }
+
+    public PoolMember? GetMember(Guid poolId, Guid userId)
+    {
+        lock (_gate)
+        {
+            return _members.SingleOrDefault(member => member.PoolId == poolId && member.UserId == userId);
         }
     }
 
@@ -213,34 +222,27 @@ public sealed class PoolStore
         }
     }
 
-    private static IEnumerable<Market> GenerateMarkets(Pool pool, Guid eventId)
+    private static IEnumerable<Market> GenerateMarkets(Pool pool, Guid eventId, PayoutConfigurationResponse configuration)
     {
-        var periods = pool.Profile == MarketProfile.Casual
-            ? [MarketPeriod.FullTime]
-            : new[] { MarketPeriod.FullTime, MarketPeriod.FirstHalf };
-
-        foreach (var period in periods)
-        {
-            yield return CreateMarket(pool.Id, eventId, MarketType.Winner, period, null, 2.0m);
-            yield return CreateMarket(pool.Id, eventId, MarketType.CorrectScore, period, null, 5.0m);
-
-            if (pool.Profile is MarketProfile.Standard or MarketProfile.Expert)
-            {
-                yield return CreateMarket(pool.Id, eventId, MarketType.Handicap, period, 0.5m, 2.0m);
-                yield return CreateMarket(pool.Id, eventId, MarketType.OverUnder, period, 2.5m, 2.0m);
-                yield return CreateMarket(pool.Id, eventId, MarketType.OddEven, period, null, 2.0m);
-            }
-        }
+        return configuration.Rules
+            .Where(rule => rule.Profile == pool.Profile && rule.IsEnabled)
+            .Select(rule => CreateMarket(pool.Id, eventId, rule, configuration.Version));
     }
 
     private static Market CreateMarket(
         Guid poolId,
         Guid eventId,
-        MarketType type,
-        MarketPeriod period,
-        decimal? lineValue,
-        decimal payoutMultiplier) =>
-        new(Ids.NewId(), poolId, eventId, type, period, lineValue, payoutMultiplier, PayoutConfigurationVersion);
+        PayoutMarketRuleResponse rule,
+        int payoutConfigurationVersion) =>
+        new(
+            Ids.NewId(),
+            poolId,
+            eventId,
+            rule.MarketType,
+            rule.Period,
+            rule.LineValue,
+            rule.PayoutMultiplier,
+            payoutConfigurationVersion);
 
     private void EnsureCanManage(Guid poolId, Guid userId)
     {
@@ -265,8 +267,8 @@ public sealed class PoolStore
     private PoolSummaryResponse ToSummary(Pool pool, PoolMemberRole role) =>
         new(pool.Id, pool.Name, pool.TournamentId, pool.Profile, pool.StartingBalance, role, CountMembers(pool.Id), CountInvites(pool.Id));
 
-    private PoolDetailsResponse ToDetails(Pool pool, PoolMemberRole role) =>
-        new(pool.Id, pool.Name, pool.TournamentId, pool.Profile, pool.StartingBalance, role, CountMembers(pool.Id), CountInvites(pool.Id));
+    private PoolDetailsResponse ToDetails(Pool pool, PoolMember member) =>
+        new(pool.Id, member.Id, pool.Name, pool.TournamentId, pool.Profile, pool.StartingBalance, member.Role, CountMembers(pool.Id), CountInvites(pool.Id));
 
     private int CountMembers(Guid poolId) => _members.Count(member => member.PoolId == poolId);
 
@@ -281,11 +283,6 @@ public sealed class PoolStore
 
     private void LoadPersisted()
     {
-        if (_dbContextFactory is null)
-        {
-            return;
-        }
-
         using var db = _dbContextFactory.CreateDbContext();
 
         _pools.AddRange(db.Pools.AsNoTracking().Select(pool => new Pool(
@@ -318,16 +315,12 @@ public sealed class PoolStore
             market.Period,
             market.LineValue,
             market.PayoutMultiplier,
-            market.PayoutConfigurationVersion)));
+            market.PayoutConfigurationVersion,
+            market.Status)));
     }
 
     private void PersistPoolSlice(Pool pool, PoolMember owner, IReadOnlyCollection<Market> markets)
     {
-        if (_dbContextFactory is null)
-        {
-            return;
-        }
-
         using var db = _dbContextFactory.CreateDbContext();
         db.Pools.Add(ToPersistedPool(pool));
         db.PoolMembers.Add(ToPersistedMember(owner));
@@ -337,11 +330,6 @@ public sealed class PoolStore
 
     private void PersistPoolUpdate(Pool pool)
     {
-        if (_dbContextFactory is null)
-        {
-            return;
-        }
-
         using var db = _dbContextFactory.CreateDbContext();
         var persisted = db.Pools.Single(candidate => candidate.Id == pool.Id);
         persisted.Name = pool.Name;
@@ -351,11 +339,6 @@ public sealed class PoolStore
 
     private void PersistInvite(PoolInvite invite)
     {
-        if (_dbContextFactory is null)
-        {
-            return;
-        }
-
         using var db = _dbContextFactory.CreateDbContext();
         db.PoolInvites.Add(new PersistedPoolInvite
         {
@@ -370,11 +353,6 @@ public sealed class PoolStore
 
     private void PersistMember(PoolMember member)
     {
-        if (_dbContextFactory is null)
-        {
-            return;
-        }
-
         using var db = _dbContextFactory.CreateDbContext();
         if (db.PoolMembers.Any(candidate => candidate.PoolId == member.PoolId && candidate.UserId == member.UserId))
         {
@@ -430,6 +408,7 @@ public sealed record PoolSummaryResponse(
 
 public sealed record PoolDetailsResponse(
     Guid Id,
+    Guid MemberId,
     string Name,
     Guid TournamentId,
     MarketProfile Profile,

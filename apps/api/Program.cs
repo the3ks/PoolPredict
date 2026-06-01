@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
 using PoolPredict.Api.Infrastructure.Persistence;
 using PoolPredict.Api.Modules.Identity;
+using PoolPredict.Api.Modules.Markets;
 using PoolPredict.Api.Modules.Pools;
 using PoolPredict.Api.Modules.Predictions;
 using PoolPredict.Api.Modules.Tournaments;
@@ -15,24 +16,31 @@ builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
 });
 
-builder.Services.AddSingleton<IEventProvider, MockEventProvider>();
+builder.Services.Configure<EventProviderOptions>(builder.Configuration.GetSection("EventProvider"));
+builder.Services.AddSingleton<MockEventProvider>();
+builder.Services.AddHttpClient<FootballDataProvider>((services, client) =>
+{
+    var options = services.GetRequiredService<Microsoft.Extensions.Options.IOptions<EventProviderOptions>>().Value.FootballData;
+    client.BaseAddress = new Uri(options.BaseUrl.TrimEnd('/') + "/");
+});
+builder.Services.AddSingleton<EventProviderFactory>();
 var mariaDbConnectionString = builder.Configuration.GetConnectionString("MariaDb");
 if (string.IsNullOrWhiteSpace(mariaDbConnectionString))
 {
-    builder.Services.AddSingleton<ITournamentPersistence, NoOpTournamentPersistence>();
-}
-else
-{
-    builder.Services.AddDbContextFactory<PoolPredictDbContext>(options =>
-        options.UseMySql(
-            mariaDbConnectionString,
-            ServerVersion.Create(new Version(12, 0, 0), ServerType.MariaDb)));
-    builder.Services.AddSingleton<ITournamentPersistence, EfTournamentPersistence>();
+    throw new InvalidOperationException("ConnectionStrings:MariaDb is required. Apply EF migrations manually before starting the API.");
 }
 
+builder.Services.AddDbContextFactory<PoolPredictDbContext>(options =>
+    options.UseMySql(
+        mariaDbConnectionString,
+        ServerVersion.Create(new Version(12, 0, 0), ServerType.MariaDb)));
+builder.Services.AddSingleton<ITournamentPersistence, EfTournamentPersistence>();
+
 builder.Services.AddSingleton<TournamentCatalog>();
+builder.Services.AddSingleton<TournamentSyncJob>();
 builder.Services.AddSingleton<IdentityStore>();
 builder.Services.AddSingleton<JwtTokenService>();
+builder.Services.AddSingleton<PayoutConfigurationStore>();
 builder.Services.AddSingleton<PoolStore>();
 builder.Services.AddSingleton<PredictionStore>();
 
@@ -57,17 +65,10 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-if (!string.IsNullOrWhiteSpace(mariaDbConnectionString))
-{
-    using var scope = app.Services.CreateScope();
-    var dbFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<PoolPredictDbContext>>();
-    using var db = dbFactory.CreateDbContext();
-    db.Database.Migrate();
-    _ = app.Services.GetRequiredService<TournamentCatalog>();
-    _ = app.Services.GetRequiredService<IdentityStore>();
-    _ = app.Services.GetRequiredService<PoolStore>();
-    _ = app.Services.GetRequiredService<PredictionStore>();
-}
+_ = app.Services.GetRequiredService<TournamentCatalog>();
+_ = app.Services.GetRequiredService<IdentityStore>();
+_ = app.Services.GetRequiredService<PoolStore>();
+_ = app.Services.GetRequiredService<PredictionStore>();
 
 app.UseCors();
 app.UseAuthentication();
@@ -82,6 +83,7 @@ app.MapGet("/health", () => Results.Ok(new
 
 app.MapTournamentEndpoints();
 app.MapIdentityEndpoints();
+app.MapMarketEndpoints();
 app.MapPoolEndpoints();
 app.MapPredictionEndpoints();
 

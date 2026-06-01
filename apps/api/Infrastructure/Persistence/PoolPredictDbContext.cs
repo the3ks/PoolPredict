@@ -26,6 +26,14 @@ public sealed class PoolPredictDbContext(DbContextOptions<PoolPredictDbContext> 
 
     public DbSet<PersistedPointLedgerEntry> PointLedger => Set<PersistedPointLedgerEntry>();
 
+    public DbSet<PersistedPayoutConfiguration> PayoutConfigurations => Set<PersistedPayoutConfiguration>();
+
+    public DbSet<PersistedPayoutMarketRule> PayoutMarketRules => Set<PersistedPayoutMarketRule>();
+
+    public DbSet<PersistedSettlementRun> SettlementRuns => Set<PersistedSettlementRun>();
+
+    public DbSet<PersistedSettlementLog> SettlementLogs => Set<PersistedSettlementLog>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<PersistedTournament>(entity =>
@@ -183,6 +191,66 @@ public sealed class PoolPredictDbContext(DbContextOptions<PoolPredictDbContext> 
             entity.Property(entry => entry.Reason).HasColumnName("reason").HasConversion<string>().HasMaxLength(60);
             entity.Property(entry => entry.PredictionId).HasColumnName("prediction_id");
             entity.Property(entry => entry.CreatedAt).HasColumnName("created_at");
+        });
+
+        modelBuilder.Entity<PersistedPayoutConfiguration>(entity =>
+        {
+            entity.ToTable("payout_configurations");
+            entity.HasKey(configuration => configuration.Id);
+            entity.HasIndex(configuration => configuration.Version).IsUnique();
+            entity.Property(configuration => configuration.Id).HasColumnName("id");
+            entity.Property(configuration => configuration.Version).HasColumnName("version");
+            entity.Property(configuration => configuration.Name).HasColumnName("name").HasMaxLength(160);
+            entity.Property(configuration => configuration.IsActive).HasColumnName("is_active");
+            entity.Property(configuration => configuration.CreatedAt).HasColumnName("created_at");
+        });
+
+        modelBuilder.Entity<PersistedPayoutMarketRule>(entity =>
+        {
+            entity.ToTable("payout_configuration_market_rules");
+            entity.HasKey(rule => rule.Id);
+            entity.HasIndex(rule => new { rule.PayoutConfigurationId, rule.Profile, rule.MarketType, rule.Period }).IsUnique();
+            entity.HasOne(rule => rule.PayoutConfiguration)
+                .WithMany(configuration => configuration.Rules)
+                .HasForeignKey(rule => rule.PayoutConfigurationId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.Property(rule => rule.Id).HasColumnName("id");
+            entity.Property(rule => rule.PayoutConfigurationId).HasColumnName("payout_configuration_id");
+            entity.Property(rule => rule.Profile).HasColumnName("profile").HasConversion<string>().HasMaxLength(40);
+            entity.Property(rule => rule.MarketType).HasColumnName("market_type").HasConversion<string>().HasMaxLength(40);
+            entity.Property(rule => rule.Period).HasColumnName("period").HasConversion<string>().HasMaxLength(40);
+            entity.Property(rule => rule.LineValue).HasColumnName("line_value").HasPrecision(10, 2);
+            entity.Property(rule => rule.PayoutMultiplier).HasColumnName("payout_multiplier").HasPrecision(10, 2);
+            entity.Property(rule => rule.IsEnabled).HasColumnName("is_enabled");
+        });
+
+        modelBuilder.Entity<PersistedSettlementRun>(entity =>
+        {
+            entity.ToTable("settlement_runs");
+            entity.HasKey(run => run.Id);
+            entity.HasIndex(run => run.EventId);
+            entity.Property(run => run.Id).HasColumnName("id");
+            entity.Property(run => run.EventId).HasColumnName("event_id");
+            entity.Property(run => run.Status).HasColumnName("status").HasConversion<string>().HasMaxLength(40);
+            entity.Property(run => run.StartedAt).HasColumnName("started_at");
+            entity.Property(run => run.CompletedAt).HasColumnName("completed_at");
+        });
+
+        modelBuilder.Entity<PersistedSettlementLog>(entity =>
+        {
+            entity.ToTable("settlement_logs");
+            entity.HasKey(log => log.Id);
+            entity.HasIndex(log => log.SettlementRunId);
+            entity.HasOne(log => log.SettlementRun)
+                .WithMany(run => run.Logs)
+                .HasForeignKey(log => log.SettlementRunId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.Property(log => log.Id).HasColumnName("id");
+            entity.Property(log => log.SettlementRunId).HasColumnName("settlement_run_id");
+            entity.Property(log => log.PredictionId).HasColumnName("prediction_id");
+            entity.Property(log => log.Level).HasColumnName("level").HasConversion<string>().HasMaxLength(40);
+            entity.Property(log => log.Message).HasColumnName("message").HasMaxLength(500);
+            entity.Property(log => log.CreatedAt).HasColumnName("created_at");
         });
     }
 }

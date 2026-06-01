@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { Hash, Plus, ShieldCheck, UserPlus, Users, Waves } from "lucide-react";
+import { IconLabel, PageHeader, StatusPill } from "../../components/ui";
 import { apiUrl, readApiError } from "../../lib/api";
 import { getStoredToken } from "../../lib/auth";
 import { PoolSummary } from "../../lib/types";
@@ -32,17 +34,18 @@ export default function PoolsPage() {
 
   return (
     <section className="pageStack">
-      <div className="pageHeader">
-        <div>
-          <p className="eyebrow">Pools</p>
-          <h1>Your pools</h1>
-        </div>
-        <div className="buttonRow">
-          <Link className="button" href="/app/pools/new">Create pool</Link>
-          <Link className="button buttonSecondary" href="/app/pools/join">Join pool</Link>
-        </div>
-      </div>
-      <span className="statusPill">{status}</span>
+      <PageHeader
+        eyebrow="Pools"
+        title="Your pools"
+        icon={Waves}
+        actions={
+          <>
+            <Link className="button" href="/app/pools/new"><IconLabel icon={Plus}>Create pool</IconLabel></Link>
+            <Link className="button buttonSecondary" href="/app/pools/join"><IconLabel icon={UserPlus}>Join pool</IconLabel></Link>
+          </>
+        }
+      />
+      <StatusPill icon={Users}>{status}</StatusPill>
       <div className="poolList">
         {pools.map((pool) => (
           <article className="poolCard" key={pool.id}>
@@ -53,11 +56,11 @@ export default function PoolsPage() {
               </span>
               <span>
                 <strong>{pool.memberCount}</strong>
-                <small>members</small>
+                <small><IconLabel icon={Users}>members</IconLabel></small>
               </span>
               <span>
                 <strong>{pool.role}</strong>
-                <small>{pool.inviteCount} invites</small>
+                <small><IconLabel icon={pool.role === "Member" ? Hash : ShieldCheck}>{pool.inviteCount} invites</IconLabel></small>
               </span>
             </Link>
           </article>

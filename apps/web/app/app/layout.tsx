@@ -3,13 +3,15 @@
 import Link from "next/link";
 import { ReactNode, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { Gauge, LogOut, Shield, UserRound, Waves } from "lucide-react";
+import { IconLabel } from "../components/ui";
 import { apiBaseUrl, apiUrl } from "../lib/api";
 import { clearToken, getStoredToken, UserProfile } from "../lib/auth";
 
 const navItems = [
-  { href: "/app", label: "Dashboard" },
-  { href: "/app/pools", label: "Pools" },
-  { href: "/app/profile", label: "Profile" },
+  { href: "/app", label: "Dashboard", icon: Gauge },
+  { href: "/app/pools", label: "Pools", icon: Waves },
+  { href: "/app/profile", label: "Profile", icon: UserRound },
 ];
 
 export default function AppLayout({ children }: { children: ReactNode }) {
@@ -55,19 +57,23 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         <Link className="brandLink" href="/app">PoolPredict</Link>
         <div className="appUser">
           <span>{profile?.displayName ?? status}</span>
-          <button className="button buttonSecondary compactButton" type="button" onClick={signOut}>Sign out</button>
+          <button className="button buttonSecondary compactButton" type="button" onClick={signOut}>
+            <IconLabel icon={LogOut}>Sign out</IconLabel>
+          </button>
         </div>
       </header>
       <aside className="appSidebar">
         <nav>
           {navItems.map((item) => (
             <Link className={pathname === item.href ? "active" : ""} href={item.href} key={item.href}>
-              {item.label}
+              <item.icon aria-hidden="true" size={18} strokeWidth={2.2} />
+              <span>{item.label}</span>
             </Link>
           ))}
           {profile?.role === "PlatformAdmin" ? (
             <Link className={pathname === "/app/admin" ? "active" : ""} href="/app/admin">
-              Admin
+              <Shield aria-hidden="true" size={18} strokeWidth={2.2} />
+              <span>Admin</span>
             </Link>
           ) : null}
         </nav>

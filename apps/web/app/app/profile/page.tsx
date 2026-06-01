@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { LogOut, UserRound } from "lucide-react";
+import { IconLabel, PageHeader, Panel } from "../../components/ui";
 import { apiUrl } from "../../lib/api";
 import { clearToken, getStoredToken, UserProfile } from "../../lib/auth";
 
@@ -38,13 +40,8 @@ export default function ProfilePage() {
 
   return (
     <section className="pageStack">
-      <div className="pageHeader">
-        <div>
-          <p className="eyebrow">Profile</p>
-          <h1>{profile?.displayName ?? "Profile"}</h1>
-        </div>
-      </div>
-      <section className="panel narrowPanel">
+      <PageHeader eyebrow="Profile" title={profile?.displayName ?? "Profile"} icon={UserRound} />
+      <Panel className="narrowPanel">
         <p className="statusText">{status}</p>
         {profile ? (
           <dl className="detailList">
@@ -53,8 +50,8 @@ export default function ProfilePage() {
             <div><dt>User ID</dt><dd>{profile.id}</dd></div>
           </dl>
         ) : null}
-        <button className="button buttonSecondary" type="button" onClick={signOut}>Sign out</button>
-      </section>
+        <button className="button buttonSecondary" type="button" onClick={signOut}><IconLabel icon={LogOut}>Sign out</IconLabel></button>
+      </Panel>
     </section>
   );
 }

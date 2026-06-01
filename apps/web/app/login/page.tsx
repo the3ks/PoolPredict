@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { LogIn, UserPlus } from "lucide-react";
+import { IconLabel } from "../components/ui";
 import { apiUrl, readApiError } from "../lib/api";
 import { AuthResponse, storeToken } from "../lib/auth";
 
@@ -65,17 +67,17 @@ export default function LoginPage() {
             Password
             <input autoComplete="current-password" minLength={8} required type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
           </label>
-          <button className="button" disabled={isBusy} type="submit">Sign in</button>
+          <button className="button" disabled={isBusy} type="submit"><IconLabel icon={LogIn}>Sign in</IconLabel></button>
         </form>
         <form className="googleForm" onSubmit={submitGoogle}>
           <label>
             Google subject
             <input placeholder="dev-google-user-id" type="text" value={googleSubject} onChange={(event) => setGoogleSubject(event.target.value)} />
           </label>
-          <button className="button buttonSecondary" disabled={isBusy || !email} type="submit">Continue with Google</button>
+          <button className="button buttonSecondary" disabled={isBusy || !email} type="submit"><IconLabel icon={LogIn}>Continue with Google</IconLabel></button>
         </form>
         <p className="statusText">{status}</p>
-        <Link href="/register">Create an account</Link>
+        <Link href="/register"><IconLabel icon={UserPlus}>Create an account</IconLabel></Link>
       </section>
     </main>
   );

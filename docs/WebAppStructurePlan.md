@@ -52,7 +52,9 @@ Authentication should be a focused entry flow. Once signed in, users should land
 
 `/`
 
-Redirect signed-in users to `/app`. Redirect anonymous users to `/login`.
+Public tournament dashboard.
+
+Show running and upcoming tournaments to anonymous and signed-in users. Anonymous users can browse tournaments and then log in or register. Signed-in users can open the app or create a pool.
 
 This should not become a marketing landing page during MVP unless product goals change.
 
@@ -82,6 +84,7 @@ Default signed-in dashboard.
 
 Recommended behavior:
 
+* Show running and upcoming tournaments.
 * If the user has pools, show recent pools and upcoming events.
 * If the user has no pools, show direct actions for creating or joining a pool.
 
@@ -235,6 +238,8 @@ Localization term management.
 Admin action audit log.
 
 ## Layout Recommendation
+
+Follow `docs/UIStandards.md` for the dark-only visual system, local UI primitives and icon usage rules.
 
 ### Auth Layout
 

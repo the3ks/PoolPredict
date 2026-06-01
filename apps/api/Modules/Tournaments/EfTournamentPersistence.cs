@@ -29,49 +29,62 @@ public sealed class EfTournamentPersistence(IDbContextFactory<PoolPredictDbConte
                 matchEvent.HomeParticipant,
                 matchEvent.AwayParticipant,
                 matchEvent.StartsAt,
-                matchEvent.Status)).ToArray());
+                matchEvent.Status)).ToArray(),
+            tournaments.ToDictionary(tournament => tournament.ExternalId, tournament => tournament.Id, StringComparer.OrdinalIgnoreCase),
+            participants.ToDictionary(participant => participant.ExternalId, participant => participant.Id, StringComparer.OrdinalIgnoreCase),
+            events.ToDictionary(matchEvent => matchEvent.ExternalId, matchEvent => matchEvent.Id, StringComparer.OrdinalIgnoreCase));
     }
 
     public async Task SaveAsync(TournamentSyncSnapshot snapshot, CancellationToken cancellationToken = default)
     {
         await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-        if (await db.Tournaments.AnyAsync(cancellationToken))
+        foreach (var item in snapshot.Tournaments)
         {
-            return;
+            var persisted = await db.Tournaments.SingleOrDefaultAsync(tournament => tournament.ExternalId == item.ExternalId, cancellationToken);
+            if (persisted is null)
+            {
+                persisted = new PersistedTournament { Id = item.Tournament.Id, ExternalId = item.ExternalId };
+                db.Tournaments.Add(persisted);
+            }
+
+            persisted.Name = item.Tournament.Name;
+            persisted.Sport = item.Tournament.Sport;
+            persisted.StartsOn = item.Tournament.StartsOn;
+            persisted.EndsOn = item.Tournament.EndsOn;
         }
 
-        db.Tournaments.AddRange(snapshot.Tournaments.Select(item => new PersistedTournament
+        foreach (var item in snapshot.Participants)
         {
-            Id = item.Tournament.Id,
-            ExternalId = item.ExternalId,
-            Name = item.Tournament.Name,
-            Sport = item.Tournament.Sport,
-            StartsOn = item.Tournament.StartsOn,
-            EndsOn = item.Tournament.EndsOn
-        }));
+            var persisted = await db.Participants.SingleOrDefaultAsync(participant => participant.ExternalId == item.ExternalId, cancellationToken);
+            if (persisted is null)
+            {
+                persisted = new PersistedParticipant { Id = item.Participant.Id, ExternalId = item.ExternalId };
+                db.Participants.Add(persisted);
+            }
 
-        db.Participants.AddRange(snapshot.Participants.Select(item => new PersistedParticipant
-        {
-            Id = item.Participant.Id,
-            TournamentId = item.Participant.TournamentId,
-            ExternalId = item.ExternalId,
-            Name = item.Participant.Name,
-            Code = item.Participant.Code,
-            Country = item.Participant.Country
-        }));
+            persisted.TournamentId = item.Participant.TournamentId;
+            persisted.Name = item.Participant.Name;
+            persisted.Code = item.Participant.Code;
+            persisted.Country = item.Participant.Country;
+        }
 
-        db.Events.AddRange(snapshot.Events.Select(item => new PersistedEvent
+        foreach (var item in snapshot.Events)
         {
-            Id = item.Event.Id,
-            TournamentId = item.Event.TournamentId,
-            HomeParticipantId = item.Event.HomeParticipantId,
-            AwayParticipantId = item.Event.AwayParticipantId,
-            ExternalId = item.ExternalId,
-            HomeParticipant = item.Event.HomeParticipant,
-            AwayParticipant = item.Event.AwayParticipant,
-            StartsAt = item.Event.StartsAt,
-            Status = item.Event.Status
-        }));
+            var persisted = await db.Events.SingleOrDefaultAsync(matchEvent => matchEvent.ExternalId == item.ExternalId, cancellationToken);
+            if (persisted is null)
+            {
+                persisted = new PersistedEvent { Id = item.Event.Id, ExternalId = item.ExternalId };
+                db.Events.Add(persisted);
+            }
+
+            persisted.TournamentId = item.Event.TournamentId;
+            persisted.HomeParticipantId = item.Event.HomeParticipantId;
+            persisted.AwayParticipantId = item.Event.AwayParticipantId;
+            persisted.HomeParticipant = item.Event.HomeParticipant;
+            persisted.AwayParticipant = item.Event.AwayParticipant;
+            persisted.StartsAt = item.Event.StartsAt;
+            persisted.Status = item.Event.Status;
+        }
 
         await db.SaveChangesAsync(cancellationToken);
     }

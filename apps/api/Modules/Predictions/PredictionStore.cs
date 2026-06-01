@@ -1,9 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using PoolPredict.Api.Domain.Common;
+using PoolPredict.Api.Domain.Markets;
 using PoolPredict.Api.Domain.Points;
 using PoolPredict.Api.Domain.Predictions;
 using PoolPredict.Api.Infrastructure.Persistence;
 using PoolPredict.Api.Modules.Pools;
+using PoolPredict.Api.Modules.Tournaments;
 
 namespace PoolPredict.Api.Modules.Predictions;
 
@@ -12,16 +14,16 @@ public sealed class PredictionStore
     private readonly List<Prediction> _predictions = [];
     private readonly List<PointLedgerEntry> _ledger = [];
     private readonly HashSet<(Guid PoolId, Guid MemberId)> _initializedMembers = [];
-    private readonly IDbContextFactory<PoolPredictDbContext>? _dbContextFactory;
+    private readonly IDbContextFactory<PoolPredictDbContext> _dbContextFactory;
     private readonly object _gate = new();
 
-    public PredictionStore(IDbContextFactory<PoolPredictDbContext>? dbContextFactory = null)
+    public PredictionStore(IDbContextFactory<PoolPredictDbContext> dbContextFactory)
     {
         _dbContextFactory = dbContextFactory;
         LoadPersisted();
     }
 
-    public Prediction Submit(SubmitPredictionRequest request, PoolStore pools)
+    public Prediction Submit(SubmitPredictionRequest request, Guid userId, PoolStore pools, TournamentCatalog catalog)
     {
         if (request.Stake <= 0)
         {
@@ -34,18 +36,25 @@ public sealed class PredictionStore
         }
 
         var pool = pools.GetPool(request.PoolId) ?? throw new ArgumentException("Pool does not exist.", nameof(request));
+        var member = pools.GetMember(pool.Id, userId) ?? throw new UnauthorizedAccessException("You are not a member of this pool.");
         var market = pools.GetMarket(request.MarketId) ?? throw new ArgumentException("Market does not exist.", nameof(request));
+        var matchEvent = catalog.GetEvent(market.EventId) ?? throw new ArgumentException("Market event does not exist.", nameof(request));
 
         if (market.PoolId != pool.Id)
         {
             throw new ArgumentException("Market does not belong to the selected pool.", nameof(request));
         }
 
+        if (market.Status != MarketStatus.Open || matchEvent.StartsAt <= DateTimeOffset.UtcNow)
+        {
+            throw new InvalidOperationException("This market is locked.");
+        }
+
         lock (_gate)
         {
-            EnsureMemberInitialized(pool.Id, request.MemberId, pool.StartingBalance);
+            EnsureMemberInitialized(pool.Id, member.Id, pool.StartingBalance);
 
-            if (GetBalanceUnsafe(pool.Id, request.MemberId) < 0)
+            if (GetBalanceUnsafe(pool.Id, member.Id) < 0)
             {
                 throw new InvalidOperationException("Member balance is negative. New predictions are blocked.");
             }
@@ -53,7 +62,7 @@ public sealed class PredictionStore
             var prediction = new Prediction(
                 Ids.NewId(),
                 pool.Id,
-                request.MemberId,
+                member.Id,
                 market.Id,
                 request.SelectedOption.Trim(),
                 request.Stake,
@@ -67,7 +76,7 @@ public sealed class PredictionStore
             var stakeLedgerEntry = new PointLedgerEntry(
                 Ids.NewId(),
                 pool.Id,
-                request.MemberId,
+                member.Id,
                 -request.Stake,
                 PointLedgerReason.PredictionSubmitted,
                 prediction.Id);
@@ -87,11 +96,31 @@ public sealed class PredictionStore
         }
     }
 
+    public IReadOnlyCollection<Prediction> GetMemberPredictions(Guid poolId, Guid memberId)
+    {
+        lock (_gate)
+        {
+            return _predictions
+                .Where(prediction => prediction.PoolId == poolId && prediction.MemberId == memberId)
+                .OrderByDescending(prediction => prediction.SubmittedAt)
+                .ToArray();
+        }
+    }
+
     public int GetBalance(Guid poolId, Guid memberId)
     {
         lock (_gate)
         {
             return GetBalanceUnsafe(poolId, memberId);
+        }
+    }
+
+    public int GetBalance(PoolDetailsResponse pool)
+    {
+        lock (_gate)
+        {
+            EnsureMemberInitialized(pool.Id, pool.MemberId, pool.StartingBalance);
+            return GetBalanceUnsafe(pool.Id, pool.MemberId);
         }
     }
 
@@ -121,11 +150,6 @@ public sealed class PredictionStore
 
     private void LoadPersisted()
     {
-        if (_dbContextFactory is null)
-        {
-            return;
-        }
-
         using var db = _dbContextFactory.CreateDbContext();
 
         _predictions.AddRange(db.Predictions.AsNoTracking().Select(prediction => new Prediction(
@@ -157,11 +181,6 @@ public sealed class PredictionStore
 
     private void PersistPredictionSlice(Prediction prediction, PointLedgerEntry ledgerEntry)
     {
-        if (_dbContextFactory is null)
-        {
-            return;
-        }
-
         using var db = _dbContextFactory.CreateDbContext();
         db.Predictions.Add(new PersistedPrediction
         {
@@ -184,11 +203,6 @@ public sealed class PredictionStore
 
     private void PersistLedgerEntry(PointLedgerEntry entry)
     {
-        if (_dbContextFactory is null)
-        {
-            return;
-        }
-
         using var db = _dbContextFactory.CreateDbContext();
         if (db.PointLedger.Any(candidate => candidate.Id == entry.Id))
         {

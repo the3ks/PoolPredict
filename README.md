@@ -25,12 +25,23 @@ Current implementation status is tracked in [docs/ImplementationStatus.md](docs/
 
 ## Local API
 
-```powershell
-dotnet run --project apps/api/PoolPredict.Api.csproj
+The API requires MariaDB. Create the local database, apply migrations, then start the API:
 
-> **Note:** If you encounter a port conflict (e.g., "Address already in use"), terminate the existing process using:
-> - **Windows:** `netstat -ano | findstr :5080` to get the PID, then `taskkill /PID <PID> /F`.
-> - **Unix/macOS:** `lsof -ti :5080 | xargs kill`.
+```sql
+CREATE DATABASE pool_predict CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+```powershell
+$env:ConnectionStrings__MariaDb="Server=127.0.0.1;Port=3308;Database=pool_predict;User=root02;Password=123;"
+dotnet ef database update --project apps/api/PoolPredict.Api.csproj --startup-project apps/api/PoolPredict.Api.csproj
+dotnet run --project apps/api/PoolPredict.Api.csproj
+```
+
+If you encounter a port conflict, terminate the existing process:
+
+```powershell
+netstat -ano | findstr :5080
+taskkill /PID <PID> /F
 ```
 
 Health check:
@@ -47,7 +58,7 @@ Password: Admin123!
 Role: PlatformAdmin
 ```
 
-The development admin is seeded from `apps/api/appsettings.Development.json` while the API still uses in-memory identity storage.
+The development admin is seeded from `apps/api/appsettings.Development.json`.
 
 ## Local App Testing
 
@@ -72,16 +83,19 @@ Open:
 http://localhost:3000
 ```
 
-The current implementation uses in-memory stores, so MariaDB and Redis are not required for normal app testing yet. Running the API and web directly is faster and easier to debug while the first MVP slices are being built.
+Redis is not required for normal app testing yet. Running the API and web directly is faster and easier to debug while the first MVP slices are being built.
 
-MariaDB persistence is available for the current MVP data model. To enable it, set the API connection string:
+MariaDB is required for the API. If the database already exists, apply EF Core migrations manually before each API start after schema changes:
 
 ```powershell
-$env:ConnectionStrings__MariaDb="Server=localhost;Port=3306;Database=poolpredict;User=poolpredict;Password=poolpredict;"
+$env:ConnectionStrings__MariaDb="Server=127.0.0.1;Port=3308;Database=pool_predict;User=root02;Password=123;"
+dotnet ef database update --project apps/api/PoolPredict.Api.csproj --startup-project apps/api/PoolPredict.Api.csproj
 dotnet run --project apps/api/PoolPredict.Api.csproj
 ```
 
-When this connection string is not set, the API uses in-memory stores. When it is set, the API applies EF Core migrations at startup. See [docs/DatabaseInitialization.md](docs/DatabaseInitialization.md) for local MariaDB setup.
+The API expects `ConnectionStrings:MariaDb` to be configured and the database schema to already be migrated; it does not run migrations at startup. See [docs/DatabaseInitialization.md](docs/DatabaseInitialization.md) for detailed local MariaDB setup.
+
+The tournament provider defaults to `Mock`. To use football-data.org, set `EventProvider:Provider` to `FootballData` and configure `EventProvider:FootballData:ApiToken`. Platform admins can inspect and trigger provider sync from `/app/admin`.
 
 ## Docker Infrastructure
 

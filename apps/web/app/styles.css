@@ -1,21 +1,56 @@
 :root {
-  color-scheme: light;
+  color-scheme: dark;
   font-family: Arial, Helvetica, sans-serif;
-  background: #f5f7f4;
-  color: #17202a;
+  background: #07110f;
+  color: #eef8f1;
+  --bg: #07110f;
+  --bg-elevated: #0b1714;
+  --surface: #101d19;
+  --surface-raised: #14231f;
+  --surface-strong: #192b25;
+  --border: #29413a;
+  --border-strong: #3a5a50;
+  --text: #eef8f1;
+  --text-soft: #bed1c7;
+  --muted: #8ea49a;
+  --muted-strong: #a9beb4;
+  --accent: #46d48c;
+  --accent-strong: #24b873;
+  --accent-soft: rgba(70, 212, 140, 0.13);
+  --accent-border: rgba(70, 212, 140, 0.42);
+  --gold: #f4c95d;
+  --danger: #ff6b6b;
+  --success: #4ade80;
+  --shadow: 0 18px 42px rgba(0, 0, 0, 0.34);
+  --shadow-soft: 0 12px 28px rgba(0, 0, 0, 0.22);
 }
 
 * {
   box-sizing: border-box;
 }
 
+html {
+  min-height: 100%;
+  background: var(--bg);
+}
+
 body {
+  min-height: 100vh;
   margin: 0;
+  background:
+    linear-gradient(135deg, rgba(70, 212, 140, 0.08), transparent 34%),
+    linear-gradient(225deg, rgba(244, 201, 93, 0.06), transparent 32%),
+    var(--bg);
+  color: var(--text);
 }
 
 a {
-  color: #20323a;
+  color: var(--accent);
   font-weight: 700;
+}
+
+a:hover {
+  color: #7be5ae;
 }
 
 button,
@@ -37,12 +72,58 @@ select {
   padding: 24px;
 }
 
+.publicShell {
+  width: min(1120px, calc(100vw - 32px));
+  margin: 0 auto;
+  padding: 24px 0 56px;
+}
+
+.publicTopbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 68px;
+  border-bottom: 1px solid var(--border);
+}
+
+.publicHero {
+  display: grid;
+  gap: 16px;
+  min-height: min(520px, calc(100vh - 210px));
+  align-content: center;
+  padding: 58px 0 48px;
+}
+
+.publicHero h1 {
+  max-width: 820px;
+  font-size: clamp(44px, 7vw, 82px);
+}
+
+.publicHero .mutedText {
+  max-width: 640px;
+  font-size: 18px;
+}
+
 .authCard {
-  width: min(440px, 100%);
-  border: 1px solid #d8dee6;
+  position: relative;
+  width: min(450px, 100%);
+  overflow: hidden;
+  border: 1px solid var(--border);
   border-radius: 8px;
-  background: #ffffff;
-  padding: 28px;
+  background:
+    linear-gradient(180deg, rgba(70, 212, 140, 0.08), transparent 34%),
+    var(--surface);
+  box-shadow: var(--shadow);
+  padding: 30px;
+}
+
+.authCard::before {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--gold));
+  content: "";
 }
 
 .authCard h1 {
@@ -51,15 +132,15 @@ select {
 
 .statusText,
 .mutedText {
-  color: #40515e;
+  color: var(--text-soft);
   line-height: 1.6;
 }
 
 .appShell {
   display: grid;
   min-height: 100vh;
-  grid-template-columns: 240px minmax(0, 1fr);
-  grid-template-rows: 64px minmax(0, 1fr);
+  grid-template-columns: 248px minmax(0, 1fr);
+  grid-template-rows: 66px minmax(0, 1fr);
   grid-template-areas:
     "topbar topbar"
     "sidebar main";
@@ -71,16 +152,45 @@ select {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  border-bottom: 1px solid #d8dee6;
-  background: #ffffff;
+  border-bottom: 1px solid var(--border);
+  background: rgba(11, 23, 20, 0.94);
   padding: 0 24px;
+  backdrop-filter: blur(18px);
 }
 
 .brandLink {
-  color: #17202a;
-  font-size: 18px;
+  color: var(--text);
+  font-size: 19px;
   font-weight: 800;
+  letter-spacing: 0;
   text-decoration: none;
+}
+
+.brandLink::before {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 10px;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 20px rgba(70, 212, 140, 0.66);
+  content: "";
+}
+
+.iconLabel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.iconLabel svg,
+.pageIcon svg,
+.statusPill svg,
+.statTile svg,
+.appSidebar svg {
+  flex: 0 0 auto;
 }
 
 .appUser {
@@ -88,7 +198,7 @@ select {
   align-items: center;
   gap: 12px;
   min-width: 0;
-  color: #40515e;
+  color: var(--muted-strong);
   font-size: 14px;
 }
 
@@ -99,27 +209,32 @@ select {
 
 .appSidebar {
   grid-area: sidebar;
-  border-right: 1px solid #d8dee6;
-  background: #ffffff;
+  border-right: 1px solid var(--border);
+  background: rgba(10, 20, 18, 0.82);
   padding: 18px;
 }
 
 .appSidebar nav {
   display: grid;
-  gap: 6px;
+  gap: 8px;
 }
 
 .appSidebar a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid transparent;
   border-radius: 6px;
-  color: #40515e;
+  color: var(--muted-strong);
   padding: 12px;
   text-decoration: none;
 }
 
 .appSidebar a.active,
 .appSidebar a:hover {
-  background: #e5efe8;
-  color: #173525;
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+  color: var(--text);
 }
 
 .appMain {
@@ -140,8 +255,40 @@ select {
   gap: 18px;
 }
 
+.pageTitleGroup {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.pageIcon {
+  display: inline-flex;
+  width: 46px;
+  height: 46px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--accent-border);
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
 .pageHeader h1 {
   font-size: 38px;
+}
+
+.panel .pageHeader {
+  margin-bottom: 18px;
+}
+
+.panel .pageHeader h1 {
+  font-size: 24px;
+}
+
+.panel .pageIcon {
+  width: 38px;
+  height: 38px;
 }
 
 .narrowPanel {
@@ -154,14 +301,14 @@ select {
   justify-content: space-between;
   gap: 24px;
   padding: 24px 0 30px;
-  border-bottom: 1px solid #d8dee6;
+  border-bottom: 1px solid var(--border);
 }
 
 .eyebrow {
   margin: 0 0 8px;
-  color: #3f6f7f;
-  font-size: 13px;
-  font-weight: 700;
+  color: var(--gold);
+  font-size: 12px;
+  font-weight: 800;
   text-transform: uppercase;
 }
 
@@ -174,6 +321,7 @@ p {
 h1 {
   max-width: 720px;
   margin-bottom: 0;
+  color: var(--text);
   font-size: 42px;
   line-height: 1.05;
   letter-spacing: 0;
@@ -181,6 +329,7 @@ h1 {
 
 h2 {
   margin-bottom: 16px;
+  color: var(--text);
   font-size: 24px;
 }
 
@@ -189,26 +338,41 @@ h2 {
   min-height: 44px;
   align-items: center;
   justify-content: center;
-  border: 1px solid #20323a;
+  border: 1px solid var(--accent-strong);
   border-radius: 6px;
-  background: #20323a;
-  color: #ffffff;
+  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+  color: #04110c;
+  box-shadow: 0 10px 20px rgba(36, 184, 115, 0.18);
   padding: 0 18px;
-  font-weight: 700;
+  font-weight: 800;
   text-decoration: none;
   white-space: nowrap;
   cursor: pointer;
 }
 
+.button:hover {
+  border-color: #7be5ae;
+  color: #04110c;
+  filter: brightness(1.05);
+}
+
 .button:disabled {
   cursor: not-allowed;
-  opacity: 0.62;
+  filter: grayscale(0.55);
+  opacity: 0.58;
 }
 
 .buttonSecondary {
-  border-color: #b8c2c9;
-  background: #ffffff;
-  color: #20323a;
+  border-color: var(--border-strong);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  box-shadow: none;
+}
+
+.buttonSecondary:hover {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+  color: var(--text);
 }
 
 .workspace {
@@ -223,9 +387,12 @@ h2 {
 .poolWorkspace,
 .panel,
 .invitePanel {
-  border: 1px solid #d8dee6;
+  border: 1px solid var(--border);
   border-radius: 8px;
-  background: #ffffff;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent),
+    var(--surface);
+  box-shadow: var(--shadow-soft);
   padding: 24px;
 }
 
@@ -233,7 +400,7 @@ h2 {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   width: 100%;
-  border: 1px solid #b8c2c9;
+  border: 1px solid var(--border-strong);
   border-radius: 6px;
   overflow: hidden;
 }
@@ -241,15 +408,15 @@ h2 {
 .segmentedControl button {
   min-height: 42px;
   border: 0;
-  background: #ffffff;
-  color: #40515e;
+  background: var(--surface);
+  color: var(--muted-strong);
   cursor: pointer;
 }
 
 .segmentedControl button.active {
-  background: #e5efe8;
-  color: #173525;
-  font-weight: 700;
+  background: var(--accent-soft);
+  color: var(--text);
+  font-weight: 800;
 }
 
 .form,
@@ -262,32 +429,48 @@ h2 {
 .googleForm {
   margin-top: 28px;
   padding-top: 22px;
-  border-top: 1px solid #d8dee6;
+  border-top: 1px solid var(--border);
 }
 
 label {
   display: grid;
   gap: 7px;
-  color: #334752;
+  color: var(--text-soft);
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 input,
 select {
   width: 100%;
   min-height: 44px;
-  border: 1px solid #b8c2c9;
+  border: 1px solid var(--border-strong);
   border-radius: 6px;
-  background: #ffffff;
+  background: #0c1714;
   padding: 0 12px;
-  color: #17202a;
+  color: var(--text);
+}
+
+input::placeholder {
+  color: #687d72;
 }
 
 input:focus,
 select:focus {
-  outline: 3px solid #c9dfd0;
+  border-color: var(--accent);
+  outline: 3px solid rgba(70, 212, 140, 0.2);
   outline-offset: 1px;
+}
+
+select:disabled,
+input:disabled {
+  color: var(--muted);
+  opacity: 0.8;
+}
+
+option {
+  background: #0c1714;
+  color: var(--text);
 }
 
 .statusRow {
@@ -296,7 +479,7 @@ select:focus {
   gap: 10px;
   margin-top: 22px;
   min-height: 28px;
-  color: #40515e;
+  color: var(--muted-strong);
   font-size: 14px;
 }
 
@@ -304,11 +487,11 @@ select:focus {
   width: 10px;
   height: 10px;
   border-radius: 999px;
-  background: #9aa7b1;
+  background: var(--muted);
 }
 
 .statusDot.online {
-  background: #1d7f43;
+  background: var(--success);
 }
 
 .profileDetails,
@@ -332,9 +515,9 @@ select:focus {
 }
 
 dt {
-  color: #657684;
+  color: var(--muted);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 800;
   text-transform: uppercase;
 }
 
@@ -342,12 +525,12 @@ dd {
   min-width: 0;
   margin: 0;
   overflow-wrap: anywhere;
-  color: #17202a;
+  color: var(--text);
 }
 
 .emptyState p {
   margin-bottom: 0;
-  color: #40515e;
+  color: var(--text-soft);
   line-height: 1.6;
 }
 
@@ -371,15 +554,22 @@ dd {
 
 .statusPill {
   display: inline-flex;
-  max-width: 320px;
-  min-height: 32px;
+  max-width: 420px;
+  min-height: 34px;
   align-items: center;
-  border: 1px solid #cfd7dd;
+  gap: 8px;
+  border: 1px solid var(--accent-border);
   border-radius: 999px;
-  padding: 0 12px;
-  color: #40515e;
+  background: var(--accent-soft);
+  padding: 0 13px;
+  color: var(--text-soft);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.statusPill span {
+  min-width: 0;
   overflow-wrap: anywhere;
 }
 
@@ -390,29 +580,72 @@ dd {
 }
 
 .panel {
-  padding: 18px;
+  padding: 20px;
 }
 
 .buttonRow {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
   gap: 10px;
 }
 
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.statTile {
+  display: grid;
+  gap: 8px;
+  min-height: 118px;
+  align-content: space-between;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+  padding: 14px;
+  color: var(--muted-strong);
+}
+
+.statTile svg {
+  color: var(--accent);
+}
+
+.statTile span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.statTile strong {
+  color: var(--text);
+  font-size: 24px;
+  overflow-wrap: anywhere;
+}
+
 .poolList {
   display: grid;
-  gap: 10px;
+  gap: 12px;
 }
 
 .poolCard {
-  border: 1px solid #d8dee6;
+  border: 1px solid var(--border);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+}
+
+.poolCard:hover {
+  border-color: var(--accent-border);
+  background: var(--surface-raised);
 }
 
 .poolCard.selected {
-  border-color: #2f7350;
-  box-shadow: inset 4px 0 0 #2f7350;
+  border-color: var(--accent);
+  box-shadow: inset 4px 0 0 var(--accent);
 }
 
 .poolCard button {
@@ -424,7 +657,7 @@ dd {
   border: 0;
   background: transparent;
   padding: 14px 16px;
-  color: #17202a;
+  color: var(--text);
   text-align: left;
   cursor: pointer;
 }
@@ -436,9 +669,13 @@ dd {
   min-height: 74px;
   gap: 12px;
   padding: 14px 16px;
-  color: #17202a;
+  color: var(--text);
   text-align: left;
   text-decoration: none;
+}
+
+.poolCardLink:hover {
+  color: var(--text);
 }
 
 .poolCard span {
@@ -456,9 +693,9 @@ dd {
 
 .poolCard small,
 .poolCardLink small {
-  color: #657684;
+  color: var(--muted);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 800;
   text-transform: uppercase;
 }
 
@@ -473,17 +710,249 @@ dd {
   gap: 4px;
 }
 
+.ruleList {
+  display: grid;
+  gap: 10px;
+}
+
+.ruleRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(96px, 0.35fr);
+  gap: 12px;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+  padding: 12px;
+}
+
+.ruleRow span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.ruleRow strong,
+.ruleRow small {
+  overflow-wrap: anywhere;
+}
+
+.ruleRow strong {
+  color: var(--text);
+}
+
+.ruleRow small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.predictionGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(300px, 0.75fr);
+  gap: 18px;
+}
+
+.predictionHistoryPanel {
+  grid-column: 1 / -1;
+}
+
+.marketList,
+.predictionHistory {
+  display: grid;
+  gap: 14px;
+}
+
+.marketGroup {
+  display: grid;
+  gap: 10px;
+}
+
+.marketGroupHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 10px;
+}
+
+.marketGroupHeader strong {
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.marketGroupHeader small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.marketButtonGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+  gap: 10px;
+}
+
+.marketButton {
+  display: grid;
+  gap: 6px;
+  min-height: 98px;
+  align-content: space-between;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--text);
+  padding: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.marketButton:hover,
+.marketButton.active {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+}
+
+.marketButton.active {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.marketButton strong,
+.marketButton span,
+.marketButton small {
+  overflow-wrap: anywhere;
+}
+
+.marketButton span,
+.marketButton small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.predictionForm {
+  margin-top: 0;
+}
+
+.selectedMarket {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+  padding: 12px;
+}
+
+.selectedMarket svg {
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+
+.selectedMarket span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.selectedMarket strong,
+.selectedMarket small {
+  overflow-wrap: anywhere;
+}
+
+.selectedMarket small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.historyRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(150px, 0.7fr);
+  gap: 12px;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+  padding: 12px;
+}
+
+.historyRow span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.historyRow strong,
+.historyRow small {
+  overflow-wrap: anywhere;
+}
+
+.historyRow small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.compactDetails {
+  margin-bottom: 0;
+}
+
+.tournamentGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.tournamentCard {
+  position: relative;
+  display: grid;
+  gap: 18px;
+  align-content: space-between;
+  min-height: 230px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background:
+    linear-gradient(145deg, rgba(70, 212, 140, 0.11), transparent 42%),
+    var(--surface);
+  box-shadow: var(--shadow-soft);
+  padding: 20px;
+}
+
+.tournamentCard::before {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--gold));
+  content: "";
+}
+
+.tournamentCard:hover {
+  border-color: var(--accent-border);
+  transform: translateY(-1px);
+}
+
+.compactTournamentCard {
+  min-height: 170px;
+}
+
 .invitePanel {
   flex-wrap: wrap;
 }
 
 .invitePanel code {
   width: 100%;
-  border: 1px solid #b8c2c9;
+  border: 1px solid var(--border-strong);
   border-radius: 6px;
-  background: #f5f7f4;
+  background: #0c1714;
   padding: 12px;
-  color: #17202a;
+  color: var(--accent);
   overflow-wrap: anywhere;
 }
 
@@ -498,19 +967,39 @@ dd {
   }
 
   .appTopbar,
+  .publicTopbar,
   .pageHeader {
     align-items: flex-start;
     flex-direction: column;
     padding: 18px;
   }
 
+  .publicTopbar {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .publicHero {
+    min-height: auto;
+    padding: 42px 0 34px;
+  }
+
   .appSidebar {
     border-right: 0;
-    border-bottom: 1px solid #d8dee6;
+    border-bottom: 1px solid var(--border);
   }
 
   .appSidebar nav {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .appSidebar a {
+    justify-content: center;
+  }
+
+  .appSidebar a span {
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .appMain {
@@ -519,7 +1008,8 @@ dd {
 
   .topbar,
   .workspace,
-  .poolGrid {
+  .poolGrid,
+  .predictionGrid {
     grid-template-columns: 1fr;
   }
 
@@ -538,8 +1028,19 @@ dd {
     flex-direction: column;
   }
 
+  .pageTitleGroup {
+    align-items: flex-start;
+  }
+
   .poolCard button,
-  .poolCardLink {
+  .poolCardLink,
+  .ruleRow,
+  .historyRow {
     grid-template-columns: 1fr;
+  }
+
+  .marketGroupHeader {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }

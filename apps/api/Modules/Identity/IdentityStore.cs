@@ -9,10 +9,10 @@ public sealed class IdentityStore
 {
     private readonly List<User> _users = [];
     private readonly List<UserExternalLogin> _externalLogins = [];
-    private readonly IDbContextFactory<PoolPredictDbContext>? _dbContextFactory;
+    private readonly IDbContextFactory<PoolPredictDbContext> _dbContextFactory;
     private readonly object _gate = new();
 
-    public IdentityStore(IConfiguration configuration, IDbContextFactory<PoolPredictDbContext>? dbContextFactory = null)
+    public IdentityStore(IConfiguration configuration, IDbContextFactory<PoolPredictDbContext> dbContextFactory)
     {
         _dbContextFactory = dbContextFactory;
         LoadPersisted();
@@ -138,11 +138,6 @@ public sealed class IdentityStore
 
     private void LoadPersisted()
     {
-        if (_dbContextFactory is null)
-        {
-            return;
-        }
-
         using var db = _dbContextFactory.CreateDbContext();
 
         _users.AddRange(db.Users.AsNoTracking().Select(user => new User(
@@ -161,11 +156,6 @@ public sealed class IdentityStore
 
     private void PersistUser(User user)
     {
-        if (_dbContextFactory is null)
-        {
-            return;
-        }
-
         using var db = _dbContextFactory.CreateDbContext();
         if (db.Users.Any(candidate => candidate.Id == user.Id || candidate.NormalizedEmail == user.NormalizedEmail))
         {
@@ -187,11 +177,6 @@ public sealed class IdentityStore
 
     private void PersistExternalLogin(UserExternalLogin login)
     {
-        if (_dbContextFactory is null)
-        {
-            return;
-        }
-
         using var db = _dbContextFactory.CreateDbContext();
         if (db.UserExternalLogins.Any(candidate => candidate.Provider == login.Provider && candidate.ProviderUserId == login.ProviderUserId))
         {

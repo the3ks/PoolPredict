@@ -115,12 +115,22 @@ public static class PoolEndpoints
             }
         }).RequireAuthorization();
 
-        group.MapGet("/{poolId:guid}/markets", (Guid poolId, PoolStore pools) =>
+        group.MapGet("/{poolId:guid}/markets", (Guid poolId, ClaimsPrincipal principal, PoolStore pools) =>
         {
-            return pools.GetPool(poolId) is null
-                ? Results.NotFound()
+            if (!TryGetUserId(principal, out var userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            if (pools.GetPool(poolId) is null)
+            {
+                return Results.NotFound();
+            }
+
+            return pools.GetMember(poolId, userId) is null
+                ? Results.Forbid()
                 : Results.Ok(pools.GetMarkets(poolId));
-        });
+        }).RequireAuthorization();
 
         return app;
     }
