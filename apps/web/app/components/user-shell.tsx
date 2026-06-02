@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ReactNode, useEffect, useState } from "react";
-import { LogIn, LogOut, Shield, UserPlus, UserRound, Waves } from "lucide-react";
+import { LogIn, LogOut, Shield, UserPlus } from "lucide-react";
 import { clearToken, getStoredToken, UserProfile } from "../lib/auth";
 import { appName } from "../lib/config";
 import { IconLabel } from "./ui";
@@ -68,16 +68,6 @@ export function UserShell({ children }: { children: ReactNode }) {
           )}
         </div>
       </header>
-      {isSignedIn ? (
-        <div className="userQuickActions">
-          <Link className="button buttonSecondary" href="/pools">
-            <IconLabel icon={Waves}>Pools</IconLabel>
-          </Link>
-          <Link className="button buttonSecondary" href="/profile">
-            <IconLabel icon={UserRound}>Profile</IconLabel>
-          </Link>
-        </div>
-      ) : null}
       {children}
     </main>
   );

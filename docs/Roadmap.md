@@ -6,8 +6,8 @@ See `docs/ImplementationStatus.md` for the latest implementation handoff notes.
 
 Current status:
 
-* Sprint 0 through Sprint 10 are implemented for the current MVP scope
-* API and web apps have working auth, pool management, tournament browsing and admin provider sync
+* Sprint 0 through Sprint 11 are implemented for the current MVP scope
+* API and web apps have working auth, identity security flows, pool management, pool discovery/join requests, tournament browsing and admin provider sync
 * MariaDB persistence uses EF Core migrations when configured
 * The web app has prediction entry and PlatformAdmin manual settlement flows
 * Automatic settlement is not part of the MVP path
@@ -481,6 +481,88 @@ Known limitations to fix later:
 
 ## Goal
 
+User/Admin Route Reorganization, Pool Discovery & Identity Security
+
+## Deliverables
+
+Normal user route structure:
+
+* Root-route user dashboard on `/`
+* Pool list/create/join/detail routes under `/pools`
+* Profile route on `/profile`
+* Compatibility redirects from old `/app/*` routes
+
+Admin route structure:
+
+* Dedicated PlatformAdmin panel under `/admin`
+* Flat admin sidebar
+* Admin all-pools overview on `/admin/pools`
+* Existing admin provider, event management, settlement, payout, user and system settings pages moved under `/admin/*`
+
+Pool discovery:
+
+* Users can see pools they own or joined first
+* Users can see other available pools below their own pools
+* Users can request to join another pool
+* Pool owners/admins can view join requests
+* Pool owners/admins can approve or deny join requests
+
+Identity and admin security:
+
+* Registration password show/hide toggle
+* Email verification required before login
+* Resend verification email flow
+* Admin can mark user email as verified
+* Forgot/reset password via email link
+* Signed-in user password change
+* Admin user search/list
+* Admin user password reset
+* Admin SMTP settings with AWS SES SMTP support
+
+Acceptance:
+
+Normal users can use `/`, `/pools/*` and `/profile` without entering the admin panel.
+
+PlatformAdmin users can use `/admin/*` for admin work with a flat sidebar.
+
+Pool owners/admins can approve a join request and the requester becomes a pool member.
+
+Users must verify email before logging in, can recover passwords by email, and can change password while signed in.
+
+PlatformAdmin users can manage users and SMTP settings from the admin panel.
+
+## Current Implementation Notes
+
+Implemented:
+
+* Root-route user shell with tournament dashboard, pool navigation and profile access
+* Dedicated `/admin` shell with flat sidebar
+* `/admin/pools` read-only all-pools overview
+* `/pools` split into `Your Pools` and `Other Pools`
+* Persisted `pool_join_requests`
+* Pool discovery endpoint for pools outside the signed-in user's membership
+* Join request submit/list/approve/deny endpoints
+* Pool detail join-request approval UI for pool owners/admins
+* Old `/app/*` route compatibility redirects
+* Registration password visibility toggle
+* Email verification, resend verification, forgot-password and reset-password flows
+* Signed-in password change on `/profile`
+* Admin user list/search, admin password reset and admin email verification controls
+* SMTP system settings with AWS SES SMTP-compatible configuration and test email
+
+Known limitations to fix later:
+
+* Join request approval is visible on the pool detail page only; there is no dedicated member-management page yet.
+* Admin all-pools view is read-only.
+* Join-request notification/email delivery is not implemented.
+* SMTP password storage relies on database-level protections; dedicated application-layer encryption is not implemented.
+
+---
+
+# Sprint 12
+
+## Goal
+
 AI Recap
 
 ## Deliverables
@@ -501,7 +583,7 @@ One recap generated per pool per week.
 
 ---
 
-# Sprint 12
+# Sprint 13
 
 ## Goal
 

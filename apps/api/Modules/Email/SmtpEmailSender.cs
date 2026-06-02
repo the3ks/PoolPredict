@@ -31,7 +31,9 @@ public sealed class SmtpEmailSender(EmailSettingsStore settingsStore, ILogger<Sm
 
         using var client = new SmtpClient(settings.Host, settings.Port)
         {
-            EnableSsl = settings.UseStartTls
+            DeliveryMethod = SmtpDeliveryMethod.Network,
+            EnableSsl = settings.UseStartTls,
+            UseDefaultCredentials = false
         };
 
         if (!string.IsNullOrWhiteSpace(settings.Username))
@@ -47,12 +49,13 @@ public sealed class SmtpEmailSender(EmailSettingsStore settingsStore, ILogger<Sm
         catch (SmtpException ex)
         {
             logger.LogError(ex, "SMTP send failed. Subject: {Subject}, To: {ToEmail}", subject, toEmail);
-            return new EmailSendResult(false, "SMTP send failed.");
+            var status = ex.StatusCode == SmtpStatusCode.GeneralFailure ? "" : $"{ex.StatusCode}: ";
+            return new EmailSendResult(false, $"SMTP send failed. {status}{ex.Message}");
         }
         catch (InvalidOperationException ex)
         {
             logger.LogError(ex, "SMTP configuration is invalid.");
-            return new EmailSendResult(false, "SMTP configuration is invalid.");
+            return new EmailSendResult(false, $"SMTP configuration is invalid. {ex.Message}");
         }
     }
 }

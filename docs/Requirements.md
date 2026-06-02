@@ -73,18 +73,20 @@ Create Pool → Invite Members → Done.
 
 * Email login
 * Google login
+* Registration and password forms should provide show/hide password controls where password entry benefits from it
 * Email/password registration must require email verification before login
+* Users must be able to resend verification email
 * Users must be able to request a password reset link by email
+* Password reset must be completed through an email link
 * Signed-in users must be able to change their password from profile settings
 
 ### Admin User and Email Management
-
-Note: This section was added as an out-of-roadmap identity/admin security addendum. It is not counted as a Roadmap sprint.
 
 * Platform Admin can view and search registered users.
 * Platform Admin can reset a user's password.
 * Admin password reset must not expose the user's existing password.
 * Reset users should be required to change their password after receiving a temporary password.
+* Platform Admin can mark a user's email as verified.
 * Platform Admin can configure SMTP settings used by system emails.
 * SMTP configuration should support AWS SES SMTP first.
 * SMTP settings should include:
@@ -103,9 +105,43 @@ Note: This section was added as an out-of-roadmap identity/admin security addend
 ### Pools
 
 * Create Pool
-* Join Pool
+* Join Pool by invite code
+* Discover other pools
+* Request to join another pool
+* Pool owner/admin can approve or deny join requests
 * Invite Link
 * Pool Settings
+
+Pool route behavior:
+
+* Normal users should be able to use the root route family for their main workflows:
+  * `/`
+  * `/pools`
+  * `/pools/new`
+  * `/pools/join`
+  * `/pools/[poolId]`
+  * `/profile`
+* `/pools` should show pools the signed-in user owns or joined first, then other available pools.
+* Other pool rows should show basic information and a request-to-join action.
+* Pool detail pages should show join requests to pool owners/admins.
+* Approving a join request should add the requester as a pool member.
+* Denying a join request should keep the requester outside the pool.
+* Old route links may redirect for compatibility, but normal users should not need to use `/app`.
+
+### Admin Panel
+
+* Platform Admin work should live under `/admin`.
+* Only Platform Admin users can access `/admin`.
+* Admin navigation should use a flat sidebar, not a nested Admin group.
+* Admin sidebar pages should include:
+  * Pools
+  * Tournament provider
+  * Event management
+  * Settlement
+  * Payout
+  * User management
+  * System settings
+* Admin Pools should show all pools across users with basic owner, tournament, provider, member, invite and balance information.
 
 ### Tournament
 

@@ -26,6 +26,8 @@ public sealed class PoolPredictDbContext(DbContextOptions<PoolPredictDbContext> 
 
     public DbSet<PersistedPoolInvite> PoolInvites => Set<PersistedPoolInvite>();
 
+    public DbSet<PersistedPoolJoinRequest> PoolJoinRequests => Set<PersistedPoolJoinRequest>();
+
     public DbSet<PersistedMarket> Markets => Set<PersistedMarket>();
 
     public DbSet<PersistedPrediction> Predictions => Set<PersistedPrediction>();
@@ -202,6 +204,18 @@ public sealed class PoolPredictDbContext(DbContextOptions<PoolPredictDbContext> 
             entity.Property(invite => invite.CreatedByUserId).HasColumnName("created_by_user_id");
             entity.Property(invite => invite.Code).HasColumnName("code").HasMaxLength(64);
             entity.Property(invite => invite.CreatedAt).HasColumnName("created_at");
+        });
+
+        modelBuilder.Entity<PersistedPoolJoinRequest>(entity =>
+        {
+            entity.ToTable("pool_join_requests");
+            entity.HasKey(request => request.Id);
+            entity.HasIndex(request => new { request.PoolId, request.UserId }).IsUnique();
+            entity.Property(request => request.Id).HasColumnName("id");
+            entity.Property(request => request.PoolId).HasColumnName("pool_id");
+            entity.Property(request => request.UserId).HasColumnName("user_id");
+            entity.Property(request => request.RequestedAt).HasColumnName("requested_at");
+            entity.Property(request => request.Status).HasColumnName("status").HasMaxLength(40);
         });
 
         modelBuilder.Entity<PersistedMarket>(entity =>

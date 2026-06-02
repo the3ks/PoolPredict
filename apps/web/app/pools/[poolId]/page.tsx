@@ -3,12 +3,12 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { BadgeDollarSign, CalendarClock, ClipboardList, Goal, History, KeyRound, Save, Send, Settings, ShieldCheck, Users, Waves } from "lucide-react";
+import { BadgeDollarSign, CalendarClock, Goal, History, KeyRound, Save, Send, Settings, ShieldCheck, UserCheck, UserX, Users, Waves } from "lucide-react";
 import { UserShell } from "../../components/user-shell";
 import { IconLabel, PageHeader, Panel, StatGrid, StatusPill } from "../../components/ui";
 import { apiUrl, readApiError } from "../../lib/api";
 import { getStoredToken } from "../../lib/auth";
-import { LeaderboardEntry, Market, PoolSummary, Prediction, TournamentEvent } from "../../lib/types";
+import { LeaderboardEntry, Market, PoolJoinRequest, PoolSummary, Prediction, TournamentEvent } from "../../lib/types";
 
 type BalanceResponse = {
   balance: number;
@@ -22,6 +22,7 @@ export default function PoolOverviewPage() {
   const [markets, setMarkets] = useState<Market[]>([]);
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [joinRequests, setJoinRequests] = useState<PoolJoinRequest[]>([]);
   const [selectedMarketId, setSelectedMarketId] = useState("");
   const [selectedOption, setSelectedOption] = useState("");
   const [stake, setStake] = useState(100);
@@ -29,6 +30,7 @@ export default function PoolOverviewPage() {
   const [name, setName] = useState("");
   const [startingBalance, setStartingBalance] = useState(1000);
   const [status, setStatus] = useState("Loading pool...");
+  const [joinRequestStatus, setJoinRequestStatus] = useState("");
 
   useEffect(() => {
     loadPool();
@@ -60,6 +62,7 @@ export default function PoolOverviewPage() {
       loadPredictions(result.id),
       loadLeaderboard(result.id),
       loadBalance(result.id),
+      canManagePool(result) ? loadJoinRequests(result.id) : Promise.resolve(),
     ]);
   }
 
@@ -132,6 +135,20 @@ export default function PoolOverviewPage() {
     }
   }
 
+  async function loadJoinRequests(targetPoolId: string) {
+    const token = getStoredToken();
+    if (!token) {
+      return;
+    }
+
+    const response = await fetch(apiUrl(`/api/pools/${targetPoolId}/join-requests`), {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (response.ok) {
+      setJoinRequests((await response.json()) as PoolJoinRequest[]);
+    }
+  }
+
   async function updatePool(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const token = getStoredToken();
@@ -195,6 +212,27 @@ export default function PoolOverviewPage() {
     await Promise.all([loadPredictions(pool.id), loadLeaderboard(pool.id), loadBalance(pool.id)]);
   }
 
+  async function decideJoinRequest(requestId: string, decision: "approve" | "deny") {
+    const token = getStoredToken();
+    if (!token || !pool) {
+      return;
+    }
+
+    setJoinRequestStatus(decision === "approve" ? "Approving request..." : "Denying request...");
+    const response = await fetch(apiUrl(`/api/pools/${pool.id}/join-requests/${requestId}/${decision}`), {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!response.ok) {
+      setJoinRequestStatus(await readApiError(response, "Could not update join request."));
+      return;
+    }
+
+    setJoinRequestStatus(decision === "approve" ? "Request approved." : "Request denied.");
+    await Promise.all([loadJoinRequests(pool.id), loadPool()]);
+  }
+
   const selectedMarket = markets.find((market) => market.id === selectedMarketId) ?? null;
   const selectedEvent = selectedMarket ? events.find((event) => event.id === selectedMarket.eventId) : null;
   const groupedMarkets = events
@@ -246,6 +284,37 @@ export default function PoolOverviewPage() {
             <button className="button" disabled={pool.role === "Member"} type="submit"><IconLabel icon={Save}>Save pool</IconLabel></button>
           </form>
         </div>
+      ) : null}
+      {pool && canManagePool(pool) ? (
+        <Panel title="Join requests">
+          {joinRequestStatus ? <p className="statusText">{joinRequestStatus}</p> : null}
+          {joinRequests.length === 0 ? (
+            <p className="mutedText">No join requests yet.</p>
+          ) : (
+            <div className="joinRequestList">
+              {joinRequests.map((request) => (
+                <article className="joinRequestRow" key={request.id}>
+                  <span>
+                    <strong>{request.displayName}</strong>
+                    <small>{request.email}</small>
+                  </span>
+                  <span>
+                    <strong>{request.status}</strong>
+                    <small>{new Date(request.requestedAt).toLocaleString()}</small>
+                  </span>
+                  <span className="joinRequestActions">
+                    <button className="button buttonSecondary compactButton" disabled={request.status !== "Pending"} type="button" onClick={() => decideJoinRequest(request.id, "deny")}>
+                      <IconLabel icon={UserX}>Deny</IconLabel>
+                    </button>
+                    <button className="button compactButton" disabled={request.status !== "Pending"} type="button" onClick={() => decideJoinRequest(request.id, "approve")}>
+                      <IconLabel icon={UserCheck}>Approve</IconLabel>
+                    </button>
+                  </span>
+                </article>
+              ))}
+            </div>
+          )}
+        </Panel>
       ) : null}
       {pool ? (
         <div className="predictionGrid">
@@ -369,6 +438,10 @@ export default function PoolOverviewPage() {
     </section>
     </UserShell>
   );
+}
+
+function canManagePool(pool: PoolSummary) {
+  return pool.role === "Owner" || pool.role === "Admin";
 }
 
 function formatNetPoints(value: number | undefined) {

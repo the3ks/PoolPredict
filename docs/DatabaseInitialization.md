@@ -120,6 +120,7 @@ The current schema covers:
 * `pools`
 * `pool_members`
 * `pool_invites`
+* `pool_join_requests`
 * `markets`
 * `predictions`
 * `point_ledger`

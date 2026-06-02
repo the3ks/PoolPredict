@@ -22,6 +22,31 @@ export type PoolSummary = {
   inviteCount: number;
 };
 
+export type DiscoverPool = {
+  id: string;
+  name: string;
+  ownerDisplayName: string;
+  ownerEmail: string;
+  tournamentName: string;
+  provider: string;
+  isTestData: boolean;
+  profile: string;
+  startingBalance: number;
+  memberCount: number;
+  inviteCount: number;
+  hasPendingJoinRequest: boolean;
+};
+
+export type PoolJoinRequest = {
+  id: string;
+  poolId: string;
+  userId: string;
+  displayName: string;
+  email: string;
+  status: string;
+  requestedAt: string;
+};
+
 export type PoolInvite = {
   code: string;
   poolId: string;

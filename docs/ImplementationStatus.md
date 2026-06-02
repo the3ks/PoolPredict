@@ -8,9 +8,7 @@ The project has an initial MVP foundation using a DDD-lite structure.
 
 The web app now includes Sprint 1 authentication and Sprint 2 pool management screens backed by authenticated API endpoints. Authentication and pool management are separated into dedicated routes under the planned app structure.
 
-Sprint 3 tournament infrastructure is implemented with participant records, an event provider abstraction and a mock World Cup provider. Sprint 4 external integration is implemented with configurable provider selection, a FootballData provider adapter and an admin-triggered tournament sync path. Sprint 5 market and settlement foundation is implemented with DB-backed payout defaults, profile-based market generation and settlement run/log tables. Sprint 6 prediction submission is implemented with authenticated prediction entry, member balances and prediction history. Sprint 7 settlement is implemented for manual admin settlement, event result storage, re-settlement correction entries and provider/manual event management modes. Sprint 8 settlement hardening is implemented with calculator-level and service-level automated tests, selected-option validation, cancelled-event settlement and quarter-line handicap support. Sprint 9 admin event management is implemented with event browse/filter, manual event editing and selected-event settlement from the admin UI. Sprint 10 leaderboards and settled prediction display are implemented from persisted prediction, market and point-ledger read models. MariaDB-backed EF Core persistence is now required for the API.
-
-Out-of-roadmap identity/admin security work is also implemented. This work is not counted as a Roadmap sprint. It adds email verification, forgot/reset password, signed-in password change, admin user management with password reset, and admin SMTP settings with AWS SES SMTP support.
+Sprint 3 tournament infrastructure is implemented with participant records, an event provider abstraction and a mock World Cup provider. Sprint 4 external integration is implemented with configurable provider selection, a FootballData provider adapter and an admin-triggered tournament sync path. Sprint 5 market and settlement foundation is implemented with DB-backed payout defaults, profile-based market generation and settlement run/log tables. Sprint 6 prediction submission is implemented with authenticated prediction entry, member balances and prediction history. Sprint 7 settlement is implemented for manual admin settlement, event result storage, re-settlement correction entries and provider/manual event management modes. Sprint 8 settlement hardening is implemented with calculator-level and service-level automated tests, selected-option validation, cancelled-event settlement and quarter-line handicap support. Sprint 9 admin event management is implemented with event browse/filter, manual event editing and selected-event settlement from the admin UI. Sprint 10 leaderboards and settled prediction display are implemented from persisted prediction, market and point-ledger read models. Sprint 11 user/admin route reorganization, pool discovery and identity/admin security is implemented with root-route normal user flows, a dedicated `/admin` panel, pool discovery, join-request approval, email verification, password recovery, admin user management and SMTP settings. MariaDB-backed EF Core persistence is now required for the API.
 
 ## Completed
 
@@ -62,6 +60,7 @@ Implemented endpoints:
 * `POST /api/auth/change-password`
 * `GET /api/admin/users`
 * `POST /api/admin/users/{userId}/password-reset`
+* `POST /api/admin/users/{userId}/verify-email`
 * `GET /api/admin/email-settings`
 * `PUT /api/admin/email-settings`
 * `POST /api/admin/email-settings/test`
@@ -77,9 +76,14 @@ Implemented endpoints:
 * `GET /api/markets/payout-configurations`
 * `POST /api/pools`
 * `GET /api/pools`
+* `GET /api/pools/discover`
 * `GET /api/pools/{poolId}`
 * `PUT /api/pools/{poolId}`
 * `POST /api/pools/{poolId}/invites`
+* `POST /api/pools/{poolId}/join-requests`
+* `GET /api/pools/{poolId}/join-requests`
+* `POST /api/pools/{poolId}/join-requests/{requestId}/approve`
+* `POST /api/pools/{poolId}/join-requests/{requestId}/deny`
 * `GET /api/pools/invites/{code}`
 * `POST /api/pools/join`
 * `GET /api/pools/{poolId}/markets`
@@ -193,6 +197,7 @@ Admin identity and email behavior:
 * PlatformAdmin users can list and search registered users
 * PlatformAdmin users can reset a user's password to a temporary password
 * Temporary password reset marks the user as requiring a password change
+* PlatformAdmin users can mark a user's email as verified
 * PlatformAdmin users can view and update SMTP settings
 * SMTP settings default to AWS SES SMTP shape
 * PlatformAdmin users can send a test email
@@ -203,6 +208,11 @@ Pool behavior:
 * Pool creation requires an authenticated user
 * Pool creator is recorded as the owner member
 * Authenticated users can list only pools they belong to
+* Authenticated users can discover pools they do not belong to
+* Authenticated users can create a persisted pending join request for pools they do not belong to
+* Pool owners/admins can list pending and decided join requests
+* Pool owners/admins can approve join requests, which adds the requester as a pool member
+* Pool owners/admins can deny join requests
 * Pool owners/admins can edit pool name and starting balance
 * Pool owners/admins can create invite codes
 * Authenticated users can join pools by invite code
@@ -217,8 +227,10 @@ Current web behavior:
 * Shows running/upcoming tournaments publicly on `/`
 * Shows tournament provider/source labels on public and signed-in tournament cards
 * Provides local-user login and registration forms on `/login` and `/register`
+* Provides password show/hide controls on password entry forms
 * Registration shows a verification-required result instead of immediately signing in the user
 * Provides `/verify-email` for verification links
+* Allows users to resend verification email
 * Provides `/forgot-password` for reset-link requests
 * Provides `/reset-password` for email password resets
 * Keeps Google login hidden from the web UI for now
@@ -228,8 +240,10 @@ Current web behavior:
 * Shows running/upcoming tournaments on the signed-in dashboard
 * Loads tournaments for pool creation
 * Creates pools for the signed-in user on `/pools/new`
-* Lists the signed-in user's pools on `/pools`
+* Lists the signed-in user's owned/joined pools and other available pools on `/pools`
+* Allows signed-in users to request joining another pool from `/pools`
 * Shows pool overview and editable owner/admin settings on `/pools/[poolId]`
+* Allows pool owners/admins to approve or deny join requests on `/pools/[poolId]`
 * Creates invite codes for owner/admin pools on `/pools/[poolId]/invites`
 * Joins pools by invite code on `/pools/join`
 * Shows signed-in profile details on `/profile`
@@ -244,6 +258,7 @@ Current web behavior:
 * Allows PlatformAdmin users to settle or cancel-settle a selected event on `/admin/settlement`
 * Shows active payout defaults on `/admin/payout` for PlatformAdmin users
 * Allows PlatformAdmin users to search users and reset passwords on `/admin/users`
+* Allows PlatformAdmin users to mark user email as verified on `/admin/users`
 * Allows PlatformAdmin users to configure SMTP settings and send a test email on `/admin/system`
 * Shows pool markets grouped by match on `/pools/[poolId]`
 * Allows signed-in pool members to submit predictions from available markets
@@ -280,6 +295,7 @@ Added required API persistence foundation:
 * `pools`
 * `pool_members`
 * `pool_invites`
+* `pool_join_requests`
 * `markets`
 * `predictions`
 * `point_ledger`
@@ -288,6 +304,7 @@ Added required API persistence foundation:
 * `settlement_runs`
 * `settlement_logs`
 * EF Core initial migration
+* EF migration `20260602125442_PoolJoinRequests`
 * Manual EF Core migration application before API startup
 
 Current recommendation:
@@ -337,8 +354,9 @@ Manual smoke tests verified:
 * `dotnet test PoolPredict.sln` passes after Sprint 8 settlement hardening
 * API build, web production build and `dotnet test PoolPredict.sln` pass after Sprint 9 admin event management
 * API build, web production build and `dotnet test PoolPredict.sln` pass after Sprint 10 leaderboards and settled prediction display
-* API build, web production build and `dotnet test PoolPredict.sln` pass after out-of-roadmap identity/admin security work
 * EF migration `20260602080731_IdentityEmailAndPasswordManagement` was generated and applied locally
+* `dotnet test PoolPredict.sln -c Release` and web production build pass after Sprint 11 route reorganization, pool join-request and identity/admin security updates
+* EF migration `20260602125442_PoolJoinRequests` was generated
 
 ## Known Gaps
 
@@ -348,7 +366,10 @@ Manual smoke tests verified:
 * SMTP password is stored in application database storage without dedicated encryption-at-rest beyond database-level protections
 * Email verification and reset email delivery require SMTP settings to be configured and enabled
 * Public auth token flows do not yet include throttling/rate limiting
-* Pool member management is limited to owner/member roles and invite-code joins
+* Pool member management is limited to owner/member roles, invite-code joins and join-request approval
+* Join request approval is shown on pool detail pages only; there is no dedicated member-management page yet
+* Admin all-pools view is read-only
+* Join-request notification/email delivery is not implemented yet
 * Invite links are represented as invite codes; full URL routing is not implemented yet
 * FootballData sync requires an API token and has not been smoke-tested against a real provider account
 * Tournament sync is manually triggered from admin UI; recurring background scheduling is not implemented yet
@@ -363,7 +384,7 @@ Manual smoke tests verified:
 
 ## Next Recommended Step
 
-Proceed to Sprint 11 AI recap:
+Proceed to Sprint 12 AI recap:
 
 1. Add weekly recap generation model and persistence
 2. Add recap page UI

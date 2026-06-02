@@ -876,6 +876,47 @@ dd {
   text-transform: uppercase;
 }
 
+.joinRequestList {
+  display: grid;
+  gap: 12px;
+}
+
+.joinRequestRow {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(150px, 0.8fr) auto;
+  gap: 14px;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--tile-bg);
+  padding: 14px;
+}
+
+.joinRequestRow span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.joinRequestRow strong,
+.joinRequestRow small {
+  overflow-wrap: anywhere;
+}
+
+.joinRequestRow small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.joinRequestActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .poolList {
   display: grid;
   gap: 12px;
@@ -926,6 +967,22 @@ dd {
 
 .poolCardLink:hover {
   color: var(--text);
+}
+
+.discoverPoolCardLink {
+  grid-template-columns: minmax(160px, 1.1fr) minmax(180px, 1fr) minmax(90px, 0.55fr) minmax(120px, 0.65fr) auto;
+  align-items: center;
+}
+
+.poolCard .discoverPoolCardLink > .button {
+  display: inline-flex;
+  width: auto;
+  min-height: 44px;
+  justify-self: end;
+  border: 1px solid var(--border-strong);
+  background: var(--secondary-bg);
+  padding: 0 14px;
+  text-align: center;
 }
 
 .poolCard span {
@@ -1472,9 +1529,11 @@ dd {
 
   .poolCard button,
   .poolCardLink,
+  .discoverPoolCardLink,
   .ruleRow,
   .historyRow,
   .leaderboardRow,
+  .joinRequestRow,
   .scoreGrid,
   .adminFilterBar,
   .adminEventGrid,

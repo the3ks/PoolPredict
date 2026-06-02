@@ -146,6 +146,93 @@ public sealed class PoolStore
         }
     }
 
+    public IReadOnlyCollection<PoolJoinRequestResponse> GetJoinRequests(Guid poolId, Guid managerUserId)
+    {
+        lock (_gate)
+        {
+            if (_pools.All(pool => pool.Id != poolId))
+            {
+                throw new KeyNotFoundException("Pool does not exist.");
+            }
+
+            EnsureCanManage(poolId, managerUserId);
+        }
+
+        using var db = _dbContextFactory.CreateDbContext();
+        return db.PoolJoinRequests
+            .AsNoTracking()
+            .Where(request => request.PoolId == poolId)
+            .Join(
+                db.Users.AsNoTracking(),
+                request => request.UserId,
+                user => user.Id,
+                (request, user) => new PoolJoinRequestResponse(
+                    request.Id,
+                    request.PoolId,
+                    request.UserId,
+                    user.DisplayName,
+                    user.Email,
+                    request.Status,
+                    request.RequestedAt))
+            .OrderBy(request => request.Status == "Pending" ? 0 : 1)
+            .ThenByDescending(request => request.RequestedAt)
+            .ToArray();
+    }
+
+    public PoolJoinRequestDecisionResponse ApproveJoinRequest(Guid poolId, Guid requestId, Guid managerUserId)
+    {
+        lock (_gate)
+        {
+            if (_pools.All(pool => pool.Id != poolId))
+            {
+                throw new KeyNotFoundException("Pool does not exist.");
+            }
+
+            EnsureCanManage(poolId, managerUserId);
+
+            using var db = _dbContextFactory.CreateDbContext();
+            var request = db.PoolJoinRequests.SingleOrDefault(candidate => candidate.Id == requestId && candidate.PoolId == poolId)
+                ?? throw new KeyNotFoundException("Join request does not exist.");
+
+            var member = _members.SingleOrDefault(candidate => candidate.PoolId == poolId && candidate.UserId == request.UserId);
+            if (member is null)
+            {
+                member = new PoolMember(Ids.NewId(), poolId, request.UserId, PoolMemberRole.Member, DateTimeOffset.UtcNow);
+                _members.Add(member);
+
+                if (!db.PoolMembers.Any(candidate => candidate.PoolId == poolId && candidate.UserId == request.UserId))
+                {
+                    db.PoolMembers.Add(ToPersistedMember(member));
+                }
+            }
+
+            request.Status = "Approved";
+            db.SaveChanges();
+            return new PoolJoinRequestDecisionResponse(request.Id, request.PoolId, request.UserId, request.Status, member.Id);
+        }
+    }
+
+    public PoolJoinRequestDecisionResponse DenyJoinRequest(Guid poolId, Guid requestId, Guid managerUserId)
+    {
+        lock (_gate)
+        {
+            if (_pools.All(pool => pool.Id != poolId))
+            {
+                throw new KeyNotFoundException("Pool does not exist.");
+            }
+
+            EnsureCanManage(poolId, managerUserId);
+
+            using var db = _dbContextFactory.CreateDbContext();
+            var request = db.PoolJoinRequests.SingleOrDefault(candidate => candidate.Id == requestId && candidate.PoolId == poolId)
+                ?? throw new KeyNotFoundException("Join request does not exist.");
+
+            request.Status = "Denied";
+            db.SaveChanges();
+            return new PoolJoinRequestDecisionResponse(request.Id, request.PoolId, request.UserId, request.Status, null);
+        }
+    }
+
     public PoolInviteResponse? GetInvite(string code)
     {
         lock (_gate)
@@ -423,3 +510,19 @@ public sealed record PoolInviteResponse(
     string PoolName,
     MarketProfile Profile,
     int StartingBalance);
+
+public sealed record PoolJoinRequestResponse(
+    Guid Id,
+    Guid PoolId,
+    Guid UserId,
+    string DisplayName,
+    string Email,
+    string Status,
+    DateTimeOffset RequestedAt);
+
+public sealed record PoolJoinRequestDecisionResponse(
+    Guid Id,
+    Guid PoolId,
+    Guid UserId,
+    string Status,
+    Guid? MemberId);

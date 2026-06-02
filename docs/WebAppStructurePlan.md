@@ -92,12 +92,13 @@ Recommended behavior:
 
 Pool list.
 
-Show owned and joined pools with role, member count, profile and next event.
+Show owned and joined pools first with role, member count and profile. Show other pools below with basic owner, tournament, provider, profile, member and balance information plus a request-to-join action.
 
 Primary actions:
 
 * Create pool
 * Join pool
+* Request to join another pool
 
 `/pools/new`
 
@@ -130,6 +131,7 @@ Show:
 * Current balance
 * Leaderboard preview
 * Latest recap when available
+* Join requests for pool owners/admins, with approve and deny actions
 
 `/pools/[poolId]/events`
 
