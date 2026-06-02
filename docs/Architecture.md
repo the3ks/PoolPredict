@@ -133,6 +133,7 @@ Responsibilities:
 * Events
 * Results
 * Provider synchronization
+* Event management mode
 
 Tables:
 
@@ -140,6 +141,8 @@ Tables:
 * participants
 * events
 * event_results
+
+Provider-originated tournament records should include provider/source metadata so mock and real provider data can coexist safely.
 
 ---
 
@@ -310,7 +313,7 @@ Auto-generated:
 * Future advanced market types when added
 * Advanced configurable profile overrides
 
-Pool owners may override profile settings.
+Pool owners select a profile. Pool-owner profile overrides are not part of the MVP.
 
 ---
 
@@ -326,6 +329,8 @@ Requirements:
 * Idempotent settlement so reruns cannot double-credit or double-debit members
 * Append-only point ledger entries for payouts, refunds and corrections
 * Use prediction snapshots for line values and payout configuration
+* Settlement is initiated manually by Platform Admin
+* Automatic settlement is not supported for MVP
 
 Supported Results:
 
@@ -370,6 +375,43 @@ Event Lifecycle:
 * Postponed
 * Cancelled
 * Settled
+
+---
+
+# Event Management
+
+Each event has a management mode:
+
+* `provider`
+* `manual`
+
+Default mode:
+
+* `provider`
+
+Provider-managed events:
+
+* Updated by provider synchronization when sync is enabled
+* Provider sync may update kickoff time, event status, first-half result and full-time result
+
+Manually managed events:
+
+* Controlled by Platform Admin
+* Provider synchronization must skip the event completely
+* Provider updates are ignored
+
+Platform Admin editable fields for manually managed events:
+
+* Kickoff time
+* Event status
+* First-half home score
+* First-half away score
+* Full-time home score
+* Full-time away score
+
+Platform Admin can switch an event between provider-managed and manually managed mode at any time.
+
+Manual event management is required for mock testing, manual tournaments, provider outage recovery, result correction and settlement verification.
 
 ---
 
@@ -465,6 +507,22 @@ ApiFootballProvider
 
 Provider selection should be configurable.
 
+## Parallel Provider Testing Recommendation
+
+Mock and real provider data should be allowed to exist in the same environment for testing, but provider data must be scoped to avoid collisions.
+
+Recommended persistence rules:
+
+* Store provider/source on provider-originated tournaments, participants and events.
+* Treat `(provider, external_id)` as the logical external identity for tournaments.
+* Treat `(tournament_id, provider, external_id)` as the logical external identity for participants and events.
+* Mark mock provider data as test data.
+* Ensure sync from one provider never updates rows owned by another provider.
+* Expose provider/source in admin tournament and event management screens.
+* Provide admin filters for real data, mock/test data and manually managed data.
+
+This allows local full-cycle testing with mock fixtures while preserving real provider data imported from FootballData or future providers.
+
 ---
 
 # Background Jobs
@@ -483,13 +541,16 @@ Responsibilities:
 
 * Update live scores
 * Update status
+* Skip manually managed events
 
 ## SettlementJob
 
 Responsibilities:
 
-* Detect finished events
-* Execute settlement
+* Not part of MVP
+* Future optional automation only after manual settlement workflow is stable
+
+For MVP, settlement is triggered manually by Platform Admin after event results are verified.
 
 ## AIRecapJob
 

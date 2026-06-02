@@ -40,7 +40,7 @@ Pool Owner:
 4. Select Profile (Casual / Standard / Expert).
 5. Invite Members.
 6. Platform automatically creates markets.
-7. Platform automatically settles results.
+7. Platform Admin verifies event results and manually settles completed events.
 8. Platform automatically generates recap.
 
 Pool Member:
@@ -73,6 +73,32 @@ Create Pool → Invite Members → Done.
 
 * Email login
 * Google login
+* Email/password registration must require email verification before login
+* Users must be able to request a password reset link by email
+* Signed-in users must be able to change their password from profile settings
+
+### Admin User and Email Management
+
+Note: This section was added as an out-of-roadmap identity/admin security addendum. It is not counted as a Roadmap sprint.
+
+* Platform Admin can view and search registered users.
+* Platform Admin can reset a user's password.
+* Admin password reset must not expose the user's existing password.
+* Reset users should be required to change their password after receiving a temporary password.
+* Platform Admin can configure SMTP settings used by system emails.
+* SMTP configuration should support AWS SES SMTP first.
+* SMTP settings should include:
+  * provider
+  * host
+  * port
+  * username
+  * password
+  * from email
+  * from name
+  * STARTTLS setting
+  * enabled/disabled state
+* Platform Admin can send a test email to validate SMTP settings.
+* Email verification and password reset emails must use the configured SMTP sender when enabled.
 
 ### Pools
 
@@ -86,6 +112,45 @@ Create Pool → Invite Members → Done.
 MVP Tournament:
 
 * FIFA World Cup 2026
+
+### Event Management
+
+* The platform must support provider-managed events and manually managed events.
+* Event management modes are required for mock testing, manual tournaments, provider outage recovery, result correction and settlement verification.
+* Each event must have a management mode:
+  * `provider`
+  * `manual`
+* The default event management mode is `provider`.
+* Provider-managed events are synchronized from the configured external provider when synchronization is enabled.
+* Provider synchronization may update:
+  * kickoff time
+  * event status
+  * first-half result
+  * full-time result
+* Manually managed events are controlled by Platform Admin.
+* Provider synchronization must skip manually managed events completely.
+* Platform Admin can edit manually managed event fields:
+  * kickoff time
+  * event status
+  * first-half home score
+  * first-half away score
+  * full-time home score
+  * full-time away score
+* Platform Admin can switch an event between provider-managed and manually managed modes at any time.
+
+### Parallel Provider Testing
+
+* The platform should support mock provider data and real provider data in the same environment for testing alongside production-like data.
+* Mock data must be clearly marked as test data.
+* Provider-originated records must be scoped by provider to avoid external ID collisions.
+* Unique provider keys should include provider identity, for example:
+  * tournaments: `(provider, external_id)`
+  * participants: `(tournament_id, provider, external_id)`
+  * events: `(tournament_id, provider, external_id)`
+* Mock provider records must not overwrite real provider records.
+* Real provider sync must not overwrite mock provider records.
+* Admin UI should make provider/source visible when browsing tournaments and events.
+* Test data should be easy to filter out, hide from normal users, or delete.
 
 ### Markets
 
@@ -136,10 +201,12 @@ First Half:
 
 ### Settlement
 
-* Automatic settlement is required for MVP
+* Automatic settlement is not supported for MVP.
+* Settlement is always initiated manually by Platform Admin.
 * Settlement must support all MVP markets
 * Settlement must update member balances from the point ledger
 * Settlement reruns must not duplicate payouts, refunds or deductions
+* Platform Admin can execute re-settlement for an event.
 
 ### Leaderboards
 

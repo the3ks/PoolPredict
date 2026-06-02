@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using PoolPredict.Api.Domain.Common;
 using PoolPredict.Api.Domain.Identity;
 using PoolPredict.Api.Infrastructure.Persistence;
@@ -7,6 +8,8 @@ namespace PoolPredict.Api.Modules.Identity;
 
 public sealed class IdentityStore
 {
+    private const string EmailVerificationPurpose = "EmailVerification";
+    private const string PasswordResetPurpose = "PasswordReset";
     private readonly List<User> _users = [];
     private readonly List<UserExternalLogin> _externalLogins = [];
     private readonly IDbContextFactory<PoolPredictDbContext> _dbContextFactory;
@@ -61,6 +64,13 @@ public sealed class IdentityStore
                 throw new UnauthorizedAccessException("Email or password is incorrect.");
             }
 
+            if (!user.IsEmailVerified)
+            {
+                throw new InvalidOperationException("Verify your email address before logging in.");
+            }
+
+            user.MarkLoggedIn(DateTimeOffset.UtcNow);
+            UpdateUser(user);
             return user;
         }
     }
@@ -79,11 +89,24 @@ public sealed class IdentityStore
 
             if (existingLogin is not null)
             {
-                return _users.Single(user => user.Id == existingLogin.UserId);
+                var existingUser = _users.Single(user => user.Id == existingLogin.UserId);
+                if (!existingUser.IsEmailVerified)
+                {
+                    existingUser.MarkEmailVerified(DateTimeOffset.UtcNow);
+                }
+                existingUser.MarkLoggedIn(DateTimeOffset.UtcNow);
+                UpdateUser(existingUser);
+                return existingUser;
             }
 
             var user = _users.SingleOrDefault(candidate => candidate.NormalizedEmail == email.ToUpperInvariant())
                 ?? CreateGoogleUser(email, NormalizeDisplayName(request.DisplayName, email));
+
+            if (!user.IsEmailVerified)
+            {
+                user.MarkEmailVerified(DateTimeOffset.UtcNow);
+                UpdateUser(user);
+            }
 
             var externalLogin = new UserExternalLogin(Ids.NewId(), user.Id, "Google", providerUserId);
             _externalLogins.Add(externalLogin);
@@ -100,9 +123,182 @@ public sealed class IdentityStore
         }
     }
 
+    public IReadOnlyCollection<AdminUserResponse> GetUsers(string? search)
+    {
+        lock (_gate)
+        {
+            var normalizedSearch = search?.Trim();
+            return _users
+                .Where(user => string.IsNullOrWhiteSpace(normalizedSearch)
+                    || user.Email.Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase)
+                    || user.DisplayName.Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(user => user.CreatedAt)
+                .Take(100)
+                .Select(ToAdminResponse)
+                .ToArray();
+        }
+    }
+
+    public string AdminResetPassword(Guid userId)
+    {
+        var temporaryPassword = GenerateTemporaryPassword();
+        lock (_gate)
+        {
+            var user = _users.SingleOrDefault(candidate => candidate.Id == userId)
+                ?? throw new ArgumentException("User was not found.", nameof(userId));
+
+            user.SetPasswordHash(PasswordService.Hash(temporaryPassword), mustChangePassword: true);
+            UpdateUser(user);
+        }
+
+        return temporaryPassword;
+    }
+
+    public AdminUserResponse AdminMarkEmailVerified(Guid userId)
+    {
+        lock (_gate)
+        {
+            var user = _users.SingleOrDefault(candidate => candidate.Id == userId)
+                ?? throw new ArgumentException("User was not found.", nameof(userId));
+
+            if (!user.IsEmailVerified)
+            {
+                user.MarkEmailVerified(DateTimeOffset.UtcNow);
+                UpdateUser(user);
+            }
+
+            return ToAdminResponse(user);
+        }
+    }
+
+    public void ChangePassword(Guid userId, ChangePasswordRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.NewPassword) || request.NewPassword.Length < 8)
+        {
+            throw new ArgumentException("New password must be at least 8 characters.", nameof(request));
+        }
+
+        lock (_gate)
+        {
+            var user = _users.SingleOrDefault(candidate => candidate.Id == userId)
+                ?? throw new UnauthorizedAccessException("User was not found.");
+
+            if (user.PasswordHash is null || !PasswordService.Verify(request.CurrentPassword, user.PasswordHash))
+            {
+                throw new UnauthorizedAccessException("Current password is incorrect.");
+            }
+
+            user.SetPasswordHash(PasswordService.Hash(request.NewPassword));
+            user.ClearMustChangePassword();
+            UpdateUser(user);
+        }
+    }
+
+    public string CreateEmailVerificationToken(Guid userId)
+    {
+        return CreateToken(userId, EmailVerificationPurpose, DateTimeOffset.UtcNow.AddHours(24));
+    }
+
+    public bool VerifyEmailToken(string rawToken)
+    {
+        using var db = _dbContextFactory.CreateDbContext();
+        var tokenHash = HashToken(rawToken);
+        var token = db.IdentityTokens.SingleOrDefault(candidate =>
+            candidate.Purpose == EmailVerificationPurpose &&
+            candidate.TokenHash == tokenHash &&
+            candidate.ConsumedAt == null);
+
+        if (token is null || token.ExpiresAt <= DateTimeOffset.UtcNow)
+        {
+            return false;
+        }
+
+        lock (_gate)
+        {
+            var user = _users.SingleOrDefault(candidate => candidate.Id == token.UserId);
+            if (user is null)
+            {
+                return false;
+            }
+
+            user.MarkEmailVerified(DateTimeOffset.UtcNow);
+            UpdateUser(user);
+            token.ConsumedAt = DateTimeOffset.UtcNow;
+            db.SaveChanges();
+            return true;
+        }
+    }
+
+    public User? FindByEmail(string email)
+    {
+        var normalizedEmail = NormalizeEmail(email).ToUpperInvariant();
+        lock (_gate)
+        {
+            return _users.SingleOrDefault(candidate => candidate.NormalizedEmail == normalizedEmail);
+        }
+    }
+
+    public string CreatePasswordResetToken(Guid userId)
+    {
+        return CreateToken(userId, PasswordResetPurpose, DateTimeOffset.UtcNow.AddMinutes(45));
+    }
+
+    public bool ResetPassword(ResetPasswordRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.NewPassword) || request.NewPassword.Length < 8)
+        {
+            throw new ArgumentException("New password must be at least 8 characters.", nameof(request));
+        }
+
+        using var db = _dbContextFactory.CreateDbContext();
+        var tokenHash = HashToken(request.Token);
+        var token = db.IdentityTokens.SingleOrDefault(candidate =>
+            candidate.Purpose == PasswordResetPurpose &&
+            candidate.TokenHash == tokenHash &&
+            candidate.ConsumedAt == null);
+
+        if (token is null || token.ExpiresAt <= DateTimeOffset.UtcNow)
+        {
+            return false;
+        }
+
+        lock (_gate)
+        {
+            var user = _users.SingleOrDefault(candidate => candidate.Id == token.UserId);
+            if (user is null)
+            {
+                return false;
+            }
+
+            user.SetPasswordHash(PasswordService.Hash(request.NewPassword));
+            user.ClearMustChangePassword();
+            UpdateUser(user);
+            token.ConsumedAt = DateTimeOffset.UtcNow;
+            db.SaveChanges();
+            return true;
+        }
+    }
+
+    private string CreateToken(Guid userId, string purpose, DateTimeOffset expiresAt)
+    {
+        var rawToken = GenerateToken();
+        using var db = _dbContextFactory.CreateDbContext();
+        db.IdentityTokens.Add(new PersistedIdentityToken
+        {
+            Id = Ids.NewId(),
+            UserId = userId,
+            Purpose = purpose,
+            TokenHash = HashToken(rawToken),
+            ExpiresAt = expiresAt,
+            CreatedAt = DateTimeOffset.UtcNow
+        });
+        db.SaveChanges();
+        return rawToken;
+    }
+
     private User CreateGoogleUser(string email, string displayName)
     {
-        var user = new User(Ids.NewId(), email, displayName, UserRole.PoolMember);
+        var user = new User(Ids.NewId(), email, displayName, UserRole.PoolMember, emailVerifiedAt: DateTimeOffset.UtcNow);
         _users.Add(user);
         PersistUser(user);
         return user;
@@ -120,8 +316,15 @@ public sealed class IdentityStore
         }
 
         var normalizedEmail = NormalizeEmail(email);
-        if (_users.Any(user => user.NormalizedEmail == normalizedEmail.ToUpperInvariant()))
+        var existingAdmin = _users.SingleOrDefault(user => user.NormalizedEmail == normalizedEmail.ToUpperInvariant());
+        if (existingAdmin is not null)
         {
+            if (!existingAdmin.IsEmailVerified)
+            {
+                existingAdmin.MarkEmailVerified(DateTimeOffset.UtcNow);
+                UpdateUser(existingAdmin);
+            }
+
             return;
         }
 
@@ -130,7 +333,8 @@ public sealed class IdentityStore
             normalizedEmail,
             NormalizeDisplayName(displayName, email),
             UserRole.PlatformAdmin,
-            PasswordService.Hash(password));
+            PasswordService.Hash(password),
+            emailVerifiedAt: DateTimeOffset.UtcNow);
 
         _users.Add(admin);
         PersistUser(admin);
@@ -145,7 +349,12 @@ public sealed class IdentityStore
             user.Email,
             user.DisplayName,
             user.Role,
-            user.PasswordHash)));
+            user.PasswordHash,
+            user.CreatedAt,
+            user.EmailVerifiedAt,
+            user.MustChangePassword,
+            user.LastLoginAt,
+            user.UpdatedAt)));
 
         _externalLogins.AddRange(db.UserExternalLogins.AsNoTracking().Select(login => new UserExternalLogin(
             login.Id,
@@ -162,18 +371,43 @@ public sealed class IdentityStore
             return;
         }
 
-        db.Users.Add(new PersistedUser
-        {
-            Id = user.Id,
-            Email = user.Email,
-            NormalizedEmail = user.NormalizedEmail,
-            DisplayName = user.DisplayName,
-            Role = user.Role,
-            PasswordHash = user.PasswordHash,
-            CreatedAt = user.CreatedAt
-        });
+        db.Users.Add(ToPersistedUser(user));
         db.SaveChanges();
     }
+
+    private void UpdateUser(User user)
+    {
+        using var db = _dbContextFactory.CreateDbContext();
+        var persisted = db.Users.SingleOrDefault(candidate => candidate.Id == user.Id);
+        if (persisted is null)
+        {
+            return;
+        }
+
+        persisted.DisplayName = user.DisplayName;
+        persisted.Role = user.Role;
+        persisted.PasswordHash = user.PasswordHash;
+        persisted.EmailVerifiedAt = user.EmailVerifiedAt;
+        persisted.MustChangePassword = user.MustChangePassword;
+        persisted.LastLoginAt = user.LastLoginAt;
+        persisted.UpdatedAt = user.UpdatedAt;
+        db.SaveChanges();
+    }
+
+    private static PersistedUser ToPersistedUser(User user) => new()
+    {
+        Id = user.Id,
+        Email = user.Email,
+        NormalizedEmail = user.NormalizedEmail,
+        DisplayName = user.DisplayName,
+        Role = user.Role,
+        PasswordHash = user.PasswordHash,
+        CreatedAt = user.CreatedAt,
+        EmailVerifiedAt = user.EmailVerifiedAt,
+        MustChangePassword = user.MustChangePassword,
+        LastLoginAt = user.LastLoginAt,
+        UpdatedAt = user.UpdatedAt
+    };
 
     private void PersistExternalLogin(UserExternalLogin login)
     {
@@ -193,6 +427,17 @@ public sealed class IdentityStore
         db.SaveChanges();
     }
 
+    private static AdminUserResponse ToAdminResponse(User user) =>
+        new(
+            user.Id,
+            user.Email,
+            user.DisplayName,
+            user.Role,
+            user.IsEmailVerified,
+            user.MustChangePassword,
+            user.CreatedAt,
+            user.LastLoginAt);
+
     private static string NormalizeEmail(string email)
     {
         if (string.IsNullOrWhiteSpace(email) || !email.Contains('@', StringComparison.Ordinal))
@@ -209,4 +454,27 @@ public sealed class IdentityStore
             ? email.Split('@')[0]
             : displayName.Trim();
     }
+
+    private static string GenerateToken() => Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
+
+    private static string GenerateTemporaryPassword() => $"Pp-{Base64UrlEncode(RandomNumberGenerator.GetBytes(12))}1!";
+
+    private static string HashToken(string rawToken)
+    {
+        var tokenBytes = System.Text.Encoding.UTF8.GetBytes(rawToken.Trim());
+        return Base64UrlEncode(SHA256.HashData(tokenBytes));
+    }
+
+    private static string Base64UrlEncode(byte[] bytes) =>
+        Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 }
+
+public sealed record AdminUserResponse(
+    Guid Id,
+    string Email,
+    string DisplayName,
+    UserRole Role,
+    bool IsEmailVerified,
+    bool MustChangePassword,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? LastLoginAt);

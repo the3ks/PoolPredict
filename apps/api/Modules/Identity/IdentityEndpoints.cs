@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using PoolPredict.Api.Modules.Email;
 
 namespace PoolPredict.Api.Modules.Identity;
 
@@ -8,11 +9,23 @@ public static class IdentityEndpoints
     {
         var group = app.MapGroup("/api/auth");
 
-        group.MapPost("/register", (RegisterRequest request, IdentityStore users, JwtTokenService tokens) =>
+        group.MapPost("/register", async (RegisterRequest request, IdentityStore users, SmtpEmailSender emailSender, IConfiguration configuration) =>
         {
             try
             {
-                return Results.Created("/api/auth/me", CreateAuthResponse(users.Register(request), tokens));
+                var user = users.Register(request);
+                var token = users.CreateEmailVerificationToken(user.Id);
+                var link = BuildWebLink(configuration, "/verify-email", token);
+                var emailResult = await emailSender.SendAsync(
+                    user.Email,
+                    "Verify your PoolPredict email",
+                    $"Verify your PoolPredict account by opening this link: {link}");
+
+                var message = emailResult.Sent
+                    ? "Account created. Check your email to verify your account before logging in."
+                    : $"Account created, but verification email could not be sent: {emailResult.Message}";
+
+                return Results.Created("/api/auth/verify-email", new AuthMessageResponse(message));
             }
             catch (ArgumentException ex)
             {
@@ -30,6 +43,10 @@ public static class IdentityEndpoints
             {
                 return Results.Ok(CreateAuthResponse(users.Login(request), tokens));
             }
+            catch (InvalidOperationException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
             catch (UnauthorizedAccessException)
             {
                 return Results.Unauthorized();
@@ -39,6 +56,98 @@ public static class IdentityEndpoints
                 return Results.BadRequest(new { error = ex.Message });
             }
         });
+
+        group.MapPost("/verify-email", (VerifyEmailRequest request, IdentityStore users) =>
+        {
+            return users.VerifyEmailToken(request.Token)
+                ? Results.Ok(new AuthMessageResponse("Email verified. You can now log in."))
+                : Results.BadRequest(new { error = "Verification link is invalid or expired." });
+        });
+
+        group.MapPost("/resend-verification", async (ResendVerificationRequest request, IdentityStore users, SmtpEmailSender emailSender, IConfiguration configuration) =>
+        {
+            try
+            {
+                var user = users.FindByEmail(request.Email);
+                if (user is null || user.IsEmailVerified)
+                {
+                    return Results.Ok(new AuthMessageResponse("If the account requires verification, a new email will be sent."));
+                }
+
+                var token = users.CreateEmailVerificationToken(user.Id);
+                var link = BuildWebLink(configuration, "/verify-email", token);
+                await emailSender.SendAsync(
+                    user.Email,
+                    "Verify your PoolPredict email",
+                    $"Verify your PoolPredict account by opening this link: {link}");
+
+                return Results.Ok(new AuthMessageResponse("If the account requires verification, a new email will be sent."));
+            }
+            catch (ArgumentException)
+            {
+                return Results.Ok(new AuthMessageResponse("If the account requires verification, a new email will be sent."));
+            }
+        });
+
+        group.MapPost("/forgot-password", async (ForgotPasswordRequest request, IdentityStore users, SmtpEmailSender emailSender, IConfiguration configuration) =>
+        {
+            try
+            {
+                var user = users.FindByEmail(request.Email);
+                if (user is not null)
+                {
+                    var token = users.CreatePasswordResetToken(user.Id);
+                    var link = BuildWebLink(configuration, "/reset-password", token);
+                    await emailSender.SendAsync(
+                        user.Email,
+                        "Reset your PoolPredict password",
+                        $"Reset your PoolPredict password by opening this link: {link}");
+                }
+            }
+            catch (ArgumentException)
+            {
+                // Keep the public response account-enumeration safe.
+            }
+
+            return Results.Ok(new AuthMessageResponse("If an account exists for this email, a reset link will be sent."));
+        });
+
+        group.MapPost("/reset-password", (ResetPasswordRequest request, IdentityStore users) =>
+        {
+            try
+            {
+                return users.ResetPassword(request)
+                    ? Results.Ok(new AuthMessageResponse("Password reset. You can now log in."))
+                    : Results.BadRequest(new { error = "Reset link is invalid or expired." });
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+        });
+
+        group.MapPost("/change-password", (ChangePasswordRequest request, ClaimsPrincipal principal, IdentityStore users) =>
+        {
+            var subject = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!Guid.TryParse(subject, out var userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            try
+            {
+                users.ChangePassword(userId, request);
+                return Results.Ok(new AuthMessageResponse("Password changed."));
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Unauthorized();
+            }
+        }).RequireAuthorization();
 
         group.MapPost("/google", (GoogleLoginRequest request, IdentityStore users, JwtTokenService tokens) =>
         {
@@ -74,5 +183,11 @@ public static class IdentityEndpoints
     }
 
     private static UserProfileResponse ToProfileResponse(this Domain.Identity.User user) =>
-        new(user.Id, user.Email, user.DisplayName, user.Role);
+        new(user.Id, user.Email, user.DisplayName, user.Role, user.IsEmailVerified, user.MustChangePassword);
+
+    private static string BuildWebLink(IConfiguration configuration, string path, string token)
+    {
+        var baseUrl = (configuration["WebApp:BaseUrl"] ?? "http://localhost:3000").TrimEnd('/');
+        return $"{baseUrl}{path}?token={Uri.EscapeDataString(token)}";
+    }
 }

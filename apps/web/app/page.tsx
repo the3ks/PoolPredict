@@ -2,10 +2,17 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { CalendarDays, LogIn, Plus, Trophy, UserPlus, Waves } from "lucide-react";
+import {
+  CalendarDays,
+  LogIn,
+  Plus,
+  Trophy,
+} from "lucide-react";
 import { IconLabel, PageHeader, StatusPill } from "./components/ui";
 import { apiUrl } from "./lib/api";
 import { getStoredToken } from "./lib/auth";
+import { UserShell } from "./components/user-shell";
+import { appName } from "./lib/config";
 import { Tournament } from "./lib/types";
 
 export default function Home() {
@@ -25,31 +32,30 @@ export default function Home() {
 
         const result = (await response.json()) as Tournament[];
         setTournaments(result);
-        setStatus(result.length === 0 ? "No running or upcoming tournaments yet." : `${result.length} tournament available.`);
+        setStatus(
+          result.length === 0
+            ? "No running or upcoming tournaments yet."
+            : `${result.length} tournament available.`,
+        );
       })
-      .catch((error) => setStatus(error instanceof Error ? error.message : "Could not load tournaments."));
+      .catch((error) =>
+        setStatus(
+          error instanceof Error
+            ? error.message
+            : "Could not load tournaments.",
+        ),
+      );
   }, []);
 
   return (
-    <main className="publicShell">
-      <header className="publicTopbar">
-        <Link className="brandLink" href="/">PoolPredict</Link>
-        <div className="buttonRow">
-          {isSignedIn ? (
-            <Link className="button" href="/app"><IconLabel icon={Waves}>Open app</IconLabel></Link>
-          ) : (
-            <>
-              <Link className="button buttonSecondary" href="/login"><IconLabel icon={LogIn}>Login</IconLabel></Link>
-              <Link className="button" href="/register"><IconLabel icon={UserPlus}>Register</IconLabel></Link>
-            </>
-          )}
-        </div>
-      </header>
-
+    <UserShell>
       <section className="publicHero">
         <p className="eyebrow">Prediction pools</p>
-        <h1>PoolPredict</h1>
-        <p className="mutedText">Browse running and upcoming tournaments, then create a prediction pool when you are ready to compete with friends.</p>
+        <h1>{appName}</h1>
+        <p className="mutedText">
+          Browse running and upcoming tournaments, then create a prediction pool
+          when you are ready to compete with friends.
+        </p>
       </section>
 
       <section className="pageStack">
@@ -68,19 +74,36 @@ export default function Home() {
                 <h2>{tournament.name}</h2>
               </div>
               <dl className="detailList compactDetails">
-                <div><dt>Starts</dt><dd>{formatDate(tournament.startsOn)}</dd></div>
-                <div><dt>Ends</dt><dd>{formatDate(tournament.endsOn)}</dd></div>
+                <div>
+                  <dt>Starts</dt>
+                  <dd>{formatDate(tournament.startsOn)}</dd>
+                </div>
+                <div>
+                  <dt>Ends</dt>
+                  <dd>{formatDate(tournament.endsOn)}</dd>
+                </div>
+                <div>
+                  <dt>Source</dt>
+                  <dd>
+                    {tournament.provider}
+                    {tournament.isTestData ? " test data" : ""}
+                  </dd>
+                </div>
               </dl>
               {isSignedIn ? (
-                <Link className="button buttonSecondary" href="/app/pools/new"><IconLabel icon={Plus}>Create pool</IconLabel></Link>
+                <Link className="button buttonSecondary" href="/pools/new">
+                  <IconLabel icon={Plus}>Create pool</IconLabel>
+                </Link>
               ) : (
-                <Link className="button buttonSecondary" href="/login"><IconLabel icon={LogIn}>Login to create pool</IconLabel></Link>
+                <Link className="button buttonSecondary" href="/login">
+                  <IconLabel icon={LogIn}>Login to create pool</IconLabel>
+                </Link>
               )}
             </article>
           ))}
         </div>
       </section>
-    </main>
+    </UserShell>
   );
 }
 

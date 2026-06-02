@@ -14,6 +14,12 @@ public sealed class PersistedEvent
 
     public string ExternalId { get; set; } = "";
 
+    public string Provider { get; set; } = "";
+
+    public bool IsTestData { get; set; }
+
+    public EventManagementMode ManagementMode { get; set; } = EventManagementMode.Provider;
+
     public string HomeParticipant { get; set; } = "";
 
     public string AwayParticipant { get; set; } = "";

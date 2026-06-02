@@ -1,10 +1,13 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
 using PoolPredict.Api.Infrastructure.Persistence;
+using PoolPredict.Api.Modules.Admin;
+using PoolPredict.Api.Modules.Email;
 using PoolPredict.Api.Modules.Identity;
 using PoolPredict.Api.Modules.Markets;
 using PoolPredict.Api.Modules.Pools;
 using PoolPredict.Api.Modules.Predictions;
+using PoolPredict.Api.Modules.Settlement;
 using PoolPredict.Api.Modules.Tournaments;
 using Pomelo.EntityFrameworkCore.MySql.Infrastructure;
 using System.Text.Json.Serialization;
@@ -38,11 +41,15 @@ builder.Services.AddSingleton<ITournamentPersistence, EfTournamentPersistence>()
 
 builder.Services.AddSingleton<TournamentCatalog>();
 builder.Services.AddSingleton<TournamentSyncJob>();
+builder.Services.AddSingleton<EmailSettingsStore>();
+builder.Services.AddSingleton<SmtpEmailSender>();
 builder.Services.AddSingleton<IdentityStore>();
 builder.Services.AddSingleton<JwtTokenService>();
 builder.Services.AddSingleton<PayoutConfigurationStore>();
 builder.Services.AddSingleton<PoolStore>();
 builder.Services.AddSingleton<PredictionStore>();
+builder.Services.AddSingleton<SettlementCalculator>();
+builder.Services.AddSingleton<SettlementService>();
 
 builder.Services
     .AddAuthentication(JwtBearerAuthenticationHandler.SchemeName)
@@ -83,8 +90,10 @@ app.MapGet("/health", () => Results.Ok(new
 
 app.MapTournamentEndpoints();
 app.MapIdentityEndpoints();
+app.MapAdminEndpoints();
 app.MapMarketEndpoints();
 app.MapPoolEndpoints();
 app.MapPredictionEndpoints();
+app.MapSettlementEndpoints();
 
 app.Run();

@@ -22,6 +22,68 @@ namespace PoolPredict.Api.Infrastructure.Persistence.Migrations
 
             MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
 
+            modelBuilder.Entity("PoolPredict.Api.Infrastructure.Persistence.PersistedEmailSettings", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)")
+                        .HasColumnName("id");
+
+                    b.Property<string>("FromEmail")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("varchar(320)")
+                        .HasColumnName("from_email");
+
+                    b.Property<string>("FromName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)")
+                        .HasColumnName("from_name");
+
+                    b.Property<string>("Host")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)")
+                        .HasColumnName("host");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("tinyint(1)")
+                        .HasColumnName("is_enabled");
+
+                    b.Property<string>("Password")
+                        .HasColumnType("longtext")
+                        .HasColumnName("password");
+
+                    b.Property<int>("Port")
+                        .HasColumnType("int")
+                        .HasColumnName("port");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("varchar(80)")
+                        .HasColumnName("provider");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("updated_at");
+
+                    b.Property<bool>("UseStartTls")
+                        .HasColumnType("tinyint(1)")
+                        .HasColumnName("use_start_tls");
+
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)")
+                        .HasColumnName("username");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("email_settings", (string)null);
+                });
+
             modelBuilder.Entity("PoolPredict.Api.Infrastructure.Persistence.PersistedEvent", b =>
                 {
                     b.Property<Guid>("Id")
@@ -55,6 +117,22 @@ namespace PoolPredict.Api.Infrastructure.Persistence.Migrations
                         .HasColumnType("char(36)")
                         .HasColumnName("home_participant_id");
 
+                    b.Property<bool>("IsTestData")
+                        .HasColumnType("tinyint(1)")
+                        .HasColumnName("is_test_data");
+
+                    b.Property<string>("ManagementMode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)")
+                        .HasColumnName("management_mode");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("varchar(80)")
+                        .HasColumnName("provider");
+
                     b.Property<DateTimeOffset>("StartsAt")
                         .HasColumnType("datetime(6)")
                         .HasColumnName("starts_at");
@@ -73,10 +151,94 @@ namespace PoolPredict.Api.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("StartsAt");
 
-                    b.HasIndex("TournamentId", "ExternalId")
+                    b.HasIndex("TournamentId", "Provider", "ExternalId")
                         .IsUnique();
 
                     b.ToTable("events", (string)null);
+                });
+
+            modelBuilder.Entity("PoolPredict.Api.Infrastructure.Persistence.PersistedEventResult", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("char(36)")
+                        .HasColumnName("event_id");
+
+                    b.Property<int?>("FirstHalfAwayScore")
+                        .HasColumnType("int")
+                        .HasColumnName("first_half_away_score");
+
+                    b.Property<int?>("FirstHalfHomeScore")
+                        .HasColumnType("int")
+                        .HasColumnName("first_half_home_score");
+
+                    b.Property<int>("FullTimeAwayScore")
+                        .HasColumnType("int")
+                        .HasColumnName("full_time_away_score");
+
+                    b.Property<int>("FullTimeHomeScore")
+                        .HasColumnType("int")
+                        .HasColumnName("full_time_home_score");
+
+                    b.Property<DateTimeOffset>("RecordedAt")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("recorded_at");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventId")
+                        .IsUnique();
+
+                    b.ToTable("event_results", (string)null);
+                });
+
+            modelBuilder.Entity("PoolPredict.Api.Infrastructure.Persistence.PersistedIdentityToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("ConsumedAt")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("consumed_at");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("expires_at");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("varchar(80)")
+                        .HasColumnName("purpose");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)")
+                        .HasColumnName("token_hash");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("char(36)")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Purpose", "TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "Purpose", "ConsumedAt");
+
+                    b.ToTable("identity_tokens", (string)null);
                 });
 
             modelBuilder.Entity("PoolPredict.Api.Infrastructure.Persistence.PersistedMarket", b =>
@@ -160,11 +322,21 @@ namespace PoolPredict.Api.Infrastructure.Persistence.Migrations
                         .HasColumnType("varchar(128)")
                         .HasColumnName("external_id");
 
+                    b.Property<bool>("IsTestData")
+                        .HasColumnType("tinyint(1)")
+                        .HasColumnName("is_test_data");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("varchar(200)")
                         .HasColumnName("name");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("varchar(80)")
+                        .HasColumnName("provider");
 
                     b.Property<Guid>("TournamentId")
                         .HasColumnType("char(36)")
@@ -172,7 +344,7 @@ namespace PoolPredict.Api.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TournamentId", "ExternalId")
+                    b.HasIndex("TournamentId", "Provider", "ExternalId")
                         .IsUnique();
 
                     b.ToTable("participants", (string)null);
@@ -563,11 +735,21 @@ namespace PoolPredict.Api.Infrastructure.Persistence.Migrations
                         .HasColumnType("varchar(128)")
                         .HasColumnName("external_id");
 
+                    b.Property<bool>("IsTestData")
+                        .HasColumnType("tinyint(1)")
+                        .HasColumnName("is_test_data");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("varchar(200)")
                         .HasColumnName("name");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("varchar(80)")
+                        .HasColumnName("provider");
 
                     b.Property<string>("Sport")
                         .IsRequired()
@@ -581,7 +763,7 @@ namespace PoolPredict.Api.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ExternalId")
+                    b.HasIndex("Provider", "ExternalId")
                         .IsUnique();
 
                     b.ToTable("tournaments", (string)null);
@@ -610,6 +792,18 @@ namespace PoolPredict.Api.Infrastructure.Persistence.Migrations
                         .HasColumnType("varchar(320)")
                         .HasColumnName("email");
 
+                    b.Property<DateTimeOffset?>("EmailVerifiedAt")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("email_verified_at");
+
+                    b.Property<DateTimeOffset?>("LastLoginAt")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("last_login_at");
+
+                    b.Property<bool>("MustChangePassword")
+                        .HasColumnType("tinyint(1)")
+                        .HasColumnName("must_change_password");
+
                     b.Property<string>("NormalizedEmail")
                         .IsRequired()
                         .HasMaxLength(320)
@@ -625,6 +819,10 @@ namespace PoolPredict.Api.Infrastructure.Persistence.Migrations
                         .HasMaxLength(40)
                         .HasColumnType("varchar(40)")
                         .HasColumnName("role");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("updated_at");
 
                     b.HasKey("Id");
 

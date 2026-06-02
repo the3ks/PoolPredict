@@ -5,6 +5,8 @@ export type UserProfile = {
   email: string;
   displayName: string;
   role: string;
+  isEmailVerified: boolean;
+  mustChangePassword: boolean;
 };
 
 export type AuthResponse = {

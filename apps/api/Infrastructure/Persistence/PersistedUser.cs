@@ -11,4 +11,8 @@ public sealed class PersistedUser
     public UserRole Role { get; set; }
     public string? PasswordHash { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset? EmailVerifiedAt { get; set; }
+    public bool MustChangePassword { get; set; }
+    public DateTimeOffset? LastLoginAt { get; set; }
+    public DateTimeOffset? UpdatedAt { get; set; }
 }

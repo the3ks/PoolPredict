@@ -11,6 +11,10 @@ public sealed class TournamentCatalog
     private readonly List<Tournament> _tournaments = [];
     private readonly List<Participant> _participants = [];
     private readonly List<Event> _events = [];
+    private readonly Dictionary<Guid, ProviderSourceInfo> _tournamentSources = [];
+    private readonly Dictionary<Guid, ProviderSourceInfo> _participantSources = [];
+    private readonly Dictionary<Guid, ProviderSourceInfo> _eventSources = [];
+    private readonly Dictionary<Guid, EventManagementMode> _eventManagementModes = [];
     private readonly Dictionary<string, Guid> _tournamentExternalIds = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, Guid> _participantExternalIds = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, Guid> _eventExternalIds = new(StringComparer.OrdinalIgnoreCase);
@@ -31,6 +35,25 @@ public sealed class TournamentCatalog
         lock (_gate)
         {
             return _tournaments.ToArray();
+        }
+    }
+
+    public IReadOnlyCollection<TournamentResponse> GetTournamentResponses()
+    {
+        lock (_gate)
+        {
+            return _tournaments.Select(tournament =>
+            {
+                var source = _tournamentSources.GetValueOrDefault(tournament.Id, UnknownSource);
+                return new TournamentResponse(
+                    tournament.Id,
+                    tournament.Name,
+                    tournament.Sport,
+                    tournament.StartsOn,
+                    tournament.EndsOn,
+                    source.Provider,
+                    source.IsTestData);
+            }).ToArray();
         }
     }
 
@@ -58,11 +81,60 @@ public sealed class TournamentCatalog
         }
     }
 
+    public IReadOnlyCollection<EventResponse> GetEventResponses(Guid tournamentId)
+    {
+        lock (_gate)
+        {
+            return _events.Where(matchEvent => matchEvent.TournamentId == tournamentId)
+                .Select(matchEvent =>
+                {
+                    var source = _eventSources.GetValueOrDefault(matchEvent.Id, UnknownSource);
+                    return new EventResponse(
+                        matchEvent.Id,
+                        matchEvent.TournamentId,
+                        matchEvent.HomeParticipantId,
+                        matchEvent.AwayParticipantId,
+                        matchEvent.HomeParticipant,
+                        matchEvent.AwayParticipant,
+                        matchEvent.StartsAt,
+                        matchEvent.Status,
+                        source.Provider,
+                        source.IsTestData,
+                        _eventManagementModes.GetValueOrDefault(matchEvent.Id, EventManagementMode.Provider));
+                })
+                .ToArray();
+        }
+    }
+
     public Event? GetEvent(Guid eventId)
     {
         lock (_gate)
         {
             return _events.SingleOrDefault(matchEvent => matchEvent.Id == eventId);
+        }
+    }
+
+    public void SetEventState(Guid eventId, DateTimeOffset startsAt, EventStatus status, EventManagementMode managementMode)
+    {
+        lock (_gate)
+        {
+            var existing = _events.SingleOrDefault(matchEvent => matchEvent.Id == eventId);
+            if (existing is null)
+            {
+                return;
+            }
+
+            _events.RemoveAll(matchEvent => matchEvent.Id == eventId);
+            _events.Add(new Event(
+                existing.Id,
+                existing.TournamentId,
+                existing.HomeParticipantId,
+                existing.AwayParticipantId,
+                existing.HomeParticipant,
+                existing.AwayParticipant,
+                startsAt,
+                status));
+            _eventManagementModes[eventId] = managementMode;
         }
     }
 
@@ -108,6 +180,26 @@ public sealed class TournamentCatalog
                 _tournaments.AddRange(persisted.Tournaments);
                 _participants.AddRange(persisted.Participants);
                 _events.AddRange(persisted.Events);
+                foreach (var item in persisted.TournamentSources)
+                {
+                    _tournamentSources[item.Key] = item.Value;
+                }
+
+                foreach (var item in persisted.ParticipantSources)
+                {
+                    _participantSources[item.Key] = item.Value;
+                }
+
+                foreach (var item in persisted.EventSources)
+                {
+                    _eventSources[item.Key] = item.Value;
+                }
+
+                foreach (var item in persisted.EventManagementModes)
+                {
+                    _eventManagementModes[item.Key] = item.Value;
+                }
+
                 foreach (var item in persisted.TournamentExternalIds)
                 {
                     _tournamentExternalIds[item.Key] = item.Value;
@@ -145,24 +237,19 @@ public sealed class TournamentCatalog
     {
         var tournaments = (await _provider.GetTournamentsAsync(cancellationToken)).ToArray();
         var syncedTournaments = new List<(Tournament Tournament, string ExternalId)>();
-        var syncedParticipants = new List<(Participant Participant, string ExternalId)>();
-        var syncedEvents = new List<(Event Event, string ExternalId)>();
+        var syncedParticipants = new List<(Participant Participant, string TournamentExternalId, string ExternalId)>();
+        var syncedEvents = new List<(Event Event, string TournamentExternalId, string ExternalId)>();
         var existingTournamentIds = new Dictionary<string, Guid>(_tournamentExternalIds, StringComparer.OrdinalIgnoreCase);
         var existingParticipantIds = new Dictionary<string, Guid>(_participantExternalIds, StringComparer.OrdinalIgnoreCase);
         var existingEventIds = new Dictionary<string, Guid>(_eventExternalIds, StringComparer.OrdinalIgnoreCase);
+        var source = new ProviderSourceInfo(_providerName, IsMockProvider());
 
         lock (_gate)
         {
-            _tournamentExternalIds.Clear();
-            _participantExternalIds.Clear();
-            _eventExternalIds.Clear();
-            _tournaments.Clear();
-            _participants.Clear();
-            _events.Clear();
-
             foreach (var tournamentDto in tournaments)
             {
-                var tournamentId = existingTournamentIds.GetValueOrDefault(tournamentDto.ExternalId, Ids.NewId());
+                var key = TournamentKey(_providerName, tournamentDto.ExternalId);
+                var tournamentId = existingTournamentIds.GetValueOrDefault(key, Ids.NewId());
                 var tournament = new Tournament(
                     tournamentId,
                     tournamentDto.Name,
@@ -170,7 +257,9 @@ public sealed class TournamentCatalog
                     tournamentDto.StartsOn,
                     tournamentDto.EndsOn);
 
-                _tournamentExternalIds[tournamentDto.ExternalId] = tournamentId;
+                _tournaments.RemoveAll(item => item.Id == tournamentId);
+                _tournamentExternalIds[key] = tournamentId;
+                _tournamentSources[tournamentId] = source;
                 _tournaments.Add(tournament);
                 syncedTournaments.Add((tournament, tournamentDto.ExternalId));
             }
@@ -178,7 +267,7 @@ public sealed class TournamentCatalog
 
         foreach (var tournamentDto in tournaments)
         {
-            var tournamentId = _tournamentExternalIds[tournamentDto.ExternalId];
+            var tournamentId = _tournamentExternalIds[TournamentKey(_providerName, tournamentDto.ExternalId)];
             var participants = await _provider.GetParticipantsAsync(tournamentDto.ExternalId, cancellationToken);
             var events = await _provider.GetEventsAsync(tournamentDto.ExternalId, cancellationToken);
 
@@ -186,7 +275,8 @@ public sealed class TournamentCatalog
             {
                 foreach (var participantDto in participants)
                 {
-                    var participantId = existingParticipantIds.GetValueOrDefault(participantDto.ExternalId, Ids.NewId());
+                    var key = ParticipantKey(_providerName, tournamentId, participantDto.ExternalId);
+                    var participantId = existingParticipantIds.GetValueOrDefault(key, Ids.NewId());
                     var participant = new Participant(
                         participantId,
                         tournamentId,
@@ -194,18 +284,26 @@ public sealed class TournamentCatalog
                         participantDto.Code,
                         participantDto.Country);
 
-                    _participantExternalIds[participantDto.ExternalId] = participantId;
+                    _participants.RemoveAll(item => item.Id == participantId);
+                    _participantExternalIds[key] = participantId;
+                    _participantSources[participantId] = source;
                     _participants.Add(participant);
-                    syncedParticipants.Add((participant, participantDto.ExternalId));
+                    syncedParticipants.Add((participant, tournamentDto.ExternalId, participantDto.ExternalId));
                 }
 
                 foreach (var eventDto in events)
                 {
-                    var homeParticipantId = _participantExternalIds[eventDto.HomeParticipantExternalId];
-                    var awayParticipantId = _participantExternalIds[eventDto.AwayParticipantExternalId];
+                    var homeParticipantId = _participantExternalIds[ParticipantKey(_providerName, tournamentId, eventDto.HomeParticipantExternalId)];
+                    var awayParticipantId = _participantExternalIds[ParticipantKey(_providerName, tournamentId, eventDto.AwayParticipantExternalId)];
                     var homeParticipant = _participants.Single(participant => participant.Id == homeParticipantId);
                     var awayParticipant = _participants.Single(participant => participant.Id == awayParticipantId);
-                    var eventId = existingEventIds.GetValueOrDefault(eventDto.ExternalId, Ids.NewId());
+                    var key = EventKey(_providerName, tournamentId, eventDto.ExternalId);
+                    var eventId = existingEventIds.GetValueOrDefault(key, Ids.NewId());
+                    if (_eventManagementModes.GetValueOrDefault(eventId, EventManagementMode.Provider) == EventManagementMode.Manual)
+                    {
+                        continue;
+                    }
+
                     var matchEvent = new Event(
                         eventId,
                         tournamentId,
@@ -216,13 +314,27 @@ public sealed class TournamentCatalog
                         eventDto.StartsAt,
                         eventDto.Status);
 
-                    _eventExternalIds[eventDto.ExternalId] = eventId;
+                    _events.RemoveAll(item => item.Id == eventId);
+                    _eventExternalIds[key] = eventId;
+                    _eventSources[eventId] = source;
+                    _eventManagementModes[eventId] = EventManagementMode.Provider;
                     _events.Add(matchEvent);
-                    syncedEvents.Add((matchEvent, eventDto.ExternalId));
+                    syncedEvents.Add((matchEvent, tournamentDto.ExternalId, eventDto.ExternalId));
                 }
             }
         }
 
-        return new TournamentSyncSnapshot(syncedTournaments, syncedParticipants, syncedEvents);
+        return new TournamentSyncSnapshot(_providerName, IsMockProvider(), syncedTournaments, syncedParticipants, syncedEvents);
     }
+
+    private static readonly ProviderSourceInfo UnknownSource = new("Unknown", false);
+
+    private static string TournamentKey(string provider, string externalId) =>
+        $"{provider}::{externalId}";
+
+    private static string ParticipantKey(string provider, Guid tournamentId, string externalId) =>
+        $"{provider}::{tournamentId:N}::{externalId}";
+
+    private static string EventKey(string provider, Guid tournamentId, string externalId) =>
+        $"{provider}::{tournamentId:N}::{externalId}";
 }

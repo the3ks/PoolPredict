@@ -1,0 +1,184 @@
+using System.Security.Claims;
+using Microsoft.EntityFrameworkCore;
+using PoolPredict.Api.Modules.Email;
+using PoolPredict.Api.Modules.Identity;
+using PoolPredict.Api.Infrastructure.Persistence;
+
+namespace PoolPredict.Api.Modules.Admin;
+
+public static class AdminEndpoints
+{
+    public static IEndpointRouteBuilder MapAdminEndpoints(this IEndpointRouteBuilder app)
+    {
+        var group = app.MapGroup("/api/admin").RequireAuthorization();
+
+        group.MapGet("/users", (string? search, ClaimsPrincipal principal, IdentityStore users) =>
+        {
+            if (!IsPlatformAdmin(principal))
+            {
+                return Results.Forbid();
+            }
+
+            return Results.Ok(users.GetUsers(search));
+        });
+
+        group.MapGet("/pools", async (
+            ClaimsPrincipal principal,
+            IDbContextFactory<PoolPredictDbContext> dbContextFactory,
+            CancellationToken cancellationToken) =>
+        {
+            if (!IsPlatformAdmin(principal))
+            {
+                return Results.Forbid();
+            }
+
+            await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+            var rows = await (
+                from pool in db.Pools.AsNoTracking()
+                join owner in db.Users.AsNoTracking()
+                    on pool.OwnerUserId equals owner.Id
+                join tournament in db.Tournaments.AsNoTracking()
+                    on pool.TournamentId equals tournament.Id
+                select new
+                {
+                    pool.Id,
+                    pool.Name,
+                    pool.OwnerUserId,
+                    OwnerDisplayName = owner.DisplayName,
+                    OwnerEmail = owner.Email,
+                    pool.TournamentId,
+                    TournamentName = tournament.Name,
+                    tournament.Provider,
+                    tournament.IsTestData,
+                    pool.Profile,
+                    pool.StartingBalance,
+                    MemberCount = db.PoolMembers.Count(member => member.PoolId == pool.Id),
+                    InviteCount = db.PoolInvites.Count(invite => invite.PoolId == pool.Id)
+                })
+                .OrderBy(pool => pool.Name)
+                .Take(200)
+                .ToArrayAsync(cancellationToken);
+
+            var pools = rows
+                .Select(pool => new AdminPoolResponse(
+                    pool.Id,
+                    pool.Name,
+                    pool.OwnerUserId,
+                    pool.OwnerDisplayName,
+                    pool.OwnerEmail,
+                    pool.TournamentId,
+                    pool.TournamentName,
+                    pool.Provider,
+                    pool.IsTestData,
+                    pool.Profile.ToString(),
+                    pool.StartingBalance,
+                    pool.MemberCount,
+                    pool.InviteCount))
+                .ToArray();
+
+            return Results.Ok(pools);
+        });
+
+        group.MapPost("/users/{userId:guid}/password-reset", (Guid userId, ClaimsPrincipal principal, IdentityStore users) =>
+        {
+            if (!IsPlatformAdmin(principal))
+            {
+                return Results.Forbid();
+            }
+
+            try
+            {
+                var temporaryPassword = users.AdminResetPassword(userId);
+                return Results.Ok(new AdminPasswordResetResponse(
+                    "Password reset. Share this temporary password with the user; they should change it after logging in.",
+                    temporaryPassword));
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.NotFound(new { error = ex.Message });
+            }
+        });
+
+        group.MapPost("/users/{userId:guid}/verify-email", (Guid userId, ClaimsPrincipal principal, IdentityStore users) =>
+        {
+            if (!IsPlatformAdmin(principal))
+            {
+                return Results.Forbid();
+            }
+
+            try
+            {
+                return Results.Ok(users.AdminMarkEmailVerified(userId));
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.NotFound(new { error = ex.Message });
+            }
+        });
+
+        group.MapGet("/email-settings", (ClaimsPrincipal principal, EmailSettingsStore settings) =>
+        {
+            if (!IsPlatformAdmin(principal))
+            {
+                return Results.Forbid();
+            }
+
+            return Results.Ok(settings.Get());
+        });
+
+        group.MapPut("/email-settings", (UpdateEmailSettingsRequest request, ClaimsPrincipal principal, EmailSettingsStore settings) =>
+        {
+            if (!IsPlatformAdmin(principal))
+            {
+                return Results.Forbid();
+            }
+
+            try
+            {
+                return Results.Ok(settings.Save(request));
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+        });
+
+        group.MapPost("/email-settings/test", async (TestEmailRequest request, ClaimsPrincipal principal, SmtpEmailSender emailSender) =>
+        {
+            if (!IsPlatformAdmin(principal))
+            {
+                return Results.Forbid();
+            }
+
+            var result = await emailSender.SendAsync(
+                request.ToEmail,
+                "PoolPredict SMTP test",
+                "PoolPredict SMTP settings are working.");
+
+            return result.Sent
+                ? Results.Ok(new { message = result.Message })
+                : Results.BadRequest(new { error = result.Message });
+        });
+
+        return app;
+    }
+
+    private static bool IsPlatformAdmin(ClaimsPrincipal principal) => principal.IsInRole("PlatformAdmin");
+}
+
+public sealed record AdminPasswordResetResponse(string Message, string TemporaryPassword);
+
+public sealed record AdminPoolResponse(
+    Guid Id,
+    string Name,
+    Guid OwnerUserId,
+    string OwnerDisplayName,
+    string OwnerEmail,
+    Guid TournamentId,
+    string TournamentName,
+    string Provider,
+    bool IsTestData,
+    string Profile,
+    int StartingBalance,
+    int MemberCount,
+    int InviteCount);

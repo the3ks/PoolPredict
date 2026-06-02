@@ -116,6 +116,7 @@ The current schema covers:
 * `tournaments`
 * `participants`
 * `events`
+* `event_results`
 * `pools`
 * `pool_members`
 * `pool_invites`
@@ -126,6 +127,8 @@ The current schema covers:
 * `payout_configuration_market_rules`
 * `settlement_runs`
 * `settlement_logs`
+
+Provider-originated tournament tables include provider/source metadata so Mock test data and real provider data can coexist without external ID collisions. Events also store `management_mode` so PlatformAdmin can switch individual events between provider-managed and manually managed behavior.
 
 ## Development Admin
 
@@ -157,12 +160,12 @@ Mock provider is the default. To use football-data.org for tournament import, co
 }
 ```
 
-PlatformAdmin users can trigger provider sync from `/app/admin`.
+PlatformAdmin users can trigger provider sync from `/admin/provider`.
 
 Startup behavior:
 
 * `Mock` provider auto-seeds when the database has no tournament data.
-* `FootballData` provider does not auto-sync on empty database startup. Use `/app/admin` and click Sync provider so real external imports are explicit.
+* `FootballData` provider does not auto-sync on empty database startup. Use `/admin/provider` and click Sync provider so real external imports are explicit.
 
 Do not commit real API tokens. Keep them in `apps/api/appsettings.Development.json`, user secrets or environment variables.
 

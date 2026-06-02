@@ -7,7 +7,7 @@ The MVP focuses on:
 * FIFA World Cup 2026
 * Virtual points only
 * Automatic market generation
-* Automatic settlement
+* Manual PlatformAdmin settlement for MVP
 * Global Point Payout Configuration managed by Platform Admin
 
 ## Repository Layout
@@ -93,7 +93,7 @@ dotnet ef database update --project apps/api/PoolPredict.Api.csproj --startup-pr
 dotnet run --project apps/api/PoolPredict.Api.csproj
 ```
 
-The API expects `ConnectionStrings:MariaDb` to be configured and the database schema to already be migrated; it does not run migrations at startup. See [docs/DatabaseInitialization.md](docs/DatabaseInitialization.md) for detailed local MariaDB setup.
+The API expects `ConnectionStrings:MariaDb` to be configured and the database schema to already be migrated; it does not run migrations at startup. After the Sprint 7 event-management changes, apply the pending migration before testing admin settlement or provider/manual event mode changes. See [docs/DatabaseInitialization.md](docs/DatabaseInitialization.md) for detailed local MariaDB setup.
 
 The tournament provider defaults to `Mock`. To use football-data.org, set `EventProvider:Provider` to `FootballData` and configure `EventProvider:FootballData:ApiToken`. Platform admins can inspect and trigger provider sync from `/app/admin`.
 

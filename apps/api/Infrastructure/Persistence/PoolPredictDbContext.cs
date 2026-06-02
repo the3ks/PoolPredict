@@ -10,9 +10,15 @@ public sealed class PoolPredictDbContext(DbContextOptions<PoolPredictDbContext> 
 
     public DbSet<PersistedEvent> Events => Set<PersistedEvent>();
 
+    public DbSet<PersistedEventResult> EventResults => Set<PersistedEventResult>();
+
     public DbSet<PersistedUser> Users => Set<PersistedUser>();
 
     public DbSet<PersistedUserExternalLogin> UserExternalLogins => Set<PersistedUserExternalLogin>();
+
+    public DbSet<PersistedIdentityToken> IdentityTokens => Set<PersistedIdentityToken>();
+
+    public DbSet<PersistedEmailSettings> EmailSettings => Set<PersistedEmailSettings>();
 
     public DbSet<PersistedPool> Pools => Set<PersistedPool>();
 
@@ -40,9 +46,11 @@ public sealed class PoolPredictDbContext(DbContextOptions<PoolPredictDbContext> 
         {
             entity.ToTable("tournaments");
             entity.HasKey(tournament => tournament.Id);
-            entity.HasIndex(tournament => tournament.ExternalId).IsUnique();
+            entity.HasIndex(tournament => new { tournament.Provider, tournament.ExternalId }).IsUnique();
             entity.Property(tournament => tournament.Id).HasColumnName("id");
             entity.Property(tournament => tournament.ExternalId).HasColumnName("external_id").HasMaxLength(128);
+            entity.Property(tournament => tournament.Provider).HasColumnName("provider").HasMaxLength(80);
+            entity.Property(tournament => tournament.IsTestData).HasColumnName("is_test_data");
             entity.Property(tournament => tournament.Name).HasColumnName("name").HasMaxLength(200);
             entity.Property(tournament => tournament.Sport).HasColumnName("sport").HasMaxLength(80);
             entity.Property(tournament => tournament.StartsOn).HasColumnName("starts_on");
@@ -53,10 +61,12 @@ public sealed class PoolPredictDbContext(DbContextOptions<PoolPredictDbContext> 
         {
             entity.ToTable("participants");
             entity.HasKey(participant => participant.Id);
-            entity.HasIndex(participant => new { participant.TournamentId, participant.ExternalId }).IsUnique();
+            entity.HasIndex(participant => new { participant.TournamentId, participant.Provider, participant.ExternalId }).IsUnique();
             entity.Property(participant => participant.Id).HasColumnName("id");
             entity.Property(participant => participant.TournamentId).HasColumnName("tournament_id");
             entity.Property(participant => participant.ExternalId).HasColumnName("external_id").HasMaxLength(128);
+            entity.Property(participant => participant.Provider).HasColumnName("provider").HasMaxLength(80);
+            entity.Property(participant => participant.IsTestData).HasColumnName("is_test_data");
             entity.Property(participant => participant.Name).HasColumnName("name").HasMaxLength(200);
             entity.Property(participant => participant.Code).HasColumnName("code").HasMaxLength(16);
             entity.Property(participant => participant.Country).HasColumnName("country").HasMaxLength(120);
@@ -66,17 +76,34 @@ public sealed class PoolPredictDbContext(DbContextOptions<PoolPredictDbContext> 
         {
             entity.ToTable("events");
             entity.HasKey(matchEvent => matchEvent.Id);
-            entity.HasIndex(matchEvent => new { matchEvent.TournamentId, matchEvent.ExternalId }).IsUnique();
+            entity.HasIndex(matchEvent => new { matchEvent.TournamentId, matchEvent.Provider, matchEvent.ExternalId }).IsUnique();
             entity.HasIndex(matchEvent => matchEvent.StartsAt);
             entity.Property(matchEvent => matchEvent.Id).HasColumnName("id");
             entity.Property(matchEvent => matchEvent.TournamentId).HasColumnName("tournament_id");
             entity.Property(matchEvent => matchEvent.HomeParticipantId).HasColumnName("home_participant_id");
             entity.Property(matchEvent => matchEvent.AwayParticipantId).HasColumnName("away_participant_id");
             entity.Property(matchEvent => matchEvent.ExternalId).HasColumnName("external_id").HasMaxLength(128);
+            entity.Property(matchEvent => matchEvent.Provider).HasColumnName("provider").HasMaxLength(80);
+            entity.Property(matchEvent => matchEvent.IsTestData).HasColumnName("is_test_data");
+            entity.Property(matchEvent => matchEvent.ManagementMode).HasColumnName("management_mode").HasConversion<string>().HasMaxLength(40);
             entity.Property(matchEvent => matchEvent.HomeParticipant).HasColumnName("home_participant").HasMaxLength(200);
             entity.Property(matchEvent => matchEvent.AwayParticipant).HasColumnName("away_participant").HasMaxLength(200);
             entity.Property(matchEvent => matchEvent.StartsAt).HasColumnName("starts_at");
             entity.Property(matchEvent => matchEvent.Status).HasColumnName("status").HasConversion<string>().HasMaxLength(40);
+        });
+
+        modelBuilder.Entity<PersistedEventResult>(entity =>
+        {
+            entity.ToTable("event_results");
+            entity.HasKey(result => result.Id);
+            entity.HasIndex(result => result.EventId).IsUnique();
+            entity.Property(result => result.Id).HasColumnName("id");
+            entity.Property(result => result.EventId).HasColumnName("event_id");
+            entity.Property(result => result.FullTimeHomeScore).HasColumnName("full_time_home_score");
+            entity.Property(result => result.FullTimeAwayScore).HasColumnName("full_time_away_score");
+            entity.Property(result => result.FirstHalfHomeScore).HasColumnName("first_half_home_score");
+            entity.Property(result => result.FirstHalfAwayScore).HasColumnName("first_half_away_score");
+            entity.Property(result => result.RecordedAt).HasColumnName("recorded_at");
         });
 
         modelBuilder.Entity<PersistedUser>(entity =>
@@ -91,6 +118,10 @@ public sealed class PoolPredictDbContext(DbContextOptions<PoolPredictDbContext> 
             entity.Property(user => user.Role).HasColumnName("role").HasConversion<string>().HasMaxLength(40);
             entity.Property(user => user.PasswordHash).HasColumnName("password_hash");
             entity.Property(user => user.CreatedAt).HasColumnName("created_at");
+            entity.Property(user => user.EmailVerifiedAt).HasColumnName("email_verified_at");
+            entity.Property(user => user.MustChangePassword).HasColumnName("must_change_password");
+            entity.Property(user => user.LastLoginAt).HasColumnName("last_login_at");
+            entity.Property(user => user.UpdatedAt).HasColumnName("updated_at");
         });
 
         modelBuilder.Entity<PersistedUserExternalLogin>(entity =>
@@ -102,6 +133,38 @@ public sealed class PoolPredictDbContext(DbContextOptions<PoolPredictDbContext> 
             entity.Property(login => login.UserId).HasColumnName("user_id");
             entity.Property(login => login.Provider).HasColumnName("provider").HasMaxLength(80);
             entity.Property(login => login.ProviderUserId).HasColumnName("provider_user_id").HasMaxLength(200);
+        });
+
+        modelBuilder.Entity<PersistedIdentityToken>(entity =>
+        {
+            entity.ToTable("identity_tokens");
+            entity.HasKey(token => token.Id);
+            entity.HasIndex(token => new { token.Purpose, token.TokenHash }).IsUnique();
+            entity.HasIndex(token => new { token.UserId, token.Purpose, token.ConsumedAt });
+            entity.Property(token => token.Id).HasColumnName("id");
+            entity.Property(token => token.UserId).HasColumnName("user_id");
+            entity.Property(token => token.Purpose).HasColumnName("purpose").HasMaxLength(80);
+            entity.Property(token => token.TokenHash).HasColumnName("token_hash").HasMaxLength(128);
+            entity.Property(token => token.ExpiresAt).HasColumnName("expires_at");
+            entity.Property(token => token.CreatedAt).HasColumnName("created_at");
+            entity.Property(token => token.ConsumedAt).HasColumnName("consumed_at");
+        });
+
+        modelBuilder.Entity<PersistedEmailSettings>(entity =>
+        {
+            entity.ToTable("email_settings");
+            entity.HasKey(settings => settings.Id);
+            entity.Property(settings => settings.Id).HasColumnName("id");
+            entity.Property(settings => settings.Provider).HasColumnName("provider").HasMaxLength(80);
+            entity.Property(settings => settings.Host).HasColumnName("host").HasMaxLength(200);
+            entity.Property(settings => settings.Port).HasColumnName("port");
+            entity.Property(settings => settings.Username).HasColumnName("username").HasMaxLength(200);
+            entity.Property(settings => settings.Password).HasColumnName("password");
+            entity.Property(settings => settings.FromEmail).HasColumnName("from_email").HasMaxLength(320);
+            entity.Property(settings => settings.FromName).HasColumnName("from_name").HasMaxLength(200);
+            entity.Property(settings => settings.UseStartTls).HasColumnName("use_start_tls");
+            entity.Property(settings => settings.IsEnabled).HasColumnName("is_enabled");
+            entity.Property(settings => settings.UpdatedAt).HasColumnName("updated_at");
         });
 
         modelBuilder.Entity<PersistedPool>(entity =>

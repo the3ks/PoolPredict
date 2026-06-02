@@ -46,7 +46,7 @@ public static class PredictionEndpoints
             var member = pools.GetMember(poolId, userId);
             return member is null
                 ? Results.Forbid()
-                : Results.Ok(predictions.GetMemberPredictions(poolId, member.Id));
+                : Results.Ok(predictions.GetMemberPredictionHistory(poolId, member.Id));
         }).RequireAuthorization();
 
         group.MapGet("/balance", (Guid poolId, ClaimsPrincipal principal, PredictionStore predictions, PoolStore pools) =>
@@ -60,6 +60,19 @@ public static class PredictionEndpoints
             return pool is null
                 ? Results.Forbid()
                 : Results.Ok(new { poolId, memberId = pool.MemberId, balance = predictions.GetBalance(pool) });
+        }).RequireAuthorization();
+
+        group.MapGet("/pool/{poolId:guid}/leaderboard", (Guid poolId, ClaimsPrincipal principal, PredictionStore predictions, PoolStore pools) =>
+        {
+            if (!TryGetUserId(principal, out var userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var pool = pools.GetPoolForUser(poolId, userId);
+            return pool is null
+                ? Results.Forbid()
+                : Results.Ok(predictions.GetLeaderboard(poolId, pool.StartingBalance));
         }).RequireAuthorization();
 
         return app;

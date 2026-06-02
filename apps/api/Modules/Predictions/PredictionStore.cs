@@ -107,6 +107,130 @@ public sealed class PredictionStore
         }
     }
 
+    public IReadOnlyCollection<PredictionHistoryResponse> GetMemberPredictionHistory(Guid poolId, Guid memberId)
+    {
+        using var db = _dbContextFactory.CreateDbContext();
+        var predictions = db.Predictions
+            .AsNoTracking()
+            .Where(prediction => prediction.PoolId == poolId && prediction.MemberId == memberId)
+            .OrderByDescending(prediction => prediction.SubmittedAt)
+            .ToArray();
+        var predictionIds = predictions.Select(prediction => prediction.Id).ToList();
+        var marketIds = predictions.Select(prediction => prediction.MarketId).Distinct().ToList();
+        var markets = db.Markets
+            .AsNoTracking()
+            .Where(market => marketIds.Contains(market.Id))
+            .ToDictionary(market => market.Id);
+        var settlementCredits = db.PointLedger
+            .AsNoTracking()
+            .Where(entry => entry.PredictionId != null
+                && predictionIds.Contains(entry.PredictionId.Value)
+                && (entry.Reason == PointLedgerReason.SettlementPayout
+                    || entry.Reason == PointLedgerReason.SettlementRefund
+                    || entry.Reason == PointLedgerReason.AdminCorrection))
+            .GroupBy(entry => entry.PredictionId!.Value)
+            .Select(group => new { PredictionId = group.Key, Points = group.Sum(entry => entry.Points) })
+            .ToDictionary(item => item.PredictionId, item => item.Points);
+
+        return predictions.Select(prediction =>
+        {
+            var market = markets.GetValueOrDefault(prediction.MarketId);
+            var credit = settlementCredits.GetValueOrDefault(prediction.Id);
+            var outcome = ResolveOutcome(prediction.Stake, credit, market?.Status);
+            return new PredictionHistoryResponse(
+                prediction.Id,
+                prediction.PoolId,
+                prediction.MemberId,
+                prediction.MarketId,
+                prediction.SelectedOption,
+                prediction.Stake,
+                prediction.MarketType,
+                prediction.MarketPeriod,
+                prediction.LineValueSnapshot,
+                prediction.PayoutMultiplierSnapshot,
+                prediction.PayoutConfigurationVersionSnapshot,
+                prediction.SubmittedAt,
+                market?.Status,
+                outcome,
+                credit,
+                credit - prediction.Stake);
+        }).ToArray();
+    }
+
+    public IReadOnlyCollection<LeaderboardEntryResponse> GetLeaderboard(Guid poolId, int startingBalance)
+    {
+        using var db = _dbContextFactory.CreateDbContext();
+        var members = db.PoolMembers
+            .AsNoTracking()
+            .Where(member => member.PoolId == poolId)
+            .Join(
+                db.Users.AsNoTracking(),
+                member => member.UserId,
+                user => user.Id,
+                (member, user) => new { Member = member, User = user })
+            .ToArray();
+        var memberIds = members.Select(item => item.Member.Id).ToList();
+        var balances = db.PointLedger
+            .AsNoTracking()
+            .Where(entry => entry.PoolId == poolId && memberIds.Contains(entry.MemberId))
+            .GroupBy(entry => entry.MemberId)
+            .Select(group => new { MemberId = group.Key, Balance = group.Sum(entry => entry.Points) })
+            .ToDictionary(item => item.MemberId, item => item.Balance);
+        var predictions = db.Predictions
+            .AsNoTracking()
+            .Where(prediction => prediction.PoolId == poolId && memberIds.Contains(prediction.MemberId))
+            .ToArray();
+        var predictionIds = predictions.Select(prediction => prediction.Id).ToList();
+        var marketIds = predictions.Select(prediction => prediction.MarketId).Distinct().ToList();
+        var marketStatuses = db.Markets
+            .AsNoTracking()
+            .Where(market => marketIds.Contains(market.Id))
+            .ToDictionary(market => market.Id, market => market.Status);
+        var settlementCredits = db.PointLedger
+            .AsNoTracking()
+            .Where(entry => entry.PredictionId != null
+                && predictionIds.Contains(entry.PredictionId.Value)
+                && (entry.Reason == PointLedgerReason.SettlementPayout
+                    || entry.Reason == PointLedgerReason.SettlementRefund
+                    || entry.Reason == PointLedgerReason.AdminCorrection))
+            .GroupBy(entry => entry.PredictionId!.Value)
+            .Select(group => new { PredictionId = group.Key, Points = group.Sum(entry => entry.Points) })
+            .ToDictionary(item => item.PredictionId, item => item.Points);
+
+        return members.Select(item =>
+            {
+                var memberPredictions = predictions.Where(prediction => prediction.MemberId == item.Member.Id).ToArray();
+                var settledPredictions = memberPredictions
+                    .Where(prediction => marketStatuses.GetValueOrDefault(prediction.MarketId) is MarketStatus.Settled or MarketStatus.Voided)
+                    .ToArray();
+                var wonPredictions = settledPredictions.Count(prediction =>
+                    ResolveOutcome(
+                        prediction.Stake,
+                        settlementCredits.GetValueOrDefault(prediction.Id),
+                        marketStatuses.GetValueOrDefault(prediction.MarketId)) is "Win" or "HalfWin");
+                var settledStake = settledPredictions.Sum(prediction => prediction.Stake);
+                var settledNet = settledPredictions.Sum(prediction =>
+                    settlementCredits.GetValueOrDefault(prediction.Id) - prediction.Stake);
+                var roi = settledStake == 0 ? 0m : Math.Round(settledNet / (decimal)settledStake * 100m, 2);
+
+                return new LeaderboardEntryResponse(
+                    item.Member.Id,
+                    item.Member.UserId,
+                    string.IsNullOrWhiteSpace(item.User.DisplayName) ? item.User.Email : item.User.DisplayName,
+                    item.Member.Role.ToString(),
+                    balances.GetValueOrDefault(item.Member.Id, startingBalance),
+                    memberPredictions.Length,
+                    settledPredictions.Length,
+                    wonPredictions,
+                    settledPredictions.Length == 0 ? 0m : Math.Round(wonPredictions / (decimal)settledPredictions.Length * 100m, 2),
+                    roi);
+            })
+            .OrderByDescending(entry => entry.Balance)
+            .ThenByDescending(entry => entry.Roi)
+            .ThenBy(entry => entry.DisplayName)
+            .ToArray();
+    }
+
     public int GetBalance(Guid poolId, Guid memberId)
     {
         lock (_gate)
@@ -121,6 +245,28 @@ public sealed class PredictionStore
         {
             EnsureMemberInitialized(pool.Id, pool.MemberId, pool.StartingBalance);
             return GetBalanceUnsafe(pool.Id, pool.MemberId);
+        }
+    }
+
+    public void AddPersistedLedgerEntries(IReadOnlyCollection<PersistedPointLedgerEntry> entries)
+    {
+        lock (_gate)
+        {
+            foreach (var entry in entries)
+            {
+                if (_ledger.Any(candidate => candidate.Id == entry.Id))
+                {
+                    continue;
+                }
+
+                _ledger.Add(new PointLedgerEntry(
+                    entry.Id,
+                    entry.PoolId,
+                    entry.MemberId,
+                    entry.Points,
+                    entry.Reason,
+                    entry.PredictionId));
+            }
         }
     }
 
@@ -223,4 +369,64 @@ public sealed class PredictionStore
         PredictionId = entry.PredictionId,
         CreatedAt = entry.CreatedAt
     };
+
+    private static string ResolveOutcome(int stake, int settlementCredit, MarketStatus? marketStatus)
+    {
+        if (marketStatus is null or MarketStatus.Open or MarketStatus.Locked or MarketStatus.Draft)
+        {
+            return "Pending";
+        }
+
+        if (marketStatus == MarketStatus.Voided)
+        {
+            return "Cancelled";
+        }
+
+        if (settlementCredit == 0)
+        {
+            return "Lose";
+        }
+
+        if (settlementCredit < stake)
+        {
+            return "HalfLose";
+        }
+
+        if (settlementCredit == stake)
+        {
+            return "Push";
+        }
+
+        return settlementCredit < stake * 2 ? "HalfWin" : "Win";
+    }
 }
+
+public sealed record PredictionHistoryResponse(
+    Guid Id,
+    Guid PoolId,
+    Guid MemberId,
+    Guid MarketId,
+    string SelectedOption,
+    int Stake,
+    MarketType MarketType,
+    MarketPeriod MarketPeriod,
+    decimal? LineValueSnapshot,
+    decimal PayoutMultiplierSnapshot,
+    int PayoutConfigurationVersionSnapshot,
+    DateTimeOffset SubmittedAt,
+    MarketStatus? MarketStatus,
+    string Outcome,
+    int SettlementCredit,
+    int NetPoints);
+
+public sealed record LeaderboardEntryResponse(
+    Guid MemberId,
+    Guid UserId,
+    string DisplayName,
+    string Role,
+    int Balance,
+    int PredictionCount,
+    int SettledPredictionCount,
+    int WinCount,
+    decimal WinRate,
+    decimal Roi);

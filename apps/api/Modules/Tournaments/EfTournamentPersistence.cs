@@ -30,9 +30,13 @@ public sealed class EfTournamentPersistence(IDbContextFactory<PoolPredictDbConte
                 matchEvent.AwayParticipant,
                 matchEvent.StartsAt,
                 matchEvent.Status)).ToArray(),
-            tournaments.ToDictionary(tournament => tournament.ExternalId, tournament => tournament.Id, StringComparer.OrdinalIgnoreCase),
-            participants.ToDictionary(participant => participant.ExternalId, participant => participant.Id, StringComparer.OrdinalIgnoreCase),
-            events.ToDictionary(matchEvent => matchEvent.ExternalId, matchEvent => matchEvent.Id, StringComparer.OrdinalIgnoreCase));
+            tournaments.ToDictionary(tournament => tournament.Id, tournament => new ProviderSourceInfo(tournament.Provider, tournament.IsTestData)),
+            participants.ToDictionary(participant => participant.Id, participant => new ProviderSourceInfo(participant.Provider, participant.IsTestData)),
+            events.ToDictionary(matchEvent => matchEvent.Id, matchEvent => new ProviderSourceInfo(matchEvent.Provider, matchEvent.IsTestData)),
+            events.ToDictionary(matchEvent => matchEvent.Id, matchEvent => matchEvent.ManagementMode),
+            tournaments.ToDictionary(tournament => TournamentKey(tournament.Provider, tournament.ExternalId), tournament => tournament.Id, StringComparer.OrdinalIgnoreCase),
+            participants.ToDictionary(participant => ParticipantKey(participant.Provider, participant.TournamentId, participant.ExternalId), participant => participant.Id, StringComparer.OrdinalIgnoreCase),
+            events.ToDictionary(matchEvent => EventKey(matchEvent.Provider, matchEvent.TournamentId, matchEvent.ExternalId), matchEvent => matchEvent.Id, StringComparer.OrdinalIgnoreCase));
     }
 
     public async Task SaveAsync(TournamentSyncSnapshot snapshot, CancellationToken cancellationToken = default)
@@ -40,13 +44,23 @@ public sealed class EfTournamentPersistence(IDbContextFactory<PoolPredictDbConte
         await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         foreach (var item in snapshot.Tournaments)
         {
-            var persisted = await db.Tournaments.SingleOrDefaultAsync(tournament => tournament.ExternalId == item.ExternalId, cancellationToken);
+            var persisted = await db.Tournaments.SingleOrDefaultAsync(tournament =>
+                tournament.Provider == snapshot.Provider && tournament.ExternalId == item.ExternalId,
+                cancellationToken);
             if (persisted is null)
             {
-                persisted = new PersistedTournament { Id = item.Tournament.Id, ExternalId = item.ExternalId };
+                persisted = new PersistedTournament
+                {
+                    Id = item.Tournament.Id,
+                    ExternalId = item.ExternalId,
+                    Provider = snapshot.Provider,
+                    IsTestData = snapshot.IsTestData
+                };
                 db.Tournaments.Add(persisted);
             }
 
+            persisted.Provider = snapshot.Provider;
+            persisted.IsTestData = snapshot.IsTestData;
             persisted.Name = item.Tournament.Name;
             persisted.Sport = item.Tournament.Sport;
             persisted.StartsOn = item.Tournament.StartsOn;
@@ -55,14 +69,26 @@ public sealed class EfTournamentPersistence(IDbContextFactory<PoolPredictDbConte
 
         foreach (var item in snapshot.Participants)
         {
-            var persisted = await db.Participants.SingleOrDefaultAsync(participant => participant.ExternalId == item.ExternalId, cancellationToken);
+            var persisted = await db.Participants.SingleOrDefaultAsync(participant =>
+                participant.TournamentId == item.Participant.TournamentId
+                    && participant.Provider == snapshot.Provider
+                    && participant.ExternalId == item.ExternalId,
+                cancellationToken);
             if (persisted is null)
             {
-                persisted = new PersistedParticipant { Id = item.Participant.Id, ExternalId = item.ExternalId };
+                persisted = new PersistedParticipant
+                {
+                    Id = item.Participant.Id,
+                    ExternalId = item.ExternalId,
+                    Provider = snapshot.Provider,
+                    IsTestData = snapshot.IsTestData
+                };
                 db.Participants.Add(persisted);
             }
 
             persisted.TournamentId = item.Participant.TournamentId;
+            persisted.Provider = snapshot.Provider;
+            persisted.IsTestData = snapshot.IsTestData;
             persisted.Name = item.Participant.Name;
             persisted.Code = item.Participant.Code;
             persisted.Country = item.Participant.Country;
@@ -70,14 +96,33 @@ public sealed class EfTournamentPersistence(IDbContextFactory<PoolPredictDbConte
 
         foreach (var item in snapshot.Events)
         {
-            var persisted = await db.Events.SingleOrDefaultAsync(matchEvent => matchEvent.ExternalId == item.ExternalId, cancellationToken);
+            var persisted = await db.Events.SingleOrDefaultAsync(matchEvent =>
+                matchEvent.TournamentId == item.Event.TournamentId
+                    && matchEvent.Provider == snapshot.Provider
+                    && matchEvent.ExternalId == item.ExternalId,
+                cancellationToken);
             if (persisted is null)
             {
-                persisted = new PersistedEvent { Id = item.Event.Id, ExternalId = item.ExternalId };
+                persisted = new PersistedEvent
+                {
+                    Id = item.Event.Id,
+                    ExternalId = item.ExternalId,
+                    Provider = snapshot.Provider,
+                    IsTestData = snapshot.IsTestData,
+                    ManagementMode = EventManagementMode.Provider
+                };
                 db.Events.Add(persisted);
             }
 
+            if (persisted.ManagementMode == EventManagementMode.Manual)
+            {
+                continue;
+            }
+
             persisted.TournamentId = item.Event.TournamentId;
+            persisted.Provider = snapshot.Provider;
+            persisted.IsTestData = snapshot.IsTestData;
+            persisted.ManagementMode = EventManagementMode.Provider;
             persisted.HomeParticipantId = item.Event.HomeParticipantId;
             persisted.AwayParticipantId = item.Event.AwayParticipantId;
             persisted.HomeParticipant = item.Event.HomeParticipant;
@@ -88,4 +133,13 @@ public sealed class EfTournamentPersistence(IDbContextFactory<PoolPredictDbConte
 
         await db.SaveChangesAsync(cancellationToken);
     }
+
+    private static string TournamentKey(string provider, string externalId) =>
+        $"{provider}::{externalId}";
+
+    private static string ParticipantKey(string provider, Guid tournamentId, string externalId) =>
+        $"{provider}::{tournamentId:N}::{externalId}";
+
+    private static string EventKey(string provider, Guid tournamentId, string externalId) =>
+        $"{provider}::{tournamentId:N}::{externalId}";
 }

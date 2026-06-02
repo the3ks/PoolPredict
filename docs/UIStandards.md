@@ -1,6 +1,6 @@
 # UI Standards
 
-Last updated: 2026-06-01
+Last updated: 2026-06-02
 
 ## Purpose
 
@@ -19,12 +19,14 @@ Do not add a full UI framework unless there is a clear implementation need.
 
 ## Theme
 
-PoolPredict uses a dark-only theme.
+PoolPredict supports dark and light themes.
 
 Rules:
 
-* Do not add a light theme.
-* Do not add a theme switcher.
+* Keep dark as the default theme.
+* Use the shared `ThemeToggle` component for switching.
+* Persist the selected theme in `localStorage` with the `poolpredict-theme` key.
+* Apply theme colors through `:root` and `:root[data-theme="light"]` tokens.
 * Use semantic CSS variables from `:root` instead of hardcoded component colors.
 * Preserve strong contrast for body text, form fields, buttons and status text.
 * Keep accent usage focused on actions, active states, icons and important status surfaces.
@@ -102,4 +104,4 @@ For UI changes:
 
 * Run `npm run build` from `apps/web`.
 * Check desktop and mobile layouts for obvious overflow.
-* Confirm buttons, links, forms and disabled states remain readable in the dark theme.
+* Confirm buttons, links, forms and disabled states remain readable in both themes.

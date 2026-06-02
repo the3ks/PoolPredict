@@ -8,6 +8,10 @@ public sealed class PersistedParticipant
 
     public string ExternalId { get; set; } = "";
 
+    public string Provider { get; set; } = "";
+
+    public bool IsTestData { get; set; }
+
     public string Name { get; set; } = "";
 
     public string Code { get; set; } = "";

@@ -6,6 +6,8 @@ export type Tournament = {
   sport: string;
   startsOn: string;
   endsOn: string;
+  provider: string;
+  isTestData: boolean;
 };
 
 export type PoolSummary = {
@@ -33,6 +35,9 @@ export type TournamentEvent = {
   awayParticipant: string;
   startsAt: string;
   status: string;
+  managementMode: string;
+  provider: string;
+  isTestData: boolean;
 };
 
 export type Market = {
@@ -60,4 +65,21 @@ export type Prediction = {
   payoutMultiplierSnapshot: number;
   payoutConfigurationVersionSnapshot: number;
   submittedAt: string;
+  marketStatus?: string | null;
+  outcome?: string;
+  settlementCredit?: number;
+  netPoints?: number;
+};
+
+export type LeaderboardEntry = {
+  memberId: string;
+  userId: string;
+  displayName: string;
+  role: string;
+  balance: number;
+  predictionCount: number;
+  settledPredictionCount: number;
+  winCount: number;
+  winRate: number;
+  roi: number;
 };

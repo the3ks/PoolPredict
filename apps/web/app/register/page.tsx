@@ -2,17 +2,17 @@
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
-import { LogIn, UserPlus } from "lucide-react";
+import { Eye, EyeOff, LogIn, UserPlus } from "lucide-react";
+import { ThemeToggle } from "../components/theme-toggle";
 import { IconLabel } from "../components/ui";
 import { apiUrl, readApiError } from "../lib/api";
-import { AuthResponse, storeToken } from "../lib/auth";
+import { appName } from "../lib/config";
 
 export default function RegisterPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [status, setStatus] = useState("Create an account to start.");
   const [isBusy, setIsBusy] = useState(false);
 
@@ -33,9 +33,8 @@ export default function RegisterPage() {
         return;
       }
 
-      const result = (await response.json()) as AuthResponse;
-      storeToken(result.accessToken);
-      router.push("/app/pools");
+      const result = (await response.json()) as { message: string };
+      setStatus(result.message);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Registration failed.");
     } finally {
@@ -46,7 +45,10 @@ export default function RegisterPage() {
   return (
     <main className="authShell">
       <section className="authCard">
-        <p className="eyebrow">PoolPredict</p>
+        <div className="authTopline">
+          <p className="eyebrow">{appName}</p>
+          <ThemeToggle />
+        </div>
         <h1>Register</h1>
         <form className="form" onSubmit={submitRegister}>
           <label>
@@ -59,7 +61,27 @@ export default function RegisterPage() {
           </label>
           <label>
             Password
-            <input autoComplete="new-password" minLength={8} required type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
+            <span className="passwordField">
+              <input
+                autoComplete="new-password"
+                id="register-password"
+                minLength={8}
+                required
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+              />
+              <button
+                aria-controls="register-password"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-pressed={showPassword}
+                className="passwordToggle"
+                type="button"
+                onClick={() => setShowPassword((current) => !current)}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </span>
           </label>
           <button className="button" disabled={isBusy} type="submit"><IconLabel icon={UserPlus}>Create account</IconLabel></button>
         </form>

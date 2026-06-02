@@ -1,6 +1,6 @@
 # Implementation Status
 
-Last updated: 2026-06-01
+Last updated: 2026-06-02
 
 ## Current State
 
@@ -8,7 +8,9 @@ The project has an initial MVP foundation using a DDD-lite structure.
 
 The web app now includes Sprint 1 authentication and Sprint 2 pool management screens backed by authenticated API endpoints. Authentication and pool management are separated into dedicated routes under the planned app structure.
 
-Sprint 3 tournament infrastructure is implemented with participant records, an event provider abstraction and a mock World Cup provider. Sprint 4 external integration is implemented with configurable provider selection, a FootballData provider adapter and an admin-triggered tournament sync path. Sprint 5 market and settlement foundation is implemented with DB-backed payout defaults, profile-based market generation and settlement run/log tables. Sprint 6 prediction submission is started with authenticated prediction entry, member balances and prediction history. MariaDB-backed EF Core persistence is now required for the API.
+Sprint 3 tournament infrastructure is implemented with participant records, an event provider abstraction and a mock World Cup provider. Sprint 4 external integration is implemented with configurable provider selection, a FootballData provider adapter and an admin-triggered tournament sync path. Sprint 5 market and settlement foundation is implemented with DB-backed payout defaults, profile-based market generation and settlement run/log tables. Sprint 6 prediction submission is implemented with authenticated prediction entry, member balances and prediction history. Sprint 7 settlement is implemented for manual admin settlement, event result storage, re-settlement correction entries and provider/manual event management modes. Sprint 8 settlement hardening is implemented with calculator-level and service-level automated tests, selected-option validation, cancelled-event settlement and quarter-line handicap support. Sprint 9 admin event management is implemented with event browse/filter, manual event editing and selected-event settlement from the admin UI. Sprint 10 leaderboards and settled prediction display are implemented from persisted prediction, market and point-ledger read models. MariaDB-backed EF Core persistence is now required for the API.
+
+Out-of-roadmap identity/admin security work is also implemented. This work is not counted as a Roadmap sprint. It adds email verification, forgot/reset password, signed-in password change, admin user management with password reset, and admin SMTP settings with AWS SES SMTP support.
 
 ## Completed
 
@@ -53,11 +55,25 @@ Implemented endpoints:
 * `POST /api/auth/login`
 * `POST /api/auth/google`
 * `GET /api/auth/me`
+* `POST /api/auth/verify-email`
+* `POST /api/auth/resend-verification`
+* `POST /api/auth/forgot-password`
+* `POST /api/auth/reset-password`
+* `POST /api/auth/change-password`
+* `GET /api/admin/users`
+* `POST /api/admin/users/{userId}/password-reset`
+* `GET /api/admin/email-settings`
+* `PUT /api/admin/email-settings`
+* `POST /api/admin/email-settings/test`
+* `GET /api/admin/pools`
 * `GET /api/tournaments`
 * `GET /api/tournaments/{tournamentId}/events`
 * `GET /api/tournaments/{tournamentId}/participants`
 * `GET /api/tournaments/provider/status`
+* `GET /api/tournaments/events/admin`
 * `POST /api/tournaments/sync`
+* `PUT /api/tournaments/events/{eventId}/management-mode`
+* `PUT /api/tournaments/events/{eventId}/manual`
 * `GET /api/markets/payout-configurations`
 * `POST /api/pools`
 * `GET /api/pools`
@@ -69,12 +85,16 @@ Implemented endpoints:
 * `GET /api/pools/{poolId}/markets`
 * `POST /api/predictions`
 * `GET /api/predictions/pool/{poolId}`
+* `GET /api/predictions/pool/{poolId}/leaderboard`
 * `GET /api/predictions/balance?poolId={poolId}`
+* `POST /api/settlement/events/{eventId}/result`
 
 Implemented domain slice backed by MariaDB persistence:
 
 * Identity users
 * User external logins
+* Identity verification and password reset tokens
+* SMTP email settings
 * Tournaments
 * Participants
 * Events
@@ -86,7 +106,7 @@ Implemented domain slice backed by MariaDB persistence:
 * Predictions
 * Point ledger entries
 
-Current seeded data:
+Current provider data when the Mock provider is selected:
 
 * FIFA World Cup 2026
 * Six mock participants
@@ -102,6 +122,8 @@ Tournament behavior:
 * `TournamentSyncJob` supports admin-triggered provider sync
 * `FootballData` sync is explicit from Admin and does not auto-import on empty database startup
 * Provider data is saved to MariaDB
+* Provider/source metadata is stored for tournaments, participants and events
+* Provider external IDs are scoped by provider so Mock and FootballData data cannot overwrite each other
 
 Current Standard pool behavior:
 
@@ -121,7 +143,15 @@ Settlement foundation behavior:
 
 * Adds persisted settlement run records for future idempotent event settlement
 * Adds persisted settlement log records linked to settlement runs
-* Settlement calculation is not implemented yet
+* Stores event results in `event_results`
+* Supports admin-triggered settlement from a recorded event result
+* Settles Winner, Handicap, Over/Under, Odd/Even and Correct Score predictions
+* Validates selected options for settled markets
+* Supports quarter-line handicap half-win and half-lose outcomes
+* Supports cancelled-event settlement as stake refunds and market voiding
+* Re-settlement compares expected credit with existing credit and writes correction ledger entries when a result changes
+* Marks manually settled events as manually managed
+* Persists event management mode and skips manually managed events during provider sync
 
 Prediction behavior:
 
@@ -141,12 +171,32 @@ Prediction behavior:
 Authentication behavior:
 
 * Registers email/password users
+* Email/password registration now returns a verification-required message instead of issuing a JWT immediately
+* Sends email verification links when SMTP is enabled
+* Blocks email/password login until the user's email is verified
+* Supports verification email resend
+* Supports forgot-password reset links
+* Supports reset-password token consumption
+* Supports signed-in password changes from the profile page
 * Hashes passwords with PBKDF2-SHA256
+* Stores only hashed verification and reset tokens
 * Issues signed JWT bearer tokens
 * Validates bearer tokens for protected profile access
 * Supports an MVP Google-login endpoint that links a Google provider subject to a user account
+* Treats Google-linked accounts as email verified
 * Seeds a development-only PlatformAdmin from `apps/api/appsettings.Development.json`
+* Marks the configured seeded PlatformAdmin email as verified if it already exists
 * Stores identity data in MariaDB
+
+Admin identity and email behavior:
+
+* PlatformAdmin users can list and search registered users
+* PlatformAdmin users can reset a user's password to a temporary password
+* Temporary password reset marks the user as requiring a password change
+* PlatformAdmin users can view and update SMTP settings
+* SMTP settings default to AWS SES SMTP shape
+* PlatformAdmin users can send a test email
+* SMTP password is not returned by the API; the settings response exposes only whether a saved password exists
 
 Pool behavior:
 
@@ -165,26 +215,42 @@ Added a Next.js app shell at `apps/web`.
 Current web behavior:
 
 * Shows running/upcoming tournaments publicly on `/`
-* Provides login and registration forms on `/login` and `/register`
-* Provides an MVP Google-login form
+* Shows tournament provider/source labels on public and signed-in tournament cards
+* Provides local-user login and registration forms on `/login` and `/register`
+* Registration shows a verification-required result instead of immediately signing in the user
+* Provides `/verify-email` for verification links
+* Provides `/forgot-password` for reset-link requests
+* Provides `/reset-password` for email password resets
+* Keeps Google login hidden from the web UI for now
 * Persists the JWT access token in browser local storage
 * Loads the signed-in profile from `GET /api/auth/me`
-* Provides a signed-in app shell under `/app`
+* Provides a root-route normal user shell under `/`, `/pools/*` and `/profile`
 * Shows running/upcoming tournaments on the signed-in dashboard
 * Loads tournaments for pool creation
-* Creates pools for the signed-in user on `/app/pools/new`
-* Lists the signed-in user's pools on `/app/pools`
-* Shows pool overview and editable owner/admin settings on `/app/pools/[poolId]`
-* Creates invite codes for owner/admin pools on `/app/pools/[poolId]/invites`
-* Joins pools by invite code on `/app/pools/join`
-* Shows signed-in profile details on `/app/profile`
-* Shows provider status and admin-triggered sync on `/app/admin` for PlatformAdmin users
-* Shows active payout defaults on `/app/admin` for PlatformAdmin users
-* Shows pool markets grouped by match on `/app/pools/[poolId]`
+* Creates pools for the signed-in user on `/pools/new`
+* Lists the signed-in user's pools on `/pools`
+* Shows pool overview and editable owner/admin settings on `/pools/[poolId]`
+* Creates invite codes for owner/admin pools on `/pools/[poolId]/invites`
+* Joins pools by invite code on `/pools/join`
+* Shows signed-in profile details on `/profile`
+* Allows signed-in users to change password on `/profile`
+* Redirects old `/app/*` routes to the new root route family
+* Provides a dedicated PlatformAdmin panel under `/admin`
+* Shows all pools across all users on `/admin/pools`
+* Shows provider status and admin-triggered sync on `/admin/provider` for PlatformAdmin users
+* Allows PlatformAdmin users to browse and filter events by provider/source, management mode and status on `/admin/events`
+* Allows PlatformAdmin users to edit event kickoff, status, mode and stored scores on `/admin/events`
+* Allows PlatformAdmin users to switch events between provider-managed and manually managed mode on `/admin/events`
+* Allows PlatformAdmin users to settle or cancel-settle a selected event on `/admin/settlement`
+* Shows active payout defaults on `/admin/payout` for PlatformAdmin users
+* Allows PlatformAdmin users to search users and reset passwords on `/admin/users`
+* Allows PlatformAdmin users to configure SMTP settings and send a test email on `/admin/system`
+* Shows pool markets grouped by match on `/pools/[poolId]`
 * Allows signed-in pool members to submit predictions from available markets
-* Shows current member balance and prediction history on the pool page
+* Shows current member balance and enriched prediction history with settlement outcome and net points on the pool page
+* Shows pool leaderboard rows with balance, win rate, ROI and prediction counts on the pool page
 * Links to API health
-* Uses a dark public-end-user theme across public, auth and signed-in app routes
+* Supports persisted dark/light theme switching across public, auth and signed-in app routes
 * Uses local UI primitives for page headers, panels, status pills, stat tiles and icon labels
 * Uses `lucide-react` for lightweight, consistent interface icons
 * Provides first working prediction UI for generated pool markets
@@ -205,9 +271,12 @@ Added required API persistence foundation:
 * `PoolPredictDbContext`
 * `users`
 * `user_external_logins`
+* `identity_tokens`
+* `email_settings`
 * `tournaments`
 * `participants`
 * `events`
+* `event_results`
 * `pools`
 * `pool_members`
 * `pool_invites`
@@ -260,29 +329,44 @@ Manual smoke tests verified:
 * Balance endpoint returns updated balance
 * API build passes after Sprint 6 authenticated prediction changes
 * Web production build passes after Sprint 6 prediction UI update
+* API build passes after Sprint 7 event result and settlement changes
+* Web production build passes after Sprint 7 admin settlement UI update
+* API build passes after Sprint 7 provider/source scoping
+* Web production build passes after Sprint 7 provider/source labels
+* API build passes after Sprint 7 event management mode and re-settlement correction updates
+* `dotnet test PoolPredict.sln` passes after Sprint 8 settlement hardening
+* API build, web production build and `dotnet test PoolPredict.sln` pass after Sprint 9 admin event management
+* API build, web production build and `dotnet test PoolPredict.sln` pass after Sprint 10 leaderboards and settled prediction display
+* API build, web production build and `dotnet test PoolPredict.sln` pass after out-of-roadmap identity/admin security work
+* EF migration `20260602080731_IdentityEmailAndPasswordManagement` was generated and applied locally
 
 ## Known Gaps
 
 * Shared environments should review generated migration scripts before applying them
 * API startup fails when `ConnectionStrings:MariaDb` is missing
-* Google login does not yet validate a real Google ID token or OAuth client configuration
+* Google login API does not yet validate a real Google ID token or OAuth client configuration and is not exposed in the web UI
+* SMTP password is stored in application database storage without dedicated encryption-at-rest beyond database-level protections
+* Email verification and reset email delivery require SMTP settings to be configured and enabled
+* Public auth token flows do not yet include throttling/rate limiting
 * Pool member management is limited to owner/member roles and invite-code joins
 * Invite links are represented as invite codes; full URL routing is not implemented yet
 * FootballData sync requires an API token and has not been smoke-tested against a real provider account
 * Tournament sync is manually triggered from admin UI; recurring background scheduling is not implemented yet
-* Settlement tables exist, but no settlement engine yet
+* Settlement is admin-triggered by design; automatic settlement is not supported for MVP
+* Admin event-management list is functional but intentionally basic; pagination and text search are not implemented yet
 * Admin UI displays payout configuration, but editing payout defaults or line overrides is not implemented yet
+* Leaderboard is read-only and derived from current point ledger; historical leaderboard snapshots are not implemented yet
 * No localization implementation yet
-* Prediction UI is functional but still basic; it does not yet show settled outcomes
-* No tests yet
+* Prediction UI is functional but still basic; deeper result visualizations can be improved later
+* Test coverage is focused on settlement; broader API and UI coverage is not implemented yet
 * Repository is not initialized as a Git repo yet
 
 ## Next Recommended Step
 
-Continue Sprint 6 hardening and prepare Sprint 7 settlement:
+Proceed to Sprint 11 AI recap:
 
-1. Add event result storage needed by settlement
-2. Add clearer market option rules and validation before settlement
-3. Add settlement service tests before wiring automatic settlement
-4. Add startup health checks for MariaDB connectivity
-5. Add a dedicated deployment-time migration workflow before production
+1. Add weekly recap generation model and persistence
+2. Add recap page UI
+3. Decide initial deterministic recap format before AI integration
+4. Add tests for recap source data aggregation
+5. Add startup health checks for MariaDB connectivity
