@@ -71,8 +71,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           <Link className="button buttonSecondary compactButton" href="/">
             <IconLabel icon={Gauge}>User app</IconLabel>
           </Link>
-          <span>{profile?.displayName ?? status}</span>
           <ThemeToggle />
+          <Link className="appProfileLink" href="/profile">
+            {profile?.displayName ?? status}
+          </Link>
           <button className="button buttonSecondary compactButton" type="button" onClick={signOut}>
             <IconLabel icon={LogOut}>Sign out</IconLabel>
           </button>

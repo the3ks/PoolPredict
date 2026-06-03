@@ -19,7 +19,15 @@ public sealed record TournamentSyncSnapshot(
     bool IsTestData,
     IReadOnlyCollection<(Tournament Tournament, string ExternalId)> Tournaments,
     IReadOnlyCollection<(Participant Participant, string TournamentExternalId, string ExternalId)> Participants,
-    IReadOnlyCollection<(Event Event, string TournamentExternalId, string ExternalId)> Events);
+    IReadOnlyCollection<(Event Event, string TournamentExternalId, string ExternalId)> Events,
+    IReadOnlyCollection<ProviderEventResult> EventResults);
+
+public sealed record ProviderEventResult(
+    Guid EventId,
+    int FullTimeHomeScore,
+    int FullTimeAwayScore,
+    int? FirstHalfHomeScore,
+    int? FirstHalfAwayScore);
 
 public sealed record ProviderSourceInfo(string Provider, bool IsTestData);
 

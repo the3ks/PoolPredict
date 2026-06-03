@@ -44,7 +44,7 @@ export default function LoginPage() {
 
       const result = (await response.json()) as AuthResponse;
       storeToken(result.accessToken);
-      router.push("/app/pools");
+      router.push("/pools");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Authentication failed.");
     }

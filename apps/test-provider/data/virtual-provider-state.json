@@ -1,0 +1,415 @@
+{
+  "tournaments": [
+    {
+      "externalId": "virtual-wc-2026",
+      "name": "Virtual WC 2026 - for Testing",
+      "sport": "Football",
+      "startsOn": "2026-06-03",
+      "endsOn": "2026-07-03"
+    }
+  ],
+  "participants": [
+    {
+      "externalId": "virtual-wc-2026-team-arg",
+      "tournamentExternalId": "virtual-wc-2026",
+      "name": "Argentina",
+      "code": "ARG",
+      "country": "Argentina"
+    },
+    {
+      "externalId": "virtual-wc-2026-team-bra",
+      "tournamentExternalId": "virtual-wc-2026",
+      "name": "Brazil",
+      "code": "BRA",
+      "country": "Brazil"
+    },
+    {
+      "externalId": "virtual-wc-2026-team-can",
+      "tournamentExternalId": "virtual-wc-2026",
+      "name": "Canada",
+      "code": "CAN",
+      "country": "Canada"
+    },
+    {
+      "externalId": "virtual-wc-2026-team-eng",
+      "tournamentExternalId": "virtual-wc-2026",
+      "name": "England",
+      "code": "ENG",
+      "country": "England"
+    },
+    {
+      "externalId": "virtual-wc-2026-team-fra",
+      "tournamentExternalId": "virtual-wc-2026",
+      "name": "France",
+      "code": "FRA",
+      "country": "France"
+    },
+    {
+      "externalId": "virtual-wc-2026-team-ger",
+      "tournamentExternalId": "virtual-wc-2026",
+      "name": "Germany",
+      "code": "GER",
+      "country": "Germany"
+    },
+    {
+      "externalId": "virtual-wc-2026-team-ita",
+      "tournamentExternalId": "virtual-wc-2026",
+      "name": "Italy",
+      "code": "ITA",
+      "country": "Italy"
+    },
+    {
+      "externalId": "virtual-wc-2026-team-jpn",
+      "tournamentExternalId": "virtual-wc-2026",
+      "name": "Japan",
+      "code": "JPN",
+      "country": "Japan"
+    },
+    {
+      "externalId": "virtual-wc-2026-team-kor",
+      "tournamentExternalId": "virtual-wc-2026",
+      "name": "Korea Republic",
+      "code": "KOR",
+      "country": "Korea Republic"
+    },
+    {
+      "externalId": "virtual-wc-2026-team-mar",
+      "tournamentExternalId": "virtual-wc-2026",
+      "name": "Morocco",
+      "code": "MAR",
+      "country": "Morocco"
+    },
+    {
+      "externalId": "virtual-wc-2026-team-mex",
+      "tournamentExternalId": "virtual-wc-2026",
+      "name": "Mexico",
+      "code": "MEX",
+      "country": "Mexico"
+    },
+    {
+      "externalId": "virtual-wc-2026-team-ned",
+      "tournamentExternalId": "virtual-wc-2026",
+      "name": "Netherlands",
+      "code": "NED",
+      "country": "Netherlands"
+    },
+    {
+      "externalId": "virtual-wc-2026-team-por",
+      "tournamentExternalId": "virtual-wc-2026",
+      "name": "Portugal",
+      "code": "POR",
+      "country": "Portugal"
+    },
+    {
+      "externalId": "virtual-wc-2026-team-esp",
+      "tournamentExternalId": "virtual-wc-2026",
+      "name": "Spain",
+      "code": "ESP",
+      "country": "Spain"
+    },
+    {
+      "externalId": "virtual-wc-2026-team-usa",
+      "tournamentExternalId": "virtual-wc-2026",
+      "name": "United States",
+      "code": "USA",
+      "country": "United States"
+    },
+    {
+      "externalId": "virtual-wc-2026-team-uru",
+      "tournamentExternalId": "virtual-wc-2026",
+      "name": "Uruguay",
+      "code": "URU",
+      "country": "Uruguay"
+    }
+  ],
+  "events": [
+    {
+      "externalId": "virtual-wc-2026-event-001",
+      "tournamentExternalId": "virtual-wc-2026",
+      "homeParticipantExternalId": "virtual-wc-2026-team-arg",
+      "awayParticipantExternalId": "virtual-wc-2026-team-bra",
+      "startsAt": "2026-06-03T16:00:00+00:00",
+      "status": "Scheduled",
+      "firstHalfHomeScore": null,
+      "firstHalfAwayScore": null,
+      "fullTimeHomeScore": null,
+      "fullTimeAwayScore": null
+    },
+    {
+      "externalId": "virtual-wc-2026-event-002",
+      "tournamentExternalId": "virtual-wc-2026",
+      "homeParticipantExternalId": "virtual-wc-2026-team-can",
+      "awayParticipantExternalId": "virtual-wc-2026-team-eng",
+      "startsAt": "2026-06-03T19:00:00+00:00",
+      "status": "Scheduled",
+      "firstHalfHomeScore": null,
+      "firstHalfAwayScore": null,
+      "fullTimeHomeScore": null,
+      "fullTimeAwayScore": null
+    },
+    {
+      "externalId": "virtual-wc-2026-event-003",
+      "tournamentExternalId": "virtual-wc-2026",
+      "homeParticipantExternalId": "virtual-wc-2026-team-fra",
+      "awayParticipantExternalId": "virtual-wc-2026-team-ger",
+      "startsAt": "2026-06-03T22:00:00+00:00",
+      "status": "Scheduled",
+      "firstHalfHomeScore": null,
+      "firstHalfAwayScore": null,
+      "fullTimeHomeScore": null,
+      "fullTimeAwayScore": null
+    },
+    {
+      "externalId": "virtual-wc-2026-event-004",
+      "tournamentExternalId": "virtual-wc-2026",
+      "homeParticipantExternalId": "virtual-wc-2026-team-ita",
+      "awayParticipantExternalId": "virtual-wc-2026-team-jpn",
+      "startsAt": "2026-06-04T16:00:00+00:00",
+      "status": "Scheduled",
+      "firstHalfHomeScore": null,
+      "firstHalfAwayScore": null,
+      "fullTimeHomeScore": null,
+      "fullTimeAwayScore": null
+    },
+    {
+      "externalId": "virtual-wc-2026-event-005",
+      "tournamentExternalId": "virtual-wc-2026",
+      "homeParticipantExternalId": "virtual-wc-2026-team-kor",
+      "awayParticipantExternalId": "virtual-wc-2026-team-mar",
+      "startsAt": "2026-06-04T19:00:00+00:00",
+      "status": "Scheduled",
+      "firstHalfHomeScore": null,
+      "firstHalfAwayScore": null,
+      "fullTimeHomeScore": null,
+      "fullTimeAwayScore": null
+    },
+    {
+      "externalId": "virtual-wc-2026-event-006",
+      "tournamentExternalId": "virtual-wc-2026",
+      "homeParticipantExternalId": "virtual-wc-2026-team-mex",
+      "awayParticipantExternalId": "virtual-wc-2026-team-ned",
+      "startsAt": "2026-06-04T22:00:00+00:00",
+      "status": "Scheduled",
+      "firstHalfHomeScore": null,
+      "firstHalfAwayScore": null,
+      "fullTimeHomeScore": null,
+      "fullTimeAwayScore": null
+    },
+    {
+      "externalId": "virtual-wc-2026-event-007",
+      "tournamentExternalId": "virtual-wc-2026",
+      "homeParticipantExternalId": "virtual-wc-2026-team-por",
+      "awayParticipantExternalId": "virtual-wc-2026-team-esp",
+      "startsAt": "2026-06-05T16:00:00+00:00",
+      "status": "Scheduled",
+      "firstHalfHomeScore": null,
+      "firstHalfAwayScore": null,
+      "fullTimeHomeScore": null,
+      "fullTimeAwayScore": null
+    },
+    {
+      "externalId": "virtual-wc-2026-event-008",
+      "tournamentExternalId": "virtual-wc-2026",
+      "homeParticipantExternalId": "virtual-wc-2026-team-usa",
+      "awayParticipantExternalId": "virtual-wc-2026-team-uru",
+      "startsAt": "2026-06-05T19:00:00+00:00",
+      "status": "Scheduled",
+      "firstHalfHomeScore": null,
+      "firstHalfAwayScore": null,
+      "fullTimeHomeScore": null,
+      "fullTimeAwayScore": null
+    },
+    {
+      "externalId": "virtual-wc-2026-event-009",
+      "tournamentExternalId": "virtual-wc-2026",
+      "homeParticipantExternalId": "virtual-wc-2026-team-arg",
+      "awayParticipantExternalId": "virtual-wc-2026-team-bra",
+      "startsAt": "2026-06-05T22:00:00+00:00",
+      "status": "Scheduled",
+      "firstHalfHomeScore": null,
+      "firstHalfAwayScore": null,
+      "fullTimeHomeScore": null,
+      "fullTimeAwayScore": null
+    },
+    {
+      "externalId": "virtual-wc-2026-event-010",
+      "tournamentExternalId": "virtual-wc-2026",
+      "homeParticipantExternalId": "virtual-wc-2026-team-can",
+      "awayParticipantExternalId": "virtual-wc-2026-team-eng",
+      "startsAt": "2026-06-06T16:00:00+00:00",
+      "status": "Scheduled",
+      "firstHalfHomeScore": null,
+      "firstHalfAwayScore": null,
+      "fullTimeHomeScore": null,
+      "fullTimeAwayScore": null
+    },
+    {
+      "externalId": "virtual-wc-2026-event-011",
+      "tournamentExternalId": "virtual-wc-2026",
+      "homeParticipantExternalId": "virtual-wc-2026-team-fra",
+      "awayParticipantExternalId": "virtual-wc-2026-team-ger",
+      "startsAt": "2026-06-06T19:00:00+00:00",
+      "status": "Scheduled",
+      "firstHalfHomeScore": null,
+      "firstHalfAwayScore": null,
+      "fullTimeHomeScore": null,
+      "fullTimeAwayScore": null
+    },
+    {
+      "externalId": "virtual-wc-2026-event-012",
+      "tournamentExternalId": "virtual-wc-2026",
+      "homeParticipantExternalId": "virtual-wc-2026-team-ita",
+      "awayParticipantExternalId": "virtual-wc-2026-team-jpn",
+      "startsAt": "2026-06-06T22:00:00+00:00",
+      "status": "Scheduled",
+      "firstHalfHomeScore": null,
+      "firstHalfAwayScore": null,
+      "fullTimeHomeScore": null,
+      "fullTimeAwayScore": null
+    },
+    {
+      "externalId": "virtual-wc-2026-event-013",
+      "tournamentExternalId": "virtual-wc-2026",
+      "homeParticipantExternalId": "virtual-wc-2026-team-kor",
+      "awayParticipantExternalId": "virtual-wc-2026-team-mar",
+      "startsAt": "2026-06-07T16:00:00+00:00",
+      "status": "Scheduled",
+      "firstHalfHomeScore": null,
+      "firstHalfAwayScore": null,
+      "fullTimeHomeScore": null,
+      "fullTimeAwayScore": null
+    },
+    {
+      "externalId": "virtual-wc-2026-event-014",
+      "tournamentExternalId": "virtual-wc-2026",
+      "homeParticipantExternalId": "virtual-wc-2026-team-mex",
+      "awayParticipantExternalId": "virtual-wc-2026-team-ned",
+      "startsAt": "2026-06-07T19:00:00+00:00",
+      "status": "Scheduled",
+      "firstHalfHomeScore": null,
+      "firstHalfAwayScore": null,
+      "fullTimeHomeScore": null,
+      "fullTimeAwayScore": null
+    },
+    {
+      "externalId": "virtual-wc-2026-event-015",
+      "tournamentExternalId": "virtual-wc-2026",
+      "homeParticipantExternalId": "virtual-wc-2026-team-por",
+      "awayParticipantExternalId": "virtual-wc-2026-team-esp",
+      "startsAt": "2026-06-07T22:00:00+00:00",
+      "status": "Scheduled",
+      "firstHalfHomeScore": null,
+      "firstHalfAwayScore": null,
+      "fullTimeHomeScore": null,
+      "fullTimeAwayScore": null
+    },
+    {
+      "externalId": "virtual-wc-2026-event-016",
+      "tournamentExternalId": "virtual-wc-2026",
+      "homeParticipantExternalId": "virtual-wc-2026-team-usa",
+      "awayParticipantExternalId": "virtual-wc-2026-team-uru",
+      "startsAt": "2026-06-08T16:00:00+00:00",
+      "status": "Scheduled",
+      "firstHalfHomeScore": null,
+      "firstHalfAwayScore": null,
+      "fullTimeHomeScore": null,
+      "fullTimeAwayScore": null
+    },
+    {
+      "externalId": "virtual-wc-2026-event-017",
+      "tournamentExternalId": "virtual-wc-2026",
+      "homeParticipantExternalId": "virtual-wc-2026-team-arg",
+      "awayParticipantExternalId": "virtual-wc-2026-team-bra",
+      "startsAt": "2026-06-08T19:00:00+00:00",
+      "status": "Scheduled",
+      "firstHalfHomeScore": null,
+      "firstHalfAwayScore": null,
+      "fullTimeHomeScore": null,
+      "fullTimeAwayScore": null
+    },
+    {
+      "externalId": "virtual-wc-2026-event-018",
+      "tournamentExternalId": "virtual-wc-2026",
+      "homeParticipantExternalId": "virtual-wc-2026-team-can",
+      "awayParticipantExternalId": "virtual-wc-2026-team-eng",
+      "startsAt": "2026-06-08T22:00:00+00:00",
+      "status": "Scheduled",
+      "firstHalfHomeScore": null,
+      "firstHalfAwayScore": null,
+      "fullTimeHomeScore": null,
+      "fullTimeAwayScore": null
+    },
+    {
+      "externalId": "virtual-wc-2026-event-019",
+      "tournamentExternalId": "virtual-wc-2026",
+      "homeParticipantExternalId": "virtual-wc-2026-team-fra",
+      "awayParticipantExternalId": "virtual-wc-2026-team-ger",
+      "startsAt": "2026-06-09T16:00:00+00:00",
+      "status": "Scheduled",
+      "firstHalfHomeScore": null,
+      "firstHalfAwayScore": null,
+      "fullTimeHomeScore": null,
+      "fullTimeAwayScore": null
+    },
+    {
+      "externalId": "virtual-wc-2026-event-020",
+      "tournamentExternalId": "virtual-wc-2026",
+      "homeParticipantExternalId": "virtual-wc-2026-team-ita",
+      "awayParticipantExternalId": "virtual-wc-2026-team-jpn",
+      "startsAt": "2026-06-09T19:00:00+00:00",
+      "status": "Scheduled",
+      "firstHalfHomeScore": null,
+      "firstHalfAwayScore": null,
+      "fullTimeHomeScore": null,
+      "fullTimeAwayScore": null
+    },
+    {
+      "externalId": "virtual-wc-2026-event-021",
+      "tournamentExternalId": "virtual-wc-2026",
+      "homeParticipantExternalId": "virtual-wc-2026-team-kor",
+      "awayParticipantExternalId": "virtual-wc-2026-team-mar",
+      "startsAt": "2026-06-09T22:00:00+00:00",
+      "status": "Scheduled",
+      "firstHalfHomeScore": null,
+      "firstHalfAwayScore": null,
+      "fullTimeHomeScore": null,
+      "fullTimeAwayScore": null
+    },
+    {
+      "externalId": "virtual-wc-2026-event-022",
+      "tournamentExternalId": "virtual-wc-2026",
+      "homeParticipantExternalId": "virtual-wc-2026-team-mex",
+      "awayParticipantExternalId": "virtual-wc-2026-team-ned",
+      "startsAt": "2026-06-10T16:00:00+00:00",
+      "status": "Scheduled",
+      "firstHalfHomeScore": null,
+      "firstHalfAwayScore": null,
+      "fullTimeHomeScore": null,
+      "fullTimeAwayScore": null
+    },
+    {
+      "externalId": "virtual-wc-2026-event-023",
+      "tournamentExternalId": "virtual-wc-2026",
+      "homeParticipantExternalId": "virtual-wc-2026-team-por",
+      "awayParticipantExternalId": "virtual-wc-2026-team-esp",
+      "startsAt": "2026-06-10T19:00:00+00:00",
+      "status": "Scheduled",
+      "firstHalfHomeScore": null,
+      "firstHalfAwayScore": null,
+      "fullTimeHomeScore": null,
+      "fullTimeAwayScore": null
+    },
+    {
+      "externalId": "virtual-wc-2026-event-024",
+      "tournamentExternalId": "virtual-wc-2026",
+      "homeParticipantExternalId": "virtual-wc-2026-team-usa",
+      "awayParticipantExternalId": "virtual-wc-2026-team-uru",
+      "startsAt": "2026-06-10T22:00:00+00:00",
+      "status": "Scheduled",
+      "firstHalfHomeScore": null,
+      "firstHalfAwayScore": null,
+      "fullTimeHomeScore": null,
+      "fullTimeAwayScore": null
+    }
+  ]
+}

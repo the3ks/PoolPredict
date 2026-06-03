@@ -23,13 +23,15 @@ export function UserShell({ children }: { children: ReactNode }) {
 
     fetch(apiUrl("/api/auth/me"), {
       headers: { Authorization: `Bearer ${token}` },
-    }).then(async (response) => {
-      if (response.ok) {
-        setProfile(await response.json());
-      }
-    }).catch(() => {
-      setProfile(null);
-    });
+    })
+      .then(async (response) => {
+        if (response.ok) {
+          setProfile(await response.json());
+        }
+      })
+      .catch(() => {
+        setProfile(null);
+      });
   }, []);
 
   function signOut() {
@@ -47,15 +49,27 @@ export function UserShell({ children }: { children: ReactNode }) {
         <nav className="userNav" aria-label="Primary">
           <Link href="/">Tournaments</Link>
           {isSignedIn ? <Link href="/pools">Pools</Link> : null}
-          {isSignedIn ? <Link href="/profile">Profile</Link> : null}
-          {profile?.role === "PlatformAdmin" ? <Link href="/admin"><IconLabel icon={Shield}>Admin</IconLabel></Link> : null}
+          {profile?.role === "PlatformAdmin" ? (
+            <Link href="/admin">
+              <IconLabel icon={Shield}>Admin</IconLabel>
+            </Link>
+          ) : null}
         </nav>
         <div className="buttonRow">
           <ThemeToggle />
           {isSignedIn ? (
-            <button className="button buttonSecondary" type="button" onClick={signOut}>
-              <IconLabel icon={LogOut}>Sign out</IconLabel>
-            </button>
+            <>
+              <Link className="appProfileLink" href="/profile">
+                {profile?.displayName ?? "Profile"}
+              </Link>
+              <button
+                className="button buttonSecondary"
+                type="button"
+                onClick={signOut}
+              >
+                <IconLabel icon={LogOut}>Sign out</IconLabel>
+              </button>
+            </>
           ) : (
             <>
               <Link className="button buttonSecondary" href="/login">

@@ -1,6 +1,6 @@
 # Implementation Status
 
-Last updated: 2026-06-02
+Last updated: 2026-06-03
 
 ## Current State
 
@@ -123,7 +123,9 @@ Tournament behavior:
 * If no persisted tournament data exists, the catalog syncs from `IEventProvider`
 * `MockEventProvider` provides World Cup 2026 tournament, participants and events
 * `FootballDataProvider` can import teams and matches from football-data.org when configured
+* `VirtualProviderEventProvider` can import tournaments, participants and events from the standalone virtual provider service when configured
 * `TournamentSyncJob` supports admin-triggered provider sync
+* PlatformAdmin users can select which configured provider to sync from `/admin/provider`
 * `FootballData` sync is explicit from Admin and does not auto-import on empty database startup
 * Provider data is saved to MariaDB
 * Provider/source metadata is stored for tournaments, participants and events
@@ -132,9 +134,9 @@ Tournament behavior:
 Current Standard pool behavior:
 
 * Creates full-time and first-half markets
-* Generates Winner, Handicap, Over/Under, Odd/Even and Correct Score markets
+* Generates Handicap, Over/Under, Odd/Even and Correct Score markets
 * Generates market lines and payout multipliers from the active payout configuration
-* With current seed data, Standard profile creates 30 markets
+* Winner markets are intentionally excluded because they require volatile outcome-specific payouts
 
 Market configuration behavior:
 
@@ -142,6 +144,9 @@ Market configuration behavior:
 * Supports Casual, Standard and Expert profile rule sets
 * Stores payout configuration versions and market rules in MariaDB when configured
 * Exposes payout defaults to PlatformAdmin users from `GET /api/markets/payout-configurations`
+* Handicap markets are generated as `LinePending`
+* PlatformAdmin can confirm full-time and first-half handicap lines per event from Admin Event Management
+* Handicap predictions require a confirmed line and open only inside the 24-hour pre-kickoff window
 
 Settlement foundation behavior:
 
@@ -149,7 +154,7 @@ Settlement foundation behavior:
 * Adds persisted settlement log records linked to settlement runs
 * Stores event results in `event_results`
 * Supports admin-triggered settlement from a recorded event result
-* Settles Winner, Handicap, Over/Under, Odd/Even and Correct Score predictions
+* Settles Handicap, Over/Under, Odd/Even and Correct Score predictions
 * Validates selected options for settled markets
 * Supports quarter-line handicap half-win and half-lose outcomes
 * Supports cancelled-event settlement as stake refunds and market voiding
@@ -248,10 +253,9 @@ Current web behavior:
 * Joins pools by invite code on `/pools/join`
 * Shows signed-in profile details on `/profile`
 * Allows signed-in users to change password on `/profile`
-* Redirects old `/app/*` routes to the new root route family
 * Provides a dedicated PlatformAdmin panel under `/admin`
 * Shows all pools across all users on `/admin/pools`
-* Shows provider status and admin-triggered sync on `/admin/provider` for PlatformAdmin users
+* Shows provider status and selected-provider sync on `/admin/provider` for PlatformAdmin users
 * Allows PlatformAdmin users to browse and filter events by provider/source, management mode and status on `/admin/events`
 * Allows PlatformAdmin users to edit event kickoff, status, mode and stored scores on `/admin/events`
 * Allows PlatformAdmin users to switch events between provider-managed and manually managed mode on `/admin/events`

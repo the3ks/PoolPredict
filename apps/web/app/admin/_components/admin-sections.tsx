@@ -2,10 +2,10 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Activity, CalendarClock, CheckCircle2, KeyRound, ListChecks, RefreshCw, Save, Search, Send, SlidersHorizontal, Trophy, Users } from "lucide-react";
-import { IconLabel, Panel, StatGrid } from "../../../components/ui";
-import { apiUrl, readApiError } from "../../../lib/api";
-import { getStoredToken } from "../../../lib/auth";
-import { appName } from "../../../lib/config";
+import { IconLabel, Panel, StatGrid } from "../../components/ui";
+import { apiUrl, readApiError } from "../../lib/api";
+import { getStoredToken } from "../../lib/auth";
+import { appName } from "../../lib/config";
 
 type ProviderSyncStatus = {
   provider: string;
@@ -14,6 +14,11 @@ type ProviderSyncStatus = {
   tournamentCount: number;
   participantCount: number;
   eventCount: number;
+};
+
+type ProviderList = {
+  defaultProvider: string;
+  providers: string[];
 };
 
 type AdminEvent = {
@@ -49,6 +54,17 @@ type PayoutConfiguration = {
   }>;
 };
 
+type HandicapLineMarket = {
+  id: string;
+  poolId: string;
+  poolName: string;
+  eventId: string;
+  marketPeriod: string;
+  lineValue: number | null;
+  payoutMultiplier: number;
+  status: string;
+};
+
 type AdminUser = {
   id: string;
   email: string;
@@ -73,12 +89,31 @@ type EmailSettings = {
 
 export function ProviderSection() {
   const [status, setStatus] = useState<ProviderSyncStatus | null>(null);
+  const [providerList, setProviderList] = useState<ProviderList | null>(null);
+  const [selectedProvider, setSelectedProvider] = useState("");
   const [message, setMessage] = useState("Loading provider status...");
   const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
+    loadProviders();
     loadStatus();
   }, []);
+
+  async function loadProviders() {
+    try {
+      const response = await fetch(apiUrl("/api/tournaments/providers"));
+      if (!response.ok) {
+        setMessage(await readApiError(response, "Could not load providers."));
+        return;
+      }
+
+      const result = (await response.json()) as ProviderList;
+      setProviderList(result);
+      setSelectedProvider(result.defaultProvider || result.providers[0] || "");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not load providers.");
+    }
+  }
 
   async function loadStatus() {
     try {
@@ -101,11 +136,16 @@ export function ProviderSection() {
       setMessage("Session is missing.");
       return;
     }
+    if (!selectedProvider) {
+      setMessage("Select a provider first.");
+      return;
+    }
 
     setIsSyncing(true);
-    setMessage("Syncing provider...");
+    setMessage(`Syncing ${selectedProvider}...`);
     try {
-      const response = await fetch(apiUrl("/api/tournaments/sync"), {
+      const params = new URLSearchParams({ provider: selectedProvider });
+      const response = await fetch(apiUrl(`/api/tournaments/sync?${params.toString()}`), {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -116,7 +156,7 @@ export function ProviderSection() {
       }
 
       setStatus(await response.json());
-      setMessage("Provider sync completed.");
+      setMessage(`${selectedProvider} sync completed.`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Provider sync failed.");
     } finally {
@@ -127,7 +167,8 @@ export function ProviderSection() {
   return (
     <Panel title="Tournament provider">
       <div className="buttonRow">
-        <button className="button" disabled={isSyncing} type="button" onClick={syncProvider}><IconLabel icon={RefreshCw}>Sync provider</IconLabel></button>
+        <label>Provider<select value={selectedProvider} onChange={(event) => setSelectedProvider(event.target.value)}>{providerList?.providers.map((provider) => <option key={provider} value={provider}>{provider}</option>)}</select></label>
+        <button className="button" disabled={isSyncing || !selectedProvider} type="button" onClick={syncProvider}><IconLabel icon={RefreshCw}>Sync selected provider</IconLabel></button>
       </div>
       <p className="statusText">{message}</p>
       {status ? (
@@ -140,7 +181,8 @@ export function ProviderSection() {
             ]}
           />
           <dl className="detailList">
-            <div><dt>Provider</dt><dd>{status.provider}</dd></div>
+            <div><dt>Last synced provider</dt><dd>{status.provider}</dd></div>
+            <div><dt>Default provider</dt><dd>{providerList?.defaultProvider ?? "Unknown"}</dd></div>
             <div><dt>Last result</dt><dd>{status.lastResult}</dd></div>
             <div><dt>Last synced</dt><dd>{status.lastSyncedAt ? new Date(status.lastSyncedAt).toLocaleString() : "Not synced"}</dd></div>
           </dl>
@@ -161,6 +203,11 @@ export function EventManagementSection() {
   const [firstHalfHomeScore, setFirstHalfHomeScore] = useState("0");
   const [firstHalfAwayScore, setFirstHalfAwayScore] = useState("0");
   const [isSavingEvent, setIsSavingEvent] = useState(false);
+  const [handicapLines, setHandicapLines] = useState<HandicapLineMarket[]>([]);
+  const [fullTimeHandicapLine, setFullTimeHandicapLine] = useState("0.5");
+  const [firstHalfHandicapLine, setFirstHalfHandicapLine] = useState("0.5");
+  const [handicapLineMessage, setHandicapLineMessage] = useState("");
+  const [isSavingHandicapLine, setIsSavingHandicapLine] = useState(false);
 
   useEffect(() => {
     if (!selectedEvent) {
@@ -174,7 +221,81 @@ export function EventManagementSection() {
     setFullTimeAwayScore(scoreToText(selectedEvent.fullTimeAwayScore));
     setFirstHalfHomeScore(scoreToText(selectedEvent.firstHalfHomeScore));
     setFirstHalfAwayScore(scoreToText(selectedEvent.firstHalfAwayScore));
+    void loadHandicapLines(selectedEvent.id);
   }, [selectedEvent]);
+
+  async function loadHandicapLines(eventId: string) {
+    const token = getStoredToken();
+    if (!token) {
+      setHandicapLineMessage("Session is missing.");
+      return;
+    }
+
+    setHandicapLineMessage("Loading handicap lines...");
+    try {
+      const response = await fetch(apiUrl(`/api/markets/events/${eventId}/handicap-lines`), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) {
+        setHandicapLineMessage(await readApiError(response, "Could not load handicap lines."));
+        return;
+      }
+
+      const result = (await response.json()) as HandicapLineMarket[];
+      setHandicapLines(result);
+      const fullTime = result.find((market) => market.marketPeriod === "FullTime" && market.lineValue !== null);
+      const firstHalf = result.find((market) => market.marketPeriod === "FirstHalf" && market.lineValue !== null);
+      if (fullTime?.lineValue !== undefined && fullTime.lineValue !== null) {
+        setFullTimeHandicapLine(String(fullTime.lineValue));
+      }
+      if (firstHalf?.lineValue !== undefined && firstHalf.lineValue !== null) {
+        setFirstHalfHandicapLine(String(firstHalf.lineValue));
+      }
+      setHandicapLineMessage(result.length === 0 ? "No handicap markets generated for this event." : `${result.length} handicap markets loaded.`);
+    } catch (error) {
+      setHandicapLineMessage(error instanceof Error ? error.message : "Could not load handicap lines.");
+    }
+  }
+
+  async function confirmHandicapLine(marketPeriod: "FullTime" | "FirstHalf") {
+    const token = getStoredToken();
+    if (!token || !selectedEvent) {
+      setHandicapLineMessage("Select an event first.");
+      return;
+    }
+
+    const lineValue = Number(marketPeriod === "FullTime" ? fullTimeHandicapLine : firstHalfHandicapLine);
+    if (!Number.isFinite(lineValue)) {
+      setHandicapLineMessage("Enter a valid handicap line.");
+      return;
+    }
+
+    setIsSavingHandicapLine(true);
+    setHandicapLineMessage(`Confirming ${marketPeriod === "FullTime" ? "full-time" : "first-half"} handicap line...`);
+    try {
+      const response = await fetch(apiUrl(`/api/markets/events/${selectedEvent.id}/handicap-lines`), {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ marketPeriod, lineValue }),
+      });
+
+      if (!response.ok) {
+        setHandicapLineMessage(await readApiError(response, "Could not confirm handicap line."));
+        return;
+      }
+
+      await loadHandicapLines(selectedEvent.id);
+      setHandicapLineMessage(`${marketPeriod === "FullTime" ? "Full-time" : "First-half"} handicap line confirmed.`);
+    } catch (error) {
+      setHandicapLineMessage(error instanceof Error ? error.message : "Could not confirm handicap line.");
+    } finally {
+      setIsSavingHandicapLine(false);
+    }
+  }
 
   async function saveEvent(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -270,6 +391,36 @@ export function EventManagementSection() {
           </div>
         </form>
       </div>
+      <section className="form panel">
+        <h2><IconLabel icon={SlidersHorizontal}>Handicap lines</IconLabel></h2>
+        <p className="statusText">{handicapLineMessage || "Select an event to manage handicap lines."}</p>
+        <div className="scoreGrid">
+          <label>
+            Full-time home line
+            <input step="0.25" type="number" value={fullTimeHandicapLine} onChange={(event) => setFullTimeHandicapLine(event.target.value)} />
+          </label>
+          <label>
+            First-half home line
+            <input step="0.25" type="number" value={firstHalfHandicapLine} onChange={(event) => setFirstHalfHandicapLine(event.target.value)} />
+          </label>
+        </div>
+        <div className="buttonRow">
+          <button className="button" disabled={!selectedEvent || isSavingHandicapLine} type="button" onClick={() => confirmHandicapLine("FullTime")}><IconLabel icon={Save}>Confirm full-time</IconLabel></button>
+          <button className="button buttonSecondary" disabled={!selectedEvent || isSavingHandicapLine} type="button" onClick={() => confirmHandicapLine("FirstHalf")}><IconLabel icon={Save}>Confirm first-half</IconLabel></button>
+          <button className="button buttonSecondary" disabled={!selectedEvent || isSavingHandicapLine} type="button" onClick={() => selectedEvent ? loadHandicapLines(selectedEvent.id) : undefined}><IconLabel icon={RefreshCw}>Refresh lines</IconLabel></button>
+        </div>
+        {handicapLines.length > 0 ? (
+          <div className="ruleList">
+            {summarizeHandicapLines(handicapLines).map((summary) => (
+              <article className="ruleRow" key={`${summary.period}-${summary.line}-${summary.status}`}>
+                <span><strong>{summary.period}</strong><small>{summary.count} pool market{summary.count === 1 ? "" : "s"}</small></span>
+                <span><strong>{summary.line}</strong><small>Home perspective</small></span>
+                <span><strong>{summary.status}</strong><small>{summary.payout}x payout</small></span>
+              </article>
+            ))}
+          </div>
+        ) : null}
+      </section>
     </Panel>
   );
 }
@@ -919,6 +1070,32 @@ const eventStatuses = ["Scheduled", "Live", "Finished", "Postponed", "Cancelled"
 
 function scoreToText(score: number | null) {
   return score === null ? "" : String(score);
+}
+
+function summarizeHandicapLines(lines: HandicapLineMarket[]) {
+  const groups = new Map<string, { period: string; line: string; status: string; payout: number; count: number }>();
+  for (const line of lines) {
+    const key = `${line.marketPeriod}|${line.lineValue ?? "pending"}|${line.status}|${line.payoutMultiplier}`;
+    const current = groups.get(key);
+    if (current) {
+      current.count += 1;
+      continue;
+    }
+
+    groups.set(key, {
+      period: line.marketPeriod,
+      line: line.lineValue === null ? "Pending" : formatSignedLine(line.lineValue),
+      status: line.status,
+      payout: line.payoutMultiplier,
+      count: 1,
+    });
+  }
+
+  return Array.from(groups.values()).sort((first, second) => first.period.localeCompare(second.period));
+}
+
+function formatSignedLine(value: number) {
+  return value > 0 ? `+${value}` : String(value);
 }
 
 function textToNullableNumber(value: string) {

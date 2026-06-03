@@ -51,4 +51,10 @@ public sealed class Market : Entity
 
         LineValue = lineValue;
     }
+
+    public void ConfirmLineValue(decimal lineValue)
+    {
+        UpdateLineValue(lineValue);
+        Status = MarketStatus.Open;
+    }
 }

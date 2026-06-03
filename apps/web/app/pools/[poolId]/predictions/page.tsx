@@ -1,0 +1,154 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+import { ArrowLeft, History, Trophy } from "lucide-react";
+import { UserShell } from "../../../components/user-shell";
+import { IconLabel, PageHeader, Panel, StatusPill } from "../../../components/ui";
+import { apiUrl, readApiError } from "../../../lib/api";
+import { getStoredToken } from "../../../lib/auth";
+import { LeaderboardEntry, PoolSummary, Prediction } from "../../../lib/types";
+
+export default function PoolPredictionsPage() {
+  const params = useParams<{ poolId: string }>();
+  const poolId = params.poolId;
+  const [pool, setPool] = useState<PoolSummary | null>(null);
+  const [predictions, setPredictions] = useState<Prediction[]>([]);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [status, setStatus] = useState("Loading predictions...");
+
+  useEffect(() => {
+    loadPage();
+  }, [poolId]);
+
+  async function loadPage() {
+    const token = getStoredToken();
+    if (!token) {
+      setStatus("Session is missing.");
+      return;
+    }
+
+    const poolResponse = await fetch(apiUrl(`/api/pools/${poolId}`), {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!poolResponse.ok) {
+      setStatus(await readApiError(poolResponse, "Could not load pool."));
+      return;
+    }
+
+    const poolResult = (await poolResponse.json()) as PoolSummary;
+    setPool(poolResult);
+    await Promise.all([loadPredictions(poolResult.id), loadLeaderboard(poolResult.id)]);
+    setStatus("Prediction history loaded.");
+  }
+
+  async function loadPredictions(targetPoolId: string) {
+    const token = getStoredToken();
+    if (!token) {
+      return;
+    }
+
+    const response = await fetch(apiUrl(`/api/predictions/pool/${targetPoolId}`), {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (response.ok) {
+      const result = (await response.json()) as Prediction[];
+      setPredictions(result.sort((left, right) => new Date(right.submittedAt).getTime() - new Date(left.submittedAt).getTime()));
+    }
+  }
+
+  async function loadLeaderboard(targetPoolId: string) {
+    const token = getStoredToken();
+    if (!token) {
+      return;
+    }
+
+    const response = await fetch(apiUrl(`/api/predictions/pool/${targetPoolId}/leaderboard`), {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (response.ok) {
+      setLeaderboard((await response.json()) as LeaderboardEntry[]);
+    }
+  }
+
+  return (
+    <UserShell>
+      <section className="pageStack">
+        <PageHeader
+          eyebrow="Pool predictions"
+          title={pool?.name ?? "Predictions"}
+          icon={History}
+          actions={<Link className="button buttonSecondary" href={`/pools/${poolId}`}><IconLabel icon={ArrowLeft}>Back to pool</IconLabel></Link>}
+        />
+        <StatusPill icon={History}>{status}</StatusPill>
+
+        <Panel title="Leaderboard">
+          {leaderboard.length > 0 ? (
+            <div className="leaderboardList">
+              {leaderboard.map((entry, index) => (
+                <article className={entry.memberId === pool?.memberId ? "leaderboardRow active" : "leaderboardRow"} key={entry.memberId}>
+                  <span>
+                    <strong>#{index + 1} {entry.displayName}</strong>
+                    <small>{entry.role}</small>
+                  </span>
+                  <span>
+                    <strong>{entry.balance}</strong>
+                    <small>Balance</small>
+                  </span>
+                  <span>
+                    <strong>{entry.winRate}%</strong>
+                    <small>{entry.winCount}/{entry.settledPredictionCount} wins</small>
+                  </span>
+                  <span>
+                    <strong>{entry.roi}%</strong>
+                    <small>{entry.predictionCount} picks</small>
+                  </span>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="mutedText">No leaderboard rows yet.</p>
+          )}
+        </Panel>
+
+        <Panel title="My predictions">
+          {predictions.length === 0 ? (
+            <p className="mutedText">No predictions submitted yet.</p>
+          ) : (
+            <div className="predictionHistory">
+              {predictions.map((prediction) => (
+                <article className="historyRow" key={prediction.id}>
+                  <span>
+                    <strong><IconLabel icon={Trophy}>{prediction.marketType}</IconLabel></strong>
+                    <small>{prediction.marketPeriod}</small>
+                  </span>
+                  <span>
+                    <strong>{prediction.selectedOption}</strong>
+                    <small>{prediction.stake} points</small>
+                  </span>
+                  <span>
+                    <strong>{prediction.payoutMultiplierSnapshot}x</strong>
+                    <small>{new Date(prediction.submittedAt).toLocaleString()}</small>
+                  </span>
+                  <span>
+                    <strong>{prediction.outcome ?? "Pending"}</strong>
+                    <small>{formatNetPoints(prediction.netPoints)}</small>
+                  </span>
+                </article>
+              ))}
+            </div>
+          )}
+        </Panel>
+      </section>
+    </UserShell>
+  );
+}
+
+function formatNetPoints(value: number | undefined) {
+  if (value === undefined) {
+    return "Not settled";
+  }
+
+  return value > 0 ? `+${value} net` : `${value} net`;
+}

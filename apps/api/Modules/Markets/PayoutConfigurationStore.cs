@@ -107,7 +107,6 @@ public sealed class PayoutConfigurationStore
     {
         foreach (var period in new[] { MarketPeriod.FullTime })
         {
-            yield return Rule(MarketProfile.Casual, MarketType.Winner, period, null, 2.0m);
             yield return Rule(MarketProfile.Casual, MarketType.CorrectScore, period, null, 5.0m);
         }
 
@@ -115,7 +114,6 @@ public sealed class PayoutConfigurationStore
         {
             foreach (var period in new[] { MarketPeriod.FullTime, MarketPeriod.FirstHalf })
             {
-                yield return Rule(profile, MarketType.Winner, period, null, 2.0m);
                 yield return Rule(profile, MarketType.Handicap, period, 0.5m, 2.0m);
                 yield return Rule(profile, MarketType.OverUnder, period, 2.5m, 2.0m);
                 yield return Rule(profile, MarketType.OddEven, period, null, 2.0m);

@@ -137,12 +137,67 @@ public sealed class PoolStore
                 throw new KeyNotFoundException("Pool does not exist.");
             }
 
-            EnsureCanManage(poolId, userId);
+            EnsureCanManageInvites(poolId, userId);
 
             var invite = new PoolInvite(Ids.NewId(), poolId, userId, CreateInviteCode(), DateTimeOffset.UtcNow);
             _invites.Add(invite);
             PersistInvite(invite);
             return invite;
+        }
+    }
+
+    public IReadOnlyCollection<PoolInviteListResponse> GetInvites(Guid poolId, Guid managerUserId)
+    {
+        lock (_gate)
+        {
+            if (_pools.All(pool => pool.Id != poolId))
+            {
+                throw new KeyNotFoundException("Pool does not exist.");
+            }
+
+            EnsureCanManageInvites(poolId, managerUserId);
+
+            return _invites
+                .Where(invite => invite.PoolId == poolId)
+                .OrderBy(invite => invite.IsRevoked ? 1 : 0)
+                .ThenByDescending(invite => invite.CreatedAt)
+                .Select(invite => new PoolInviteListResponse(
+                    invite.Id,
+                    invite.Code,
+                    invite.PoolId,
+                    invite.CreatedByUserId,
+                    invite.CreatedAt,
+                    invite.RevokedAt,
+                    invite.RevokedByUserId,
+                    invite.IsRevoked))
+                .ToArray();
+        }
+    }
+
+    public PoolInviteListResponse RevokeInvite(Guid poolId, Guid inviteId, Guid managerUserId)
+    {
+        lock (_gate)
+        {
+            if (_pools.All(pool => pool.Id != poolId))
+            {
+                throw new KeyNotFoundException("Pool does not exist.");
+            }
+
+            EnsureCanManageInvites(poolId, managerUserId);
+            var invite = _invites.SingleOrDefault(candidate => candidate.Id == inviteId && candidate.PoolId == poolId)
+                ?? throw new KeyNotFoundException("Invite does not exist.");
+
+            invite.Revoke(managerUserId, DateTimeOffset.UtcNow);
+            PersistInviteRevocation(invite);
+            return new PoolInviteListResponse(
+                invite.Id,
+                invite.Code,
+                invite.PoolId,
+                invite.CreatedByUserId,
+                invite.CreatedAt,
+                invite.RevokedAt,
+                invite.RevokedByUserId,
+                invite.IsRevoked);
         }
     }
 
@@ -159,23 +214,20 @@ public sealed class PoolStore
         }
 
         using var db = _dbContextFactory.CreateDbContext();
-        return db.PoolJoinRequests
-            .AsNoTracking()
-            .Where(request => request.PoolId == poolId)
-            .Join(
-                db.Users.AsNoTracking(),
-                request => request.UserId,
-                user => user.Id,
-                (request, user) => new PoolJoinRequestResponse(
+        return (from request in db.PoolJoinRequests.AsNoTracking()
+                where request.PoolId == poolId
+                join user in db.Users.AsNoTracking()
+                    on request.UserId equals user.Id into userGroup
+                from user in userGroup.DefaultIfEmpty()
+                orderby request.Status == "Pending" ? 0 : 1, request.RequestedAt descending
+                select new PoolJoinRequestResponse(
                     request.Id,
                     request.PoolId,
                     request.UserId,
-                    user.DisplayName,
-                    user.Email,
+                    user == null ? "Unknown user" : user.DisplayName,
+                    user == null ? request.UserId.ToString() : user.Email,
                     request.Status,
                     request.RequestedAt))
-            .OrderBy(request => request.Status == "Pending" ? 0 : 1)
-            .ThenByDescending(request => request.RequestedAt)
             .ToArray();
     }
 
@@ -237,7 +289,7 @@ public sealed class PoolStore
     {
         lock (_gate)
         {
-            var invite = FindInvite(code);
+            var invite = FindActiveInvite(code);
             if (invite is null)
             {
                 return null;
@@ -252,7 +304,7 @@ public sealed class PoolStore
     {
         lock (_gate)
         {
-            var invite = FindInvite(request.InviteCode)
+            var invite = FindActiveInvite(request.InviteCode)
                 ?? throw new KeyNotFoundException("Invite code does not exist.");
 
             var pool = _pools.Single(candidate => candidate.Id == invite.PoolId);
@@ -301,6 +353,84 @@ public sealed class PoolStore
         }
     }
 
+    public IReadOnlyCollection<HandicapLineMarketResponse> GetHandicapLineMarkets(Guid eventId)
+    {
+        using var db = _dbContextFactory.CreateDbContext();
+        var poolNames = db.Pools
+            .AsNoTracking()
+            .Select(pool => new { pool.Id, pool.Name })
+            .ToDictionary(pool => pool.Id, pool => pool.Name);
+
+        lock (_gate)
+        {
+            return _markets
+                .Where(market => market.EventId == eventId && market.Type == MarketType.Handicap)
+                .OrderBy(market => market.Period)
+                .ThenBy(market => poolNames.GetValueOrDefault(market.PoolId, "Unknown pool"))
+                .Select(market => new HandicapLineMarketResponse(
+                    market.Id,
+                    market.PoolId,
+                    poolNames.GetValueOrDefault(market.PoolId, "Unknown pool"),
+                    market.EventId,
+                    market.Period,
+                    market.LineValue,
+                    market.PayoutMultiplier,
+                    market.Status))
+                .ToArray();
+        }
+    }
+
+    public IReadOnlyCollection<HandicapLineMarketResponse> ConfirmHandicapLine(Guid eventId, ConfirmHandicapLineRequest request)
+    {
+        if (request.MarketPeriod is not (MarketPeriod.FullTime or MarketPeriod.FirstHalf))
+        {
+            throw new ArgumentException("Market period is not supported.", nameof(request));
+        }
+
+        if (!IsValidQuarterLine(request.LineValue))
+        {
+            throw new ArgumentException("Handicap line must use 0.25 increments.", nameof(request));
+        }
+
+        using var db = _dbContextFactory.CreateDbContext();
+        var poolNames = db.Pools
+            .AsNoTracking()
+            .Select(pool => new { pool.Id, pool.Name })
+            .ToDictionary(pool => pool.Id, pool => pool.Name);
+
+        lock (_gate)
+        {
+            var markets = _markets
+                .Where(market => market.EventId == eventId && market.Type == MarketType.Handicap && market.Period == request.MarketPeriod)
+                .ToArray();
+
+            if (markets.Length == 0)
+            {
+                throw new KeyNotFoundException("No handicap markets found for this event and period.");
+            }
+
+            foreach (var market in markets)
+            {
+                market.ConfirmLineValue(request.LineValue);
+            }
+
+            PersistMarketLineUpdates(markets);
+
+            return markets
+                .OrderBy(market => poolNames.GetValueOrDefault(market.PoolId, "Unknown pool"))
+                .Select(market => new HandicapLineMarketResponse(
+                    market.Id,
+                    market.PoolId,
+                    poolNames.GetValueOrDefault(market.PoolId, "Unknown pool"),
+                    market.EventId,
+                    market.Period,
+                    market.LineValue,
+                    market.PayoutMultiplier,
+                    market.Status))
+                .ToArray();
+        }
+    }
+
     public Market? GetMarket(Guid marketId)
     {
         lock (_gate)
@@ -329,7 +459,8 @@ public sealed class PoolStore
             rule.Period,
             rule.LineValue,
             rule.PayoutMultiplier,
-            payoutConfigurationVersion);
+            payoutConfigurationVersion,
+            rule.MarketType == MarketType.Handicap ? MarketStatus.LinePending : MarketStatus.Open);
 
     private void EnsureCanManage(Guid poolId, Guid userId)
     {
@@ -340,7 +471,16 @@ public sealed class PoolStore
         }
     }
 
-    private PoolInvite? FindInvite(string code)
+    private void EnsureCanManageInvites(Guid poolId, Guid userId)
+    {
+        var membership = _members.SingleOrDefault(member => member.PoolId == poolId && member.UserId == userId);
+        if (membership?.Role is not PoolMemberRole.Owner)
+        {
+            throw new UnauthorizedAccessException("Only pool owners can manage invite codes.");
+        }
+    }
+
+    private PoolInvite? FindActiveInvite(string code)
     {
         if (string.IsNullOrWhiteSpace(code))
         {
@@ -348,7 +488,9 @@ public sealed class PoolStore
         }
 
         var normalizedCode = code.Trim();
-        return _invites.SingleOrDefault(invite => string.Equals(invite.Code, normalizedCode, StringComparison.OrdinalIgnoreCase));
+        return _invites.SingleOrDefault(invite =>
+            !invite.IsRevoked &&
+            string.Equals(invite.Code, normalizedCode, StringComparison.OrdinalIgnoreCase));
     }
 
     private PoolSummaryResponse ToSummary(Pool pool, PoolMemberRole role) =>
@@ -359,7 +501,7 @@ public sealed class PoolStore
 
     private int CountMembers(Guid poolId) => _members.Count(member => member.PoolId == poolId);
 
-    private int CountInvites(Guid poolId) => _invites.Count(invite => invite.PoolId == poolId);
+    private int CountInvites(Guid poolId) => _invites.Count(invite => invite.PoolId == poolId && !invite.IsRevoked);
 
     private static string CreateInviteCode()
     {
@@ -392,7 +534,9 @@ public sealed class PoolStore
             invite.PoolId,
             invite.CreatedByUserId,
             invite.Code,
-            invite.CreatedAt)));
+            invite.CreatedAt,
+            invite.RevokedAt,
+            invite.RevokedByUserId)));
 
         _markets.AddRange(db.Markets.AsNoTracking().Select(market => new Market(
             market.Id,
@@ -433,8 +577,19 @@ public sealed class PoolStore
             PoolId = invite.PoolId,
             CreatedByUserId = invite.CreatedByUserId,
             Code = invite.Code,
-            CreatedAt = invite.CreatedAt
+            CreatedAt = invite.CreatedAt,
+            RevokedAt = invite.RevokedAt,
+            RevokedByUserId = invite.RevokedByUserId
         });
+        db.SaveChanges();
+    }
+
+    private void PersistInviteRevocation(PoolInvite invite)
+    {
+        using var db = _dbContextFactory.CreateDbContext();
+        var persisted = db.PoolInvites.Single(candidate => candidate.Id == invite.Id);
+        persisted.RevokedAt = invite.RevokedAt;
+        persisted.RevokedByUserId = invite.RevokedByUserId;
         db.SaveChanges();
     }
 
@@ -447,6 +602,19 @@ public sealed class PoolStore
         }
 
         db.PoolMembers.Add(ToPersistedMember(member));
+        db.SaveChanges();
+    }
+
+    private void PersistMarketLineUpdates(IReadOnlyCollection<Market> markets)
+    {
+        using var db = _dbContextFactory.CreateDbContext();
+        foreach (var market in markets)
+        {
+            var persisted = db.Markets.Single(candidate => candidate.Id == market.Id);
+            persisted.LineValue = market.LineValue;
+            persisted.Status = market.Status;
+        }
+
         db.SaveChanges();
     }
 
@@ -481,7 +649,21 @@ public sealed class PoolStore
         PayoutConfigurationVersion = market.PayoutConfigurationVersion,
         Status = market.Status
     };
+
+    private static bool IsValidQuarterLine(decimal value) => decimal.Remainder(value * 100m, 25m) == 0m;
 }
+
+public sealed record ConfirmHandicapLineRequest(MarketPeriod MarketPeriod, decimal LineValue);
+
+public sealed record HandicapLineMarketResponse(
+    Guid Id,
+    Guid PoolId,
+    string PoolName,
+    Guid EventId,
+    MarketPeriod MarketPeriod,
+    decimal? LineValue,
+    decimal PayoutMultiplier,
+    MarketStatus Status);
 
 public sealed record PoolSummaryResponse(
     Guid Id,
@@ -510,6 +692,16 @@ public sealed record PoolInviteResponse(
     string PoolName,
     MarketProfile Profile,
     int StartingBalance);
+
+public sealed record PoolInviteListResponse(
+    Guid Id,
+    string Code,
+    Guid PoolId,
+    Guid CreatedByUserId,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? RevokedAt,
+    Guid? RevokedByUserId,
+    bool IsRevoked);
 
 public sealed record PoolJoinRequestResponse(
     Guid Id,

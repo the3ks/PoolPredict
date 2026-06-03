@@ -22,4 +22,8 @@ public sealed record EventDto(
     string HomeParticipantExternalId,
     string AwayParticipantExternalId,
     DateTimeOffset StartsAt,
-    EventStatus Status);
+    EventStatus Status,
+    int? FirstHalfHomeScore = null,
+    int? FirstHalfAwayScore = null,
+    int? FullTimeHomeScore = null,
+    int? FullTimeAwayScore = null);

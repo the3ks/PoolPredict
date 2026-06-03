@@ -48,9 +48,14 @@ export type PoolJoinRequest = {
 };
 
 export type PoolInvite = {
+  id?: string;
   code: string;
   poolId: string;
   createdAt?: string;
+  createdByUserId?: string;
+  revokedAt?: string | null;
+  revokedByUserId?: string | null;
+  isRevoked?: boolean;
 };
 
 export type TournamentEvent = {

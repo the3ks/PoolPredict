@@ -5,6 +5,8 @@ public sealed class EventProviderOptions
     public string Provider { get; set; } = "Mock";
 
     public FootballDataOptions FootballData { get; set; } = new();
+
+    public VirtualProviderOptions VirtualProvider { get; set; } = new();
 }
 
 public sealed class FootballDataOptions
@@ -24,4 +26,9 @@ public sealed class FootballDataOptions
     public DateOnly StartsOn { get; set; } = new(2026, 6, 11);
 
     public DateOnly EndsOn { get; set; } = new(2026, 7, 19);
+}
+
+public sealed class VirtualProviderOptions
+{
+    public string BaseUrl { get; set; } = "http://localhost:5090";
 }

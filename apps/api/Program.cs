@@ -26,6 +26,11 @@ builder.Services.AddHttpClient<FootballDataProvider>((services, client) =>
     var options = services.GetRequiredService<Microsoft.Extensions.Options.IOptions<EventProviderOptions>>().Value.FootballData;
     client.BaseAddress = new Uri(options.BaseUrl.TrimEnd('/') + "/");
 });
+builder.Services.AddHttpClient<VirtualProviderEventProvider>((services, client) =>
+{
+    var options = services.GetRequiredService<Microsoft.Extensions.Options.IOptions<EventProviderOptions>>().Value.VirtualProvider;
+    client.BaseAddress = new Uri(options.BaseUrl.TrimEnd('/') + "/");
+});
 builder.Services.AddSingleton<EventProviderFactory>();
 var mariaDbConnectionString = builder.Configuration.GetConnectionString("MariaDb");
 if (string.IsNullOrWhiteSpace(mariaDbConnectionString))

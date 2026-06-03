@@ -49,7 +49,7 @@ public static class PoolEndpoints
                     pool.Profile,
                     pool.StartingBalance,
                     MemberCount = db.PoolMembers.Count(member => member.PoolId == pool.Id),
-                    InviteCount = db.PoolInvites.Count(invite => invite.PoolId == pool.Id),
+                    InviteCount = db.PoolInvites.Count(invite => invite.PoolId == pool.Id && invite.RevokedAt == null),
                     HasPendingJoinRequest = db.PoolJoinRequests.Any(request =>
                         request.PoolId == pool.Id &&
                         request.UserId == userId &&
@@ -139,6 +139,48 @@ public static class PoolEndpoints
             {
                 var invite = pools.CreateInvite(poolId, userId);
                 return Results.Created($"/api/pools/invites/{invite.Code}", invite);
+            }
+            catch (KeyNotFoundException)
+            {
+                return Results.NotFound();
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Forbid();
+            }
+        }).RequireAuthorization();
+
+        group.MapGet("/{poolId:guid}/invites", (Guid poolId, ClaimsPrincipal principal, PoolStore pools) =>
+        {
+            if (!TryGetUserId(principal, out var userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            try
+            {
+                return Results.Ok(pools.GetInvites(poolId, userId));
+            }
+            catch (KeyNotFoundException)
+            {
+                return Results.NotFound();
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Forbid();
+            }
+        }).RequireAuthorization();
+
+        group.MapPost("/{poolId:guid}/invites/{inviteId:guid}/revoke", (Guid poolId, Guid inviteId, ClaimsPrincipal principal, PoolStore pools) =>
+        {
+            if (!TryGetUserId(principal, out var userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            try
+            {
+                return Results.Ok(pools.RevokeInvite(poolId, inviteId, userId));
             }
             catch (KeyNotFoundException)
             {

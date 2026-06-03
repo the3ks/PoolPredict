@@ -5,9 +5,10 @@ namespace PoolPredict.Api.Modules.Tournaments;
 
 public sealed class TournamentCatalog
 {
-    private readonly IEventProvider _provider;
+    private readonly EventProviderFactory _providerFactory;
     private readonly ITournamentPersistence _persistence;
-    private readonly string _providerName;
+    private readonly string _defaultProviderName;
+    private string _lastStatusProviderName;
     private readonly List<Tournament> _tournaments = [];
     private readonly List<Participant> _participants = [];
     private readonly List<Event> _events = [];
@@ -24,10 +25,11 @@ public sealed class TournamentCatalog
 
     public TournamentCatalog(EventProviderFactory providerFactory, ITournamentPersistence persistence, IConfiguration configuration)
     {
-        _provider = providerFactory.Create();
+        _providerFactory = providerFactory;
         _persistence = persistence;
-        _providerName = configuration["EventProvider:Provider"] ?? "Mock";
-        LoadOrSync(IsMockProvider()).GetAwaiter().GetResult();
+        _defaultProviderName = EventProviderFactory.CanonicalName(configuration["EventProvider:Provider"] ?? "Mock");
+        _lastStatusProviderName = _defaultProviderName;
+        LoadOrSync(IsMockProvider(_defaultProviderName)).GetAwaiter().GetResult();
     }
 
     public IReadOnlyCollection<Tournament> GetTournaments()
@@ -143,7 +145,7 @@ public sealed class TournamentCatalog
         lock (_gate)
         {
             return new ProviderSyncStatus(
-                _providerName,
+                _lastStatusProviderName,
                 _lastSyncedAt,
                 _lastResult,
                 _tournaments.Count,
@@ -152,14 +154,23 @@ public sealed class TournamentCatalog
         }
     }
 
-    public async Task<ProviderSyncStatus> SyncFromProviderAsync(CancellationToken cancellationToken = default)
+    public ProviderListResponse GetProviderList()
     {
+        return new ProviderListResponse(
+            _defaultProviderName,
+            _providerFactory.GetAvailableProviders());
+    }
+
+    public async Task<ProviderSyncStatus> SyncFromProviderAsync(string? providerName = null, CancellationToken cancellationToken = default)
+    {
+        var canonicalProviderName = EventProviderFactory.CanonicalName(providerName ?? _defaultProviderName);
         try
         {
-            var snapshot = await SyncFromProvider(cancellationToken);
+            var snapshot = await SyncFromProvider(canonicalProviderName, cancellationToken);
             await _persistence.SaveAsync(snapshot, cancellationToken);
             _lastSyncedAt = DateTimeOffset.UtcNow;
-            _lastResult = "Provider sync completed.";
+            _lastStatusProviderName = canonicalProviderName;
+            _lastResult = $"{canonicalProviderName} sync completed.";
         }
         catch (Exception ex)
         {
@@ -167,7 +178,16 @@ public sealed class TournamentCatalog
             throw;
         }
 
-        return GetProviderStatus();
+        lock (_gate)
+        {
+            return new ProviderSyncStatus(
+                canonicalProviderName,
+                _lastSyncedAt,
+                _lastResult,
+                _tournaments.Count,
+                _participants.Count,
+                _events.Count);
+        }
     }
 
     private async Task LoadOrSync(bool autoSyncWhenEmpty)
@@ -230,25 +250,27 @@ public sealed class TournamentCatalog
         _lastResult = "No persisted tournament data. Run provider sync from Admin.";
     }
 
-    private bool IsMockProvider() =>
-        string.Equals(_providerName, "Mock", StringComparison.OrdinalIgnoreCase);
+    private static bool IsMockProvider(string providerName) =>
+        string.Equals(providerName, "Mock", StringComparison.OrdinalIgnoreCase);
 
-    private async Task<TournamentSyncSnapshot> SyncFromProvider(CancellationToken cancellationToken = default)
+    private async Task<TournamentSyncSnapshot> SyncFromProvider(string providerName, CancellationToken cancellationToken = default)
     {
-        var tournaments = (await _provider.GetTournamentsAsync(cancellationToken)).ToArray();
+        var provider = _providerFactory.Create(providerName);
+        var tournaments = (await provider.GetTournamentsAsync(cancellationToken)).ToArray();
         var syncedTournaments = new List<(Tournament Tournament, string ExternalId)>();
         var syncedParticipants = new List<(Participant Participant, string TournamentExternalId, string ExternalId)>();
         var syncedEvents = new List<(Event Event, string TournamentExternalId, string ExternalId)>();
+        var syncedEventResults = new List<ProviderEventResult>();
         var existingTournamentIds = new Dictionary<string, Guid>(_tournamentExternalIds, StringComparer.OrdinalIgnoreCase);
         var existingParticipantIds = new Dictionary<string, Guid>(_participantExternalIds, StringComparer.OrdinalIgnoreCase);
         var existingEventIds = new Dictionary<string, Guid>(_eventExternalIds, StringComparer.OrdinalIgnoreCase);
-        var source = new ProviderSourceInfo(_providerName, IsMockProvider());
+        var source = new ProviderSourceInfo(providerName, IsTestDataProvider(providerName));
 
         lock (_gate)
         {
             foreach (var tournamentDto in tournaments)
             {
-                var key = TournamentKey(_providerName, tournamentDto.ExternalId);
+                var key = TournamentKey(providerName, tournamentDto.ExternalId);
                 var tournamentId = existingTournamentIds.GetValueOrDefault(key, Ids.NewId());
                 var tournament = new Tournament(
                     tournamentId,
@@ -267,15 +289,15 @@ public sealed class TournamentCatalog
 
         foreach (var tournamentDto in tournaments)
         {
-            var tournamentId = _tournamentExternalIds[TournamentKey(_providerName, tournamentDto.ExternalId)];
-            var participants = await _provider.GetParticipantsAsync(tournamentDto.ExternalId, cancellationToken);
-            var events = await _provider.GetEventsAsync(tournamentDto.ExternalId, cancellationToken);
+            var tournamentId = _tournamentExternalIds[TournamentKey(providerName, tournamentDto.ExternalId)];
+            var participants = await provider.GetParticipantsAsync(tournamentDto.ExternalId, cancellationToken);
+            var events = await provider.GetEventsAsync(tournamentDto.ExternalId, cancellationToken);
 
             lock (_gate)
             {
                 foreach (var participantDto in participants)
                 {
-                    var key = ParticipantKey(_providerName, tournamentId, participantDto.ExternalId);
+                    var key = ParticipantKey(providerName, tournamentId, participantDto.ExternalId);
                     var participantId = existingParticipantIds.GetValueOrDefault(key, Ids.NewId());
                     var participant = new Participant(
                         participantId,
@@ -293,11 +315,11 @@ public sealed class TournamentCatalog
 
                 foreach (var eventDto in events)
                 {
-                    var homeParticipantId = _participantExternalIds[ParticipantKey(_providerName, tournamentId, eventDto.HomeParticipantExternalId)];
-                    var awayParticipantId = _participantExternalIds[ParticipantKey(_providerName, tournamentId, eventDto.AwayParticipantExternalId)];
+                    var homeParticipantId = _participantExternalIds[ParticipantKey(providerName, tournamentId, eventDto.HomeParticipantExternalId)];
+                    var awayParticipantId = _participantExternalIds[ParticipantKey(providerName, tournamentId, eventDto.AwayParticipantExternalId)];
                     var homeParticipant = _participants.Single(participant => participant.Id == homeParticipantId);
                     var awayParticipant = _participants.Single(participant => participant.Id == awayParticipantId);
-                    var key = EventKey(_providerName, tournamentId, eventDto.ExternalId);
+                    var key = EventKey(providerName, tournamentId, eventDto.ExternalId);
                     var eventId = existingEventIds.GetValueOrDefault(key, Ids.NewId());
                     if (_eventManagementModes.GetValueOrDefault(eventId, EventManagementMode.Provider) == EventManagementMode.Manual)
                     {
@@ -320,11 +342,20 @@ public sealed class TournamentCatalog
                     _eventManagementModes[eventId] = EventManagementMode.Provider;
                     _events.Add(matchEvent);
                     syncedEvents.Add((matchEvent, tournamentDto.ExternalId, eventDto.ExternalId));
+                    if (eventDto.FullTimeHomeScore is not null && eventDto.FullTimeAwayScore is not null)
+                    {
+                        syncedEventResults.Add(new ProviderEventResult(
+                            eventId,
+                            eventDto.FullTimeHomeScore.Value,
+                            eventDto.FullTimeAwayScore.Value,
+                            eventDto.FirstHalfHomeScore,
+                            eventDto.FirstHalfAwayScore));
+                    }
                 }
             }
         }
 
-        return new TournamentSyncSnapshot(_providerName, IsMockProvider(), syncedTournaments, syncedParticipants, syncedEvents);
+        return new TournamentSyncSnapshot(providerName, IsTestDataProvider(providerName), syncedTournaments, syncedParticipants, syncedEvents, syncedEventResults);
     }
 
     private static readonly ProviderSourceInfo UnknownSource = new("Unknown", false);
@@ -337,4 +368,9 @@ public sealed class TournamentCatalog
 
     private static string EventKey(string provider, Guid tournamentId, string externalId) =>
         $"{provider}::{tournamentId:N}::{externalId}";
+
+    private static bool IsTestDataProvider(string providerName) =>
+        IsMockProvider(providerName)
+            || string.Equals(providerName, "VirtualProvider", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(providerName, "Virtual", StringComparison.OrdinalIgnoreCase);
 }

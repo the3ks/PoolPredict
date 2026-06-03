@@ -539,6 +539,14 @@ namespace PoolPredict.Api.Infrastructure.Persistence.Migrations
                         .HasColumnType("char(36)")
                         .HasColumnName("pool_id");
 
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("revoked_at");
+
+                    b.Property<Guid?>("RevokedByUserId")
+                        .HasColumnType("char(36)")
+                        .HasColumnName("revoked_by_user_id");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Code")

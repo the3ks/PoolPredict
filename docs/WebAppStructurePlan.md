@@ -19,6 +19,8 @@ Authentication should be a focused entry flow. Normal users should use the root 
 
 ## Recommended Sitemap
 
+Implementation note: `apps/web/app` is the Next.js App Router source directory. It does not mean the product should expose a `/app` URL route.
+
 ```text
 /
 /login
@@ -147,7 +149,7 @@ For MVP, this can be read-only until prediction UI is complete.
 
 `/pools/[poolId]/predictions`
 
-Prediction submission and prediction history.
+Full prediction history for the signed-in pool member. Prediction submission remains on the pool detail page in the floating submit panel.
 
 This becomes the main Sprint 6 page.
 
@@ -161,7 +163,7 @@ This becomes the main Sprint 9 page.
 
 Weekly AI recap history.
 
-This becomes the main Sprint 11 page.
+This becomes the main Sprint 12 page.
 
 `/pools/[poolId]/settings`
 
@@ -245,11 +247,11 @@ Global point payout configuration.
 
 `/admin/users`
 
-Platform admin user search and temporary password reset. This page was implemented as out-of-roadmap identity/admin work and is not counted as a roadmap sprint item.
+Platform admin user search, email verification override and temporary password reset.
 
 `/admin/system`
 
-System settings. SMTP settings are the first implemented settings section. This page was implemented as out-of-roadmap identity/admin work and is not counted as a roadmap sprint item.
+System settings. SMTP settings are the first implemented settings section.
 
 ## Layout Recommendation
 
@@ -386,7 +388,6 @@ The route split has been implemented:
 5. Invite creation is on `/pools/[poolId]/invites`.
 6. Profile and password change are on `/profile`.
 7. Platform admin functions live under `/admin/*` with a flat sidebar.
-8. Old `/app/*` routes redirect to the new route family.
 
 Acceptance:
 

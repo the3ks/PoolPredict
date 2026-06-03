@@ -12,6 +12,7 @@ import { MarketProfile, Tournament } from "../../lib/types";
 export default function NewPoolPage() {
   const router = useRouter();
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [selectedTournamentId, setSelectedTournamentId] = useState("");
   const [name, setName] = useState("");
   const [profile, setProfile] = useState<MarketProfile>("Standard");
   const [startingBalance, setStartingBalance] = useState(1000);
@@ -19,14 +20,23 @@ export default function NewPoolPage() {
 
   useEffect(() => {
     fetch(apiUrl("/api/tournaments"))
-      .then(async (response) => setTournaments(response.ok ? await response.json() : []))
+      .then(async (response) => {
+        const result = response.ok ? ((await response.json()) as Tournament[]) : [];
+        const requestedTournamentId = new URLSearchParams(window.location.search).get("tournamentId");
+        setTournaments(result);
+        setSelectedTournamentId(
+          result.some((tournament) => tournament.id === requestedTournamentId)
+            ? requestedTournamentId ?? ""
+            : result[0]?.id ?? ""
+        );
+      })
       .catch((error) => setStatus(error instanceof Error ? error.message : "Could not load tournaments."));
   }, []);
 
   async function createPool(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const token = getStoredToken();
-    const tournamentId = tournaments[0]?.id;
+    const tournamentId = selectedTournamentId;
     if (!token || !tournamentId) {
       setStatus("Missing session or tournament.");
       return;
@@ -61,7 +71,7 @@ export default function NewPoolPage() {
         </label>
         <label>
           Tournament
-          <select disabled value={tournaments[0]?.id ?? ""}>
+          <select required value={selectedTournamentId} onChange={(event) => setSelectedTournamentId(event.target.value)}>
             {tournaments.map((tournament) => (
               <option key={tournament.id} value={tournament.id}>{tournament.name} ({tournament.provider}{tournament.isTestData ? " test" : ""})</option>
             ))}

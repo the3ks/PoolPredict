@@ -30,6 +30,9 @@ public static class TournamentEndpoints
         group.MapGet("/provider/status", (TournamentCatalog catalog) =>
             Results.Ok(catalog.GetProviderStatus()));
 
+        group.MapGet("/providers", (TournamentCatalog catalog) =>
+            Results.Ok(catalog.GetProviderList()));
+
         group.MapGet("/events/admin", async (
             ClaimsPrincipal principal,
             string? provider,
@@ -103,7 +106,7 @@ public static class TournamentEndpoints
             return Results.Ok(events);
         }).RequireAuthorization();
 
-        group.MapPost("/sync", async (ClaimsPrincipal principal, TournamentSyncJob syncJob, CancellationToken cancellationToken) =>
+        group.MapPost("/sync", async (ClaimsPrincipal principal, string? provider, TournamentSyncJob syncJob, CancellationToken cancellationToken) =>
         {
             if (!principal.IsInRole("PlatformAdmin"))
             {
@@ -112,7 +115,7 @@ public static class TournamentEndpoints
 
             try
             {
-                return Results.Ok(await syncJob.ExecuteAsync(cancellationToken));
+                return Results.Ok(await syncJob.ExecuteAsync(provider, cancellationToken));
             }
             catch (Exception ex)
             {

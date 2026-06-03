@@ -7,3 +7,7 @@ public sealed record ProviderSyncStatus(
     int TournamentCount,
     int ParticipantCount,
     int EventCount);
+
+public sealed record ProviderListResponse(
+    string DefaultProvider,
+    IReadOnlyCollection<string> Providers);

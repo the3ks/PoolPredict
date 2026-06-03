@@ -91,7 +91,7 @@ export default function Home() {
                 </div>
               </dl>
               {isSignedIn ? (
-                <Link className="button buttonSecondary" href="/pools/new">
+                <Link className="button buttonSecondary" href={`/pools/new?tournamentId=${encodeURIComponent(tournament.id)}`}>
                   <IconLabel icon={Plus}>Create pool</IconLabel>
                 </Link>
               ) : (

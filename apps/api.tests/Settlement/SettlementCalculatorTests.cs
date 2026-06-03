@@ -9,9 +9,6 @@ public sealed class SettlementCalculatorTests
     private readonly SettlementCalculator _calculator = new();
 
     [Theory]
-    [InlineData(MarketType.Winner, "Home FC", null, 2, 1, SettlementOutcome.Win, 200)]
-    [InlineData(MarketType.Winner, "Away FC", null, 2, 1, SettlementOutcome.Lose, 0)]
-    [InlineData(MarketType.Winner, "Draw", null, 1, 1, SettlementOutcome.Win, 200)]
     [InlineData(MarketType.OverUnder, "Over 2.5", 2.5, 2, 1, SettlementOutcome.Win, 200)]
     [InlineData(MarketType.OverUnder, "Under 2.5", 2.5, 2, 1, SettlementOutcome.Lose, 0)]
     [InlineData(MarketType.OverUnder, "Under 3", 3.0, 2, 1, SettlementOutcome.Push, 100)]
@@ -74,9 +71,9 @@ public sealed class SettlementCalculatorTests
     public void RefundsStakeForCancelledEvent()
     {
         var result = _calculator.Calculate(Input(
-            MarketType.Winner,
-            "Home FC",
-            null,
+            MarketType.OverUnder,
+            "Over 2.5",
+            2.5m,
             2m,
             0,
             0,
@@ -87,7 +84,6 @@ public sealed class SettlementCalculatorTests
     }
 
     [Theory]
-    [InlineData(MarketType.Winner, "Someone Else", null)]
     [InlineData(MarketType.Handicap, "Home FC", 0.5)]
     [InlineData(MarketType.OverUnder, "Above 2.5", 2.5)]
     [InlineData(MarketType.OddEven, "Neither", null)]
@@ -107,8 +103,8 @@ public sealed class SettlementCalculatorTests
     public void UsesFirstHalfScoresForFirstHalfMarkets()
     {
         var result = _calculator.Calculate(Input(
-            MarketType.Winner,
-            "Draw",
+            MarketType.OddEven,
+            "Even",
             null,
             2m,
             3,

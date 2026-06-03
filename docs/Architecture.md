@@ -250,14 +250,12 @@ Argentina vs Brazil
 Pool A
 
 ```text
-Winner
 Over/Under
 ```
 
 Pool B
 
 ```text
-Winner
 Handicap
 Correct Score
 ```
@@ -265,7 +263,7 @@ Correct Score
 Pool C
 
 ```text
-Winner only
+Correct Score only
 ```
 
 Event data is shared.
@@ -282,7 +280,6 @@ Market line values and payout multipliers come from Point Payout Configuration, 
 
 Auto-generated:
 
-* Winner
 * Correct Score
 
 ## Standard
@@ -291,7 +288,6 @@ Auto-generated:
 
 Fulltime:
 
-* Winner
 * Handicap
 * Over/Under
 * Odd/Even
@@ -299,7 +295,6 @@ Fulltime:
 
 First Half:
 
-* Winner
 * Handicap
 * Over/Under
 * Odd/Even
@@ -343,7 +338,6 @@ Supported Results:
 
 Supported Markets:
 
-* Winner
 * Handicap
 * Over/Under
 * Odd/Even

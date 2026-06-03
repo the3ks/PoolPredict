@@ -268,7 +268,7 @@ Implemented:
 * Member balance lookup for the signed-in pool member
 * Prediction history for the signed-in pool member
 * Pool page market picker grouped by match
-* Basic market option input for Winner, Handicap, Over/Under, Odd/Even and Correct Score
+* Basic market option input for Handicap, Over/Under, Odd/Even and Correct Score
 
 Moved to later sprints:
 
@@ -285,8 +285,6 @@ Moved to later sprints:
 Manual MVP Settlement Engine
 
 ## Deliverables
-
-Winner Settlement
 
 Handicap Settlement
 
@@ -312,7 +310,7 @@ Implemented:
 
 * `event_results` persistence
 * PlatformAdmin manual result entry and settlement trigger
-* Winner, Handicap, Over/Under, Odd/Even and Correct Score settlement
+* Handicap, Over/Under, Odd/Even and Correct Score settlement
 * Settlement run/log records
 * Idempotent rerun behavior that avoids duplicate payouts/refunds
 * Re-settlement correction entries when event results change
@@ -340,7 +338,6 @@ Settlement Hardening & Tests
 
 Automated tests:
 
-* Winner settlement tests
 * Handicap settlement tests
 * Over/Under settlement tests
 * Odd/Even settlement tests
@@ -372,7 +369,7 @@ Manual settlement and re-settlement calculations pass automated tests, including
 
 Implemented:
 
-* Settlement calculator tests for Winner, Handicap, Over/Under, Odd/Even and Correct Score
+* Settlement calculator tests for Handicap, Over/Under, Odd/Even and Correct Score
 * Service-level tests for re-settlement correction deltas, idempotent reruns and cancelled-event refunds
 * Selected-option validation for settlement
 * Quarter-line handicap split settlement with half-win and half-lose outcomes
@@ -490,7 +487,7 @@ Normal user route structure:
 * Root-route user dashboard on `/`
 * Pool list/create/join/detail routes under `/pools`
 * Profile route on `/profile`
-* Compatibility redirects from old `/app/*` routes
+* No product route family under `/app`; `apps/web/app` is only the Next.js source directory
 
 Admin route structure:
 
@@ -543,7 +540,6 @@ Implemented:
 * Pool discovery endpoint for pools outside the signed-in user's membership
 * Join request submit/list/approve/deny endpoints
 * Pool detail join-request approval UI for pool owners/admins
-* Old `/app/*` route compatibility redirects
 * Registration password visibility toggle
 * Email verification, resend verification, forgot-password and reset-password flows
 * Signed-in password change on `/profile`
@@ -634,7 +630,6 @@ Without Pool Owner acting as bookmaker or manually entering scores.
 Phase 2
 
 * Additional football tournaments
-* Tournament winner predictions
 * Better statistics
 
 Phase 3

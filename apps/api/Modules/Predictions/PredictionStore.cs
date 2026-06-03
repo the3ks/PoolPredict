@@ -11,6 +11,7 @@ namespace PoolPredict.Api.Modules.Predictions;
 
 public sealed class PredictionStore
 {
+    private static readonly TimeSpan HandicapOpenWindow = TimeSpan.FromHours(24);
     private readonly List<Prediction> _predictions = [];
     private readonly List<PointLedgerEntry> _ledger = [];
     private readonly HashSet<(Guid PoolId, Guid MemberId)> _initializedMembers = [];
@@ -45,9 +46,23 @@ public sealed class PredictionStore
             throw new ArgumentException("Market does not belong to the selected pool.", nameof(request));
         }
 
-        if (market.Status != MarketStatus.Open || matchEvent.StartsAt <= DateTimeOffset.UtcNow)
+        var now = DateTimeOffset.UtcNow;
+        if (market.Status != MarketStatus.Open || matchEvent.StartsAt <= now)
         {
             throw new InvalidOperationException("This market is locked.");
+        }
+
+        if (market.Type == MarketType.Handicap)
+        {
+            if (market.LineValue is null)
+            {
+                throw new InvalidOperationException("Handicap line is not confirmed.");
+            }
+
+            if (now < matchEvent.StartsAt.Subtract(HandicapOpenWindow))
+            {
+                throw new InvalidOperationException("Handicap predictions open 24 hours before kickoff.");
+            }
         }
 
         lock (_gate)
@@ -372,7 +387,7 @@ public sealed class PredictionStore
 
     private static string ResolveOutcome(int stake, int settlementCredit, MarketStatus? marketStatus)
     {
-        if (marketStatus is null or MarketStatus.Open or MarketStatus.Locked or MarketStatus.Draft)
+        if (marketStatus is null or MarketStatus.Open or MarketStatus.Locked or MarketStatus.Draft or MarketStatus.LinePending)
         {
             return "Pending";
         }

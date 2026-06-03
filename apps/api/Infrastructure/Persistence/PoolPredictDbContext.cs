@@ -204,6 +204,8 @@ public sealed class PoolPredictDbContext(DbContextOptions<PoolPredictDbContext> 
             entity.Property(invite => invite.CreatedByUserId).HasColumnName("created_by_user_id");
             entity.Property(invite => invite.Code).HasColumnName("code").HasMaxLength(64);
             entity.Property(invite => invite.CreatedAt).HasColumnName("created_at");
+            entity.Property(invite => invite.RevokedAt).HasColumnName("revoked_at");
+            entity.Property(invite => invite.RevokedByUserId).HasColumnName("revoked_by_user_id");
         });
 
         modelBuilder.Entity<PersistedPoolJoinRequest>(entity =>

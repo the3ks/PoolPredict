@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using PoolPredict.Api.Domain.Common;
 using PoolPredict.Api.Domain.Tournaments;
 using PoolPredict.Api.Infrastructure.Persistence;
 
@@ -129,6 +130,32 @@ public sealed class EfTournamentPersistence(IDbContextFactory<PoolPredictDbConte
             persisted.AwayParticipant = item.Event.AwayParticipant;
             persisted.StartsAt = item.Event.StartsAt;
             persisted.Status = item.Event.Status;
+        }
+
+        foreach (var item in snapshot.EventResults)
+        {
+            var matchEvent = await db.Events.SingleOrDefaultAsync(candidate => candidate.Id == item.EventId, cancellationToken);
+            if (matchEvent is null || matchEvent.ManagementMode == EventManagementMode.Manual)
+            {
+                continue;
+            }
+
+            var persisted = await db.EventResults.SingleOrDefaultAsync(result => result.EventId == item.EventId, cancellationToken);
+            if (persisted is null)
+            {
+                persisted = new PersistedEventResult
+                {
+                    Id = Ids.NewId(),
+                    EventId = item.EventId
+                };
+                db.EventResults.Add(persisted);
+            }
+
+            persisted.FullTimeHomeScore = item.FullTimeHomeScore;
+            persisted.FullTimeAwayScore = item.FullTimeAwayScore;
+            persisted.FirstHalfHomeScore = item.FirstHalfHomeScore;
+            persisted.FirstHalfAwayScore = item.FirstHalfAwayScore;
+            persisted.RecordedAt = DateTimeOffset.UtcNow;
         }
 
         await db.SaveChangesAsync(cancellationToken);

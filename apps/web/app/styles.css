@@ -320,6 +320,25 @@ select {
   font-size: 14px;
 }
 
+.appProfileLink {
+  max-width: 220px;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--muted-strong);
+  padding: 8px 10px;
+  text-overflow: ellipsis;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.appProfileLink:hover,
+.appProfileLink.active {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
 .compactButton {
   min-height: 36px;
   padding: 0 12px;
@@ -761,6 +780,19 @@ dd {
   gap: 16px;
 }
 
+.poolGridSingle {
+  grid-template-columns: 1fr;
+}
+
+.poolSettingsForm {
+  grid-template-columns: minmax(220px, 1fr) minmax(180px, 0.65fr) auto;
+  align-items: end;
+}
+
+.poolSettingsForm h2 {
+  grid-column: 1 / -1;
+}
+
 .panel {
   padding: 20px;
 }
@@ -917,6 +949,45 @@ dd {
   gap: 8px;
 }
 
+.inviteList {
+  display: grid;
+  gap: 12px;
+}
+
+.inviteRow {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(150px, 0.8fr) auto;
+  gap: 14px;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--tile-bg);
+  padding: 14px;
+}
+
+.inviteRow.revoked {
+  opacity: 0.72;
+}
+
+.inviteRow span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.inviteRow strong,
+.inviteRow small {
+  overflow-wrap: anywhere;
+}
+
+.inviteRow small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
 .poolList {
   display: grid;
   gap: 12px;
@@ -1017,6 +1088,19 @@ dd {
   gap: 4px;
 }
 
+.horizontalDetails {
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+  margin-bottom: 0;
+}
+
+.horizontalDetails div {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--tile-bg);
+  padding: 10px 12px;
+}
+
 .ruleList {
   display: grid;
   gap: 10px;
@@ -1063,6 +1147,14 @@ dd {
 
 .predictionHistoryPanel {
   grid-column: 1 / -1;
+}
+
+.predictionSubmitPanel {
+  position: sticky;
+  top: 88px;
+  align-self: start;
+  max-height: calc(100vh - 112px);
+  overflow: auto;
 }
 
 .marketList,
@@ -1508,6 +1600,12 @@ dd {
     grid-template-columns: 1fr;
   }
 
+  .predictionSubmitPanel {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+
   .topbar {
     align-items: flex-start;
     flex-direction: column;
@@ -1523,6 +1621,10 @@ dd {
     flex-direction: column;
   }
 
+  .poolSettingsForm {
+    grid-template-columns: 1fr;
+  }
+
   .pageTitleGroup {
     align-items: flex-start;
   }
@@ -1534,6 +1636,7 @@ dd {
   .historyRow,
   .leaderboardRow,
   .joinRequestRow,
+  .inviteRow,
   .scoreGrid,
   .adminFilterBar,
   .adminEventGrid,

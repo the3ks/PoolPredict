@@ -2,10 +2,10 @@ namespace PoolPredict.Api.Modules.Tournaments;
 
 public sealed class TournamentSyncJob(TournamentCatalog catalog, ILogger<TournamentSyncJob> logger)
 {
-    public async Task<ProviderSyncStatus> ExecuteAsync(CancellationToken cancellationToken = default)
+    public async Task<ProviderSyncStatus> ExecuteAsync(string? providerName = null, CancellationToken cancellationToken = default)
     {
-        logger.LogInformation("Starting tournament provider sync.");
-        var status = await catalog.SyncFromProviderAsync(cancellationToken);
+        logger.LogInformation("Starting tournament provider sync. Provider={Provider}", providerName ?? "default");
+        var status = await catalog.SyncFromProviderAsync(providerName, cancellationToken);
         logger.LogInformation(
             "Tournament provider sync completed. Provider={Provider} Tournaments={TournamentCount} Participants={ParticipantCount} Events={EventCount}",
             status.Provider,

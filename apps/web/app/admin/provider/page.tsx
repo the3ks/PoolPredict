@@ -1,4 +1,4 @@
-import { ProviderSection } from "../../app/admin/_components/admin-sections";
+import { ProviderSection } from "../_components/admin-sections";
 
 export default function AdminProviderPage() {
   return <ProviderSection />;

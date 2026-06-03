@@ -1,4 +1,4 @@
-import { PayoutSection } from "../../app/admin/_components/admin-sections";
+import { PayoutSection } from "../_components/admin-sections";
 
 export default function AdminPayoutPage() {
   return <PayoutSection />;

@@ -50,27 +50,12 @@ public sealed class SettlementCalculator
 
         return input.MarketType switch
         {
-            MarketType.Winner => EvaluateWinner(input.SelectedOption, input.HomeParticipant, input.AwayParticipant, homeScore, awayScore),
             MarketType.Handicap => EvaluateHandicap(input.SelectedOption, input.LineValue ?? 0m, input.HomeParticipant, input.AwayParticipant, homeScore, awayScore),
             MarketType.OverUnder => EvaluateOverUnder(input.SelectedOption, input.LineValue ?? throw new ArgumentException("Over/Under markets require a line value."), homeScore + awayScore),
             MarketType.OddEven => EvaluateOddEven(input.SelectedOption, homeScore + awayScore),
             MarketType.CorrectScore => EvaluateCorrectScore(input.SelectedOption, homeScore, awayScore),
             _ => throw new ArgumentException("Unsupported market type.")
         };
-    }
-
-    private static SettlementOutcome EvaluateWinner(string selectedOption, string homeParticipant, string awayParticipant, int homeScore, int awayScore)
-    {
-        ValidateOption(selectedOption, homeParticipant, "Draw", awayParticipant);
-
-        if (homeScore == awayScore)
-        {
-            return MatchOption(selectedOption, "Draw");
-        }
-
-        return homeScore > awayScore
-            ? MatchOption(selectedOption, homeParticipant)
-            : MatchOption(selectedOption, awayParticipant);
     }
 
     private static SettlementOutcome EvaluateHandicap(

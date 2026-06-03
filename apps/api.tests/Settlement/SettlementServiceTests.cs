@@ -14,7 +14,7 @@ public sealed class SettlementServiceTests
     public async Task ReSettlementCreatesCorrectionDeltaWithoutDuplicatePayout()
     {
         var factory = TestDbContextFactory.Create();
-        var fixture = await SeedPredictionAsync(factory, MarketType.Winner, "Home FC", lineValue: null);
+        var fixture = await SeedPredictionAsync(factory, MarketType.Handicap, "Home FC +0.5", lineValue: 0.5m);
         var service = new SettlementService(factory, new PredictionStore(factory), new SettlementCalculator());
 
         var first = await service.RecordResultAndSettleAsync(
@@ -46,7 +46,7 @@ public sealed class SettlementServiceTests
     public async Task ReSettlementWithoutResultChangeDoesNotCreateDuplicateLedgerEntry()
     {
         var factory = TestDbContextFactory.Create();
-        var fixture = await SeedPredictionAsync(factory, MarketType.Winner, "Home FC", lineValue: null);
+        var fixture = await SeedPredictionAsync(factory, MarketType.Handicap, "Home FC +0.5", lineValue: 0.5m);
         var service = new SettlementService(factory, new PredictionStore(factory), new SettlementCalculator());
 
         await service.RecordResultAndSettleAsync(fixture.EventId, new SetEventResultRequest(2, 1, null, null));
@@ -67,7 +67,7 @@ public sealed class SettlementServiceTests
     public async Task CancelledEventSettlementRefundsStakeAndVoidsMarkets()
     {
         var factory = TestDbContextFactory.Create();
-        var fixture = await SeedPredictionAsync(factory, MarketType.Winner, "Home FC", lineValue: null);
+        var fixture = await SeedPredictionAsync(factory, MarketType.OverUnder, "Over 2.5", lineValue: 2.5m);
         var service = new SettlementService(factory, new PredictionStore(factory), new SettlementCalculator());
 
         var response = await service.RecordResultAndSettleAsync(

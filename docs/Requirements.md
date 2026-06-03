@@ -126,7 +126,7 @@ Pool route behavior:
 * Pool detail pages should show join requests to pool owners/admins.
 * Approving a join request should add the requester as a pool member.
 * Denying a join request should keep the requester outside the pool.
-* Old route links may redirect for compatibility, but normal users should not need to use `/app`.
+* The web app should not expose `/app` as a product route family; `apps/web/app` is only the Next.js App Router source directory.
 
 ### Admin Panel
 
@@ -142,6 +142,7 @@ Pool route behavior:
   * User management
   * System settings
 * Admin Pools should show all pools across users with basic owner, tournament, provider, member, invite and balance information.
+* Tournament provider admin should allow PlatformAdmin users to select and sync any configured provider.
 
 ### Tournament
 
@@ -190,9 +191,10 @@ MVP Tournament:
 
 ### Markets
 
+Detailed handicap line rules are maintained in `docs/Requirements-Handicap.md`.
+
 Fulltime:
 
-* Winner
 * Handicap
 * Over/Under
 * Odd/Even
@@ -200,7 +202,6 @@ Fulltime:
 
 First Half:
 
-* Winner
 * Handicap
 * Over/Under
 * Odd/Even
@@ -210,11 +211,13 @@ First Half:
 
 * Do not use public betting odds
 * External providers do not provide payout values for MVP
+* Winner markets are excluded from the platform because they require volatile outcome-specific payouts
+* MVP markets use fixed point payout multipliers
 * Platform Admin manages global default point payout configuration
 * Global defaults define market line values, payout multipliers and supported line sets
 * Tournament-specific payout configuration may be added later
 * When a new match is created, markets are generated from the current global defaults
-* Before a market is locked, Platform Admin can change line values for that match's markets
+* Before a market is locked, Platform Admin can change match-specific handicap line values
 * Pool owners cannot manually manage line values or payout configuration
 * Submitted predictions must snapshot the market line value and payout configuration at submit time
 * Settlement must use the snapshotted line value and payout configuration recorded on the prediction
@@ -239,7 +242,7 @@ First Half:
 
 * Automatic settlement is not supported for MVP.
 * Settlement is always initiated manually by Platform Admin.
-* Settlement must support all MVP markets
+* Settlement must support Handicap, Over/Under, Odd/Even and Correct Score markets
 * Settlement must update member balances from the point ledger
 * Settlement reruns must not duplicate payouts, refunds or deductions
 * Platform Admin can execute re-settlement for an event.
