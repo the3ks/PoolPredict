@@ -47,6 +47,14 @@ Default handicap open window:
 24 hours before kickoff
 ```
 
+The API setting is:
+
+```json
+"Markets": {
+  "HandicapOpenWindowHours": 24
+}
+```
+
 Prediction submission for handicap markets is allowed only when all conditions are true:
 
 * market status is `Open`

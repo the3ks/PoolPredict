@@ -203,7 +203,6 @@ export function EventManagementSection() {
   const [firstHalfHomeScore, setFirstHalfHomeScore] = useState("0");
   const [firstHalfAwayScore, setFirstHalfAwayScore] = useState("0");
   const [isSavingEvent, setIsSavingEvent] = useState(false);
-  const [handicapLines, setHandicapLines] = useState<HandicapLineMarket[]>([]);
   const [fullTimeHandicapLine, setFullTimeHandicapLine] = useState("0.5");
   const [firstHalfHandicapLine, setFirstHalfHandicapLine] = useState("0.5");
   const [handicapLineMessage, setHandicapLineMessage] = useState("");
@@ -221,6 +220,8 @@ export function EventManagementSection() {
     setFullTimeAwayScore(scoreToText(selectedEvent.fullTimeAwayScore));
     setFirstHalfHomeScore(scoreToText(selectedEvent.firstHalfHomeScore));
     setFirstHalfAwayScore(scoreToText(selectedEvent.firstHalfAwayScore));
+    setFullTimeHandicapLine("0.5");
+    setFirstHalfHandicapLine("0.5");
     void loadHandicapLines(selectedEvent.id);
   }, [selectedEvent]);
 
@@ -243,7 +244,6 @@ export function EventManagementSection() {
       }
 
       const result = (await response.json()) as HandicapLineMarket[];
-      setHandicapLines(result);
       const fullTime = result.find((market) => market.marketPeriod === "FullTime" && market.lineValue !== null);
       const firstHalf = result.find((market) => market.marketPeriod === "FirstHalf" && market.lineValue !== null);
       if (fullTime?.lineValue !== undefined && fullTime.lineValue !== null) {
@@ -258,40 +258,45 @@ export function EventManagementSection() {
     }
   }
 
-  async function confirmHandicapLine(marketPeriod: "FullTime" | "FirstHalf") {
+  async function saveHandicapLines() {
     const token = getStoredToken();
     if (!token || !selectedEvent) {
       setHandicapLineMessage("Select an event first.");
       return;
     }
 
-    const lineValue = Number(marketPeriod === "FullTime" ? fullTimeHandicapLine : firstHalfHandicapLine);
-    if (!Number.isFinite(lineValue)) {
-      setHandicapLineMessage("Enter a valid handicap line.");
+    const fullTimeLineValue = Number(fullTimeHandicapLine);
+    const firstHalfLineValue = Number(firstHalfHandicapLine);
+    if (!Number.isFinite(fullTimeLineValue) || !Number.isFinite(firstHalfLineValue)) {
+      setHandicapLineMessage("Enter valid full-time and first-half handicap lines.");
       return;
     }
 
     setIsSavingHandicapLine(true);
-    setHandicapLineMessage(`Confirming ${marketPeriod === "FullTime" ? "full-time" : "first-half"} handicap line...`);
+    setHandicapLineMessage("Saving handicap lines...");
     try {
-      const response = await fetch(apiUrl(`/api/markets/events/${selectedEvent.id}/handicap-lines`), {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ marketPeriod, lineValue }),
-      });
+      for (const line of [
+        { marketPeriod: "FullTime", lineValue: fullTimeLineValue },
+        { marketPeriod: "FirstHalf", lineValue: firstHalfLineValue },
+      ]) {
+        const response = await fetch(apiUrl(`/api/markets/events/${selectedEvent.id}/handicap-lines`), {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(line),
+        });
 
-      if (!response.ok) {
-        setHandicapLineMessage(await readApiError(response, "Could not confirm handicap line."));
-        return;
+        if (!response.ok) {
+          setHandicapLineMessage(await readApiError(response, "Could not save handicap lines."));
+          return;
+        }
       }
 
-      await loadHandicapLines(selectedEvent.id);
-      setHandicapLineMessage(`${marketPeriod === "FullTime" ? "Full-time" : "First-half"} handicap line confirmed.`);
+      setHandicapLineMessage("Handicap lines saved.");
     } catch (error) {
-      setHandicapLineMessage(error instanceof Error ? error.message : "Could not confirm handicap line.");
+      setHandicapLineMessage(error instanceof Error ? error.message : "Could not save handicap lines.");
     } finally {
       setIsSavingHandicapLine(false);
     }
@@ -369,11 +374,9 @@ export function EventManagementSection() {
         <EventList state={eventState} />
         <form className="form adminEventEditor" onSubmit={saveEvent}>
           <SelectedEventSummary selectedEvent={selectedEvent} />
-          <div className="scoreGrid">
+          <div className="adminEventPrimaryGrid">
             <label>Kickoff<input required type="datetime-local" value={startsAt} onChange={(event) => setStartsAt(event.target.value)} /></label>
             <label>Status<EventStatusSelect value={eventStatus} onChange={setEventStatus} /></label>
-            <label>Mode<ManagementModeSelect value={managementMode} onChange={setManagementMode} /></label>
-            <label>Event ID<input readOnly value={selectedEvent?.id ?? ""} /></label>
           </div>
           <ScoreInputs
             firstHalfAwayScore={firstHalfAwayScore}
@@ -385,42 +388,30 @@ export function EventManagementSection() {
             setFullTimeAwayScore={setFullTimeAwayScore}
             setFullTimeHomeScore={setFullTimeHomeScore}
           />
+          <div className="adminEventModeRow">
+            <label>Mode<ManagementModeSelect value={managementMode} onChange={setManagementMode} /></label>
+          </div>
           <div className="buttonRow">
             <button className="button" disabled={!selectedEvent || isSavingEvent} type="submit"><IconLabel icon={Save}>Save event</IconLabel></button>
             <button className="button buttonSecondary" disabled={!selectedEvent || isSavingEvent} type="button" onClick={updateModeOnly}><IconLabel icon={SlidersHorizontal}>Mode only</IconLabel></button>
           </div>
+          <section className="handicapLineEditor">
+            <h3><IconLabel icon={SlidersHorizontal}>Handicap lines</IconLabel></h3>
+            <p className="statusText">{handicapLineMessage || "Select an event to manage handicap lines."}</p>
+            <div className="scoreGrid scoreGridCompact">
+              <label>
+                FT
+                <input step="0.25" type="number" value={fullTimeHandicapLine} onChange={(event) => setFullTimeHandicapLine(event.target.value)} />
+              </label>
+              <label>
+                HT
+                <input step="0.25" type="number" value={firstHalfHandicapLine} onChange={(event) => setFirstHalfHandicapLine(event.target.value)} />
+              </label>
+            </div>
+            <button className="button" disabled={!selectedEvent || isSavingHandicapLine} type="button" onClick={saveHandicapLines}><IconLabel icon={Save}>Confirm handicap lines</IconLabel></button>
+          </section>
         </form>
       </div>
-      <section className="form panel">
-        <h2><IconLabel icon={SlidersHorizontal}>Handicap lines</IconLabel></h2>
-        <p className="statusText">{handicapLineMessage || "Select an event to manage handicap lines."}</p>
-        <div className="scoreGrid">
-          <label>
-            Full-time home line
-            <input step="0.25" type="number" value={fullTimeHandicapLine} onChange={(event) => setFullTimeHandicapLine(event.target.value)} />
-          </label>
-          <label>
-            First-half home line
-            <input step="0.25" type="number" value={firstHalfHandicapLine} onChange={(event) => setFirstHalfHandicapLine(event.target.value)} />
-          </label>
-        </div>
-        <div className="buttonRow">
-          <button className="button" disabled={!selectedEvent || isSavingHandicapLine} type="button" onClick={() => confirmHandicapLine("FullTime")}><IconLabel icon={Save}>Confirm full-time</IconLabel></button>
-          <button className="button buttonSecondary" disabled={!selectedEvent || isSavingHandicapLine} type="button" onClick={() => confirmHandicapLine("FirstHalf")}><IconLabel icon={Save}>Confirm first-half</IconLabel></button>
-          <button className="button buttonSecondary" disabled={!selectedEvent || isSavingHandicapLine} type="button" onClick={() => selectedEvent ? loadHandicapLines(selectedEvent.id) : undefined}><IconLabel icon={RefreshCw}>Refresh lines</IconLabel></button>
-        </div>
-        {handicapLines.length > 0 ? (
-          <div className="ruleList">
-            {summarizeHandicapLines(handicapLines).map((summary) => (
-              <article className="ruleRow" key={`${summary.period}-${summary.line}-${summary.status}`}>
-                <span><strong>{summary.period}</strong><small>{summary.count} pool market{summary.count === 1 ? "" : "s"}</small></span>
-                <span><strong>{summary.line}</strong><small>Home perspective</small></span>
-                <span><strong>{summary.status}</strong><small>{summary.payout}x payout</small></span>
-              </article>
-            ))}
-          </div>
-        ) : null}
-      </section>
     </Panel>
   );
 }
@@ -998,7 +989,14 @@ function SelectedEventSummary({ selectedEvent }: { selectedEvent: AdminEvent | n
       <Activity aria-hidden="true" size={18} />
       <span>
         <strong>{selectedEvent ? `${selectedEvent.homeParticipant} vs ${selectedEvent.awayParticipant}` : "Select an event"}</strong>
-        <small>{selectedEvent ? `${selectedEvent.provider} ${selectedEvent.isTestData ? "test" : "real"} | ${selectedEvent.managementMode}` : "No event selected"}</small>
+        <small>
+          {selectedEvent ? (
+            <>
+              {selectedEvent.provider} {selectedEvent.isTestData ? "test" : "real"} | {selectedEvent.managementMode}
+              <span className="eventIdText">{selectedEvent.id}</span>
+            </>
+          ) : "No event selected"}
+        </small>
       </span>
     </div>
   );
@@ -1026,7 +1024,7 @@ function ScoreInputs({
   setFullTimeHomeScore: (value: string) => void;
 }) {
   return (
-    <div className="scoreGrid">
+    <div className="scoreGrid scoreGridCompact">
       <label>FT home<input disabled={disabled} min={0} type="number" value={fullTimeHomeScore} onChange={(event) => setFullTimeHomeScore(event.target.value)} /></label>
       <label>FT away<input disabled={disabled} min={0} type="number" value={fullTimeAwayScore} onChange={(event) => setFullTimeAwayScore(event.target.value)} /></label>
       <label>HT home<input disabled={disabled} min={0} type="number" value={firstHalfHomeScore} onChange={(event) => setFirstHalfHomeScore(event.target.value)} /></label>
@@ -1070,32 +1068,6 @@ const eventStatuses = ["Scheduled", "Live", "Finished", "Postponed", "Cancelled"
 
 function scoreToText(score: number | null) {
   return score === null ? "" : String(score);
-}
-
-function summarizeHandicapLines(lines: HandicapLineMarket[]) {
-  const groups = new Map<string, { period: string; line: string; status: string; payout: number; count: number }>();
-  for (const line of lines) {
-    const key = `${line.marketPeriod}|${line.lineValue ?? "pending"}|${line.status}|${line.payoutMultiplier}`;
-    const current = groups.get(key);
-    if (current) {
-      current.count += 1;
-      continue;
-    }
-
-    groups.set(key, {
-      period: line.marketPeriod,
-      line: line.lineValue === null ? "Pending" : formatSignedLine(line.lineValue),
-      status: line.status,
-      payout: line.payoutMultiplier,
-      count: 1,
-    });
-  }
-
-  return Array.from(groups.values()).sort((first, second) => first.period.localeCompare(second.period));
-}
-
-function formatSignedLine(value: number) {
-  return value > 0 ? `+${value}` : String(value);
 }
 
 function textToNullableNumber(value: string) {

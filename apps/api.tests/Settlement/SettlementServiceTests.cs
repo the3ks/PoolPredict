@@ -1,8 +1,10 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using PoolPredict.Api.Domain.Markets;
 using PoolPredict.Api.Domain.Points;
 using PoolPredict.Api.Domain.Tournaments;
 using PoolPredict.Api.Infrastructure.Persistence;
+using PoolPredict.Api.Modules.Markets;
 using PoolPredict.Api.Modules.Predictions;
 using PoolPredict.Api.Modules.Settlement;
 
@@ -15,7 +17,7 @@ public sealed class SettlementServiceTests
     {
         var factory = TestDbContextFactory.Create();
         var fixture = await SeedPredictionAsync(factory, MarketType.Handicap, "Home FC +0.5", lineValue: 0.5m);
-        var service = new SettlementService(factory, new PredictionStore(factory), new SettlementCalculator());
+        var service = new SettlementService(factory, CreatePredictionStore(factory), new SettlementCalculator());
 
         var first = await service.RecordResultAndSettleAsync(
             fixture.EventId,
@@ -47,7 +49,7 @@ public sealed class SettlementServiceTests
     {
         var factory = TestDbContextFactory.Create();
         var fixture = await SeedPredictionAsync(factory, MarketType.Handicap, "Home FC +0.5", lineValue: 0.5m);
-        var service = new SettlementService(factory, new PredictionStore(factory), new SettlementCalculator());
+        var service = new SettlementService(factory, CreatePredictionStore(factory), new SettlementCalculator());
 
         await service.RecordResultAndSettleAsync(fixture.EventId, new SetEventResultRequest(2, 1, null, null));
         var rerun = await service.RecordResultAndSettleAsync(fixture.EventId, new SetEventResultRequest(2, 1, null, null));
@@ -68,7 +70,7 @@ public sealed class SettlementServiceTests
     {
         var factory = TestDbContextFactory.Create();
         var fixture = await SeedPredictionAsync(factory, MarketType.OverUnder, "Over 2.5", lineValue: 2.5m);
-        var service = new SettlementService(factory, new PredictionStore(factory), new SettlementCalculator());
+        var service = new SettlementService(factory, CreatePredictionStore(factory), new SettlementCalculator());
 
         var response = await service.RecordResultAndSettleAsync(
             fixture.EventId,
@@ -156,6 +158,9 @@ public sealed class SettlementServiceTests
 
         return new SettlementFixture(eventId, marketId, predictionId);
     }
+
+    private static PredictionStore CreatePredictionStore(TestDbContextFactory factory) =>
+        new(factory, Options.Create(new MarketOptions()));
 
     private sealed record SettlementFixture(Guid EventId, Guid MarketId, Guid PredictionId);
 

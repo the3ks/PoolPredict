@@ -20,6 +20,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 });
 
 builder.Services.Configure<EventProviderOptions>(builder.Configuration.GetSection("EventProvider"));
+builder.Services.Configure<MarketOptions>(builder.Configuration.GetSection("Markets"));
 builder.Services.AddSingleton<MockEventProvider>();
 builder.Services.AddHttpClient<FootballDataProvider>((services, client) =>
 {

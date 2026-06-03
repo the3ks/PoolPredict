@@ -176,9 +176,9 @@ select {
 .publicHero {
   display: grid;
   gap: 16px;
-  min-height: min(520px, calc(100vh - 210px));
+  min-height: min(300px, calc(100vh - 360px));
   align-content: center;
-  padding: 58px 0 48px;
+  padding: 28px 0 24px;
 }
 
 .publicHero h1 {
@@ -1045,6 +1045,17 @@ dd {
   align-items: center;
 }
 
+.homeCommunityCardLink {
+  grid-template-columns: minmax(160px, 1.1fr) minmax(180px, 1fr) minmax(90px, 0.55fr) minmax(120px, 0.65fr);
+  align-items: center;
+}
+
+.homePanelActionRow {
+  display: flex;
+  justify-content: flex-end;
+  margin: -4px 0 12px;
+}
+
 .poolCard .discoverPoolCardLink > .button {
   display: inline-flex;
   width: auto;
@@ -1198,7 +1209,7 @@ dd {
 .marketButton {
   display: grid;
   gap: 6px;
-  min-height: 98px;
+  min-height: 76px;
   align-content: space-between;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -1217,6 +1228,24 @@ dd {
 
 .marketButton.active {
   box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.marketButton.linePending {
+  border-color: rgba(245, 158, 11, 0.72);
+  background:
+    linear-gradient(180deg, rgba(245, 158, 11, 0.2), rgba(245, 158, 11, 0.08)),
+    var(--tile-bg);
+  color: var(--text);
+  cursor: not-allowed;
+}
+
+.marketButton.linePending strong {
+  color: #fbbf24;
+}
+
+.marketButton.linePending span,
+.marketButton.linePending small {
+  color: #fde68a;
 }
 
 .marketButton strong,
@@ -1268,6 +1297,14 @@ dd {
   font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
+}
+
+.eventIdText {
+  display: block;
+  margin-top: 2px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: none;
 }
 
 .historyRow {
@@ -1345,6 +1382,55 @@ dd {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
+}
+
+.scoreGridCompact input {
+  min-height: 24px;
+  padding: 0 8px;
+}
+
+.adminEventPrimaryGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.adminEventModeRow {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.adminEventPrimaryGrid label,
+.adminEventModeRow label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.adminEventPrimaryGrid input,
+.adminEventPrimaryGrid select,
+.adminEventModeRow select {
+  min-height: 32px;
+  padding: 0 8px;
+}
+
+.handicapLineEditor {
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+.handicapLineEditor h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.handicapLineEditor .statusText {
+  margin: 0;
 }
 
 .adminFilterBar {
@@ -1455,6 +1541,7 @@ dd {
 }
 
 .adminEventEditor {
+  gap: 10px;
   margin-top: 0;
 }
 
@@ -1559,7 +1646,7 @@ dd {
 
   .publicHero {
     min-height: auto;
-    padding: 42px 0 34px;
+    padding: 24px 0 20px;
   }
 
   .appSidebar {
@@ -1632,12 +1719,14 @@ dd {
   .poolCard button,
   .poolCardLink,
   .discoverPoolCardLink,
+  .homeCommunityCardLink,
   .ruleRow,
   .historyRow,
   .leaderboardRow,
   .joinRequestRow,
   .inviteRow,
   .scoreGrid,
+  .adminEventPrimaryGrid,
   .adminFilterBar,
   .adminEventGrid,
   .adminEventRow,

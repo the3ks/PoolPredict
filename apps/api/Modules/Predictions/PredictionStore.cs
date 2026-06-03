@@ -4,23 +4,29 @@ using PoolPredict.Api.Domain.Markets;
 using PoolPredict.Api.Domain.Points;
 using PoolPredict.Api.Domain.Predictions;
 using PoolPredict.Api.Infrastructure.Persistence;
+using PoolPredict.Api.Modules.Markets;
 using PoolPredict.Api.Modules.Pools;
 using PoolPredict.Api.Modules.Tournaments;
+using Microsoft.Extensions.Options;
 
 namespace PoolPredict.Api.Modules.Predictions;
 
 public sealed class PredictionStore
 {
-    private static readonly TimeSpan HandicapOpenWindow = TimeSpan.FromHours(24);
     private readonly List<Prediction> _predictions = [];
     private readonly List<PointLedgerEntry> _ledger = [];
     private readonly HashSet<(Guid PoolId, Guid MemberId)> _initializedMembers = [];
     private readonly IDbContextFactory<PoolPredictDbContext> _dbContextFactory;
+    private readonly TimeSpan _handicapOpenWindow;
     private readonly object _gate = new();
 
-    public PredictionStore(IDbContextFactory<PoolPredictDbContext> dbContextFactory)
+    public PredictionStore(IDbContextFactory<PoolPredictDbContext> dbContextFactory, IOptions<MarketOptions> marketOptions)
     {
         _dbContextFactory = dbContextFactory;
+        var openWindowHours = marketOptions.Value.HandicapOpenWindowHours <= 0
+            ? 24
+            : marketOptions.Value.HandicapOpenWindowHours;
+        _handicapOpenWindow = TimeSpan.FromHours(openWindowHours);
         LoadPersisted();
     }
 
@@ -59,9 +65,9 @@ public sealed class PredictionStore
                 throw new InvalidOperationException("Handicap line is not confirmed.");
             }
 
-            if (now < matchEvent.StartsAt.Subtract(HandicapOpenWindow))
+            if (now < matchEvent.StartsAt.Subtract(_handicapOpenWindow))
             {
-                throw new InvalidOperationException("Handicap predictions open 24 hours before kickoff.");
+                throw new InvalidOperationException($"Handicap predictions open {FormatOpenWindow(_handicapOpenWindow)} before kickoff.");
             }
         }
 
@@ -414,6 +420,9 @@ public sealed class PredictionStore
 
         return settlementCredit < stake * 2 ? "HalfWin" : "Win";
     }
+
+    private static string FormatOpenWindow(TimeSpan window) =>
+        window.TotalHours == 1 ? "1 hour" : $"{window.TotalHours:0.##} hours";
 }
 
 public sealed record PredictionHistoryResponse(

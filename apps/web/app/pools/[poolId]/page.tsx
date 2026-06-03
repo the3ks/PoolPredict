@@ -284,7 +284,9 @@ export default function PoolOverviewPage() {
   const groupedMarkets = events
     .map((matchEvent) => ({
       event: matchEvent,
-      markets: markets.filter((market) => market.eventId === matchEvent.id),
+      markets: markets
+        .filter((market) => market.eventId === matchEvent.id)
+        .sort(compareMarketsForDisplay),
     }))
     .filter((group) => group.markets.length > 0);
 
@@ -432,12 +434,14 @@ export default function PoolOverviewPage() {
                     <div className="marketButtonGrid">
                       {group.markets.map((market) => {
                         const availability = getMarketAvailability(market, group.event);
+                        const isPendingHandicapLine = isHandicapLinePending(market);
                         return (
                           <button
                             className={[
                               "marketButton",
                               market.id === selectedMarketId ? "active" : "",
                               availability.isAvailable ? "" : "disabled",
+                              isPendingHandicapLine ? "linePending" : "",
                             ].filter(Boolean).join(" ")}
                             disabled={!availability.isAvailable}
                             key={market.id}
@@ -448,13 +452,7 @@ export default function PoolOverviewPage() {
                             }}
                           >
                             <strong>{market.type}</strong>
-                            <span>
-                              {market.period}
-                              {market.lineValue !== null
-                                ? ` line ${market.lineValue}`
-                                : ""}
-                            </span>
-                            <small>{availability.isAvailable ? `${market.payoutMultiplier}x payout` : availability.reason}</small>
+                            <span>{formatMarketCardMeta(market)}</span>
                           </button>
                         );
                       })}
@@ -586,6 +584,43 @@ function getMarketAvailability(market: Market, matchEvent: TournamentEvent | und
   }
 
   return { isAvailable: true, reason: "" };
+}
+
+function isHandicapLinePending(market: Market) {
+  return market.type === "Handicap" && (market.status === "LinePending" || market.lineValue === null);
+}
+
+function compareMarketsForDisplay(first: Market, second: Market) {
+  const periodDifference = getMarketPeriodOrder(first.period) - getMarketPeriodOrder(second.period);
+  if (periodDifference !== 0) {
+    return periodDifference;
+  }
+
+  return getMarketTypeOrder(first.type) - getMarketTypeOrder(second.type);
+}
+
+function getMarketPeriodOrder(period: string) {
+  return period === "FullTime" ? 0 : period === "FirstHalf" ? 1 : 2;
+}
+
+function getMarketTypeOrder(type: string) {
+  const order: Record<string, number> = {
+    Handicap: 0,
+    OverUnder: 1,
+    OddEven: 2,
+    CorrectScore: 3,
+  };
+
+  return order[type] ?? 99;
+}
+
+function formatMarketCardMeta(market: Market) {
+  const lineValue = market.lineValue === null ? "" : market.lineValue;
+  return `${formatMarketPeriodLabel(market.period)} ${lineValue}@${market.payoutMultiplier}X`;
+}
+
+function formatMarketPeriodLabel(period: string) {
+  return period === "FullTime" ? "FT" : period === "FirstHalf" ? "HT" : period;
 }
 
 function getMarketOptions(
