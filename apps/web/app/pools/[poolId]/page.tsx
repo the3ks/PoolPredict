@@ -9,6 +9,7 @@ import {
   Goal,
   History,
   KeyRound,
+  Lock,
   RefreshCw,
   Save,
   Send,
@@ -40,6 +41,16 @@ type BalanceResponse = {
   balance: number;
 };
 
+type RecentPrediction = {
+  eventName: string;
+  marketType: string;
+  marketPeriod: string;
+  selectedOption: string;
+  stake: number;
+  payoutMultiplier: number;
+  submittedAt: string;
+};
+
 export default function PoolOverviewPage() {
   const params = useParams<{ poolId: string }>();
   const poolId = params.poolId;
@@ -53,9 +64,11 @@ export default function PoolOverviewPage() {
   const [balance, setBalance] = useState<number | null>(null);
   const [name, setName] = useState("");
   const [startingBalance, setStartingBalance] = useState(1000);
+  const [predictionsLocked, setPredictionsLocked] = useState(false);
   const [status, setStatus] = useState("Loading pool...");
   const [joinRequestStatus, setJoinRequestStatus] = useState("");
   const [isLoadingJoinRequests, setIsLoadingJoinRequests] = useState(false);
+  const [recentPrediction, setRecentPrediction] = useState<RecentPrediction | null>(null);
 
   useEffect(() => {
     loadPool();
@@ -80,6 +93,7 @@ export default function PoolOverviewPage() {
     setPool(result);
     setName(result.name);
     setStartingBalance(result.startingBalance);
+    setPredictionsLocked(result.predictionsLocked);
     setStatus("Pool loaded.");
     await Promise.all([
       loadEvents(result.tournamentId),
@@ -189,7 +203,7 @@ export default function PoolOverviewPage() {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ name, startingBalance }),
+      body: JSON.stringify({ name, startingBalance, predictionsLocked }),
     });
 
     if (!response.ok) {
@@ -215,6 +229,9 @@ export default function PoolOverviewPage() {
       setStatus("Select a prediction option.");
       return;
     }
+    const matchEvent = market
+      ? events.find((item) => item.id === market.eventId)
+      : null;
 
     const response = await fetch(apiUrl("/api/predictions"), {
       method: "POST",
@@ -236,6 +253,19 @@ export default function PoolOverviewPage() {
     }
 
     setStatus("Prediction submitted.");
+    if (market) {
+      setRecentPrediction({
+        eventName: matchEvent
+          ? `${matchEvent.homeParticipant} vs ${matchEvent.awayParticipant}`
+          : "Selected event",
+        marketType: market.type,
+        marketPeriod: market.period,
+        selectedOption: option,
+        stake,
+        payoutMultiplier: market.payoutMultiplier,
+        submittedAt: new Date().toISOString(),
+      });
+    }
     setSelectedOption("");
     await loadBalance(pool.id);
   }
@@ -279,15 +309,21 @@ export default function PoolOverviewPage() {
     ? events.find((event) => event.id === selectedMarket.eventId)
     : null;
   const selectedMarketAvailability = selectedMarket
-    ? getMarketAvailability(selectedMarket, selectedEvent ?? undefined)
+    ? getMarketAvailability(selectedMarket, selectedEvent ?? undefined, pool?.predictionsLocked ?? false)
     : { isAvailable: false, reason: "No market selected" };
   const groupedMarkets = events
-    .map((matchEvent) => ({
-      event: matchEvent,
-      markets: markets
-        .filter((market) => market.eventId === matchEvent.id)
-        .sort(compareMarketsForDisplay),
-    }))
+    .map((matchEvent) => {
+      const eventDisplay = getEventDisplayState(matchEvent);
+      return {
+        event: matchEvent,
+        eventDisplay,
+        markets: eventDisplay.isHidden
+          ? []
+          : markets
+            .filter((market) => market.eventId === matchEvent.id)
+            .sort(compareMarketsForDisplay),
+      };
+    })
     .filter((group) => group.markets.length > 0);
 
   return (
@@ -323,6 +359,11 @@ export default function PoolOverviewPage() {
                     value: balance ?? pool.startingBalance,
                     icon: BadgeDollarSign,
                   },
+                  {
+                    label: "Predictions",
+                    value: pool.predictionsLocked ? "Locked" : "Open",
+                    icon: Lock,
+                  },
                 ]}
               />
             </Panel>
@@ -351,6 +392,14 @@ export default function PoolOverviewPage() {
                       setStartingBalance(Number(event.target.value))
                     }
                   />
+                </label>
+                <label className="checkboxRow poolPredictionLockToggle">
+                  <input
+                    checked={predictionsLocked}
+                    type="checkbox"
+                    onChange={(event) => setPredictionsLocked(event.target.checked)}
+                  />
+                  Lock predictions
                 </label>
                 <button className="button" type="submit">
                   <IconLabel icon={Save}>Save pool</IconLabel>
@@ -431,38 +480,61 @@ export default function PoolOverviewPage() {
                         </IconLabel>
                       </small>
                     </div>
-                    <div className="marketButtonGrid">
-                      {group.markets.map((market) => {
-                        const availability = getMarketAvailability(market, group.event);
-                        const isPendingHandicapLine = isHandicapLinePending(market);
-                        return (
-                          <button
-                            className={[
-                              "marketButton",
-                              market.id === selectedMarketId ? "active" : "",
-                              availability.isAvailable ? "" : "disabled",
-                              isPendingHandicapLine ? "linePending" : "",
-                            ].filter(Boolean).join(" ")}
-                            disabled={!availability.isAvailable}
-                            key={market.id}
-                            type="button"
-                            onClick={() => {
-                              setSelectedMarketId(market.id);
-                              setSelectedOption("");
-                            }}
-                          >
-                            <strong>{market.type}</strong>
-                            <span>{formatMarketCardMeta(market)}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
+                    {group.eventDisplay.resultText ? (
+                      <div className="eventResultStrip">
+                        <span><strong>FT</strong>{group.eventDisplay.resultText.fullTime}</span>
+                        <span><strong>HT</strong>{group.eventDisplay.resultText.firstHalf}</span>
+                      </div>
+                    ) : null}
+                    {group.eventDisplay.isClosed ? (
+                      <div className="eventMarketsClosedNotice">
+                        <strong>Markets closed</strong>
+                        <small>{group.eventDisplay.reason}</small>
+                      </div>
+                    ) : (
+                      <div className="marketButtonGrid">
+                        {group.markets.map((market) => {
+                          const availability = getMarketAvailability(market, group.event, pool.predictionsLocked);
+                          const isPendingHandicapLine = isHandicapLinePending(market);
+                          return (
+                            <button
+                              className={[
+                                "marketButton",
+                                market.id === selectedMarketId ? "active" : "",
+                                availability.isAvailable ? "" : "disabled",
+                                pool.predictionsLocked ? "poolLocked" : "",
+                                isPendingHandicapLine ? "linePending" : "",
+                              ].filter(Boolean).join(" ")}
+                              disabled={!availability.isAvailable}
+                              key={market.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedMarketId(market.id);
+                                setSelectedOption("");
+                              }}
+                            >
+                              <strong>{market.type}</strong>
+                              <span>{formatMarketCardMeta(market)}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </section>
                 ))}
               </div>
             </Panel>
-            <Panel className="predictionSubmitPanel" title="Submit prediction">
+            <Panel className={`predictionSubmitPanel ${pool.predictionsLocked ? "predictionSubmitPanelLocked" : ""}`} title="Submit prediction">
               <form className="form predictionForm" onSubmit={submitPrediction}>
+                {pool.predictionsLocked ? (
+                  <div className="predictionLockedNotice">
+                    <Lock aria-hidden="true" size={18} />
+                    <span>
+                      <strong>Predictions locked</strong>
+                      <small>The pool owner has paused prediction submission.</small>
+                    </span>
+                  </div>
+                ) : null}
                 <div className="selectedMarket">
                   <Goal aria-hidden="true" size={18} />
                   <span>
@@ -526,7 +598,7 @@ export default function PoolOverviewPage() {
                 </label>
                 <button
                   className="button"
-                  disabled={!selectedMarket || !selectedOption || stake <= 0 || !selectedMarketAvailability.isAvailable}
+                  disabled={pool.predictionsLocked || !selectedMarket || !selectedOption || stake <= 0 || !selectedMarketAvailability.isAvailable}
                   type="submit"
                 >
                   <IconLabel icon={Send}>Submit prediction</IconLabel>
@@ -537,6 +609,16 @@ export default function PoolOverviewPage() {
                 >
                   <IconLabel icon={History}>View prediction history</IconLabel>
                 </Link>
+                {recentPrediction ? (
+                  <div className="recentPredictionCard">
+                    <strong>Prediction submitted</strong>
+                    <span>{recentPrediction.eventName}</span>
+                    <small>
+                      {recentPrediction.marketPeriod} {recentPrediction.marketType} | {recentPrediction.selectedOption} | {recentPrediction.stake} points | {recentPrediction.payoutMultiplier}x
+                    </small>
+                    <small>{new Date(recentPrediction.submittedAt).toLocaleString()}</small>
+                  </div>
+                ) : null}
               </form>
             </Panel>
           </div>
@@ -554,7 +636,52 @@ function canManageInvites(pool: PoolSummary) {
   return pool.role === "Owner";
 }
 
-function getMarketAvailability(market: Market, matchEvent: TournamentEvent | undefined) {
+function getEventDisplayState(matchEvent: TournamentEvent) {
+  const now = Date.now();
+  const startsAt = new Date(matchEvent.startsAt).getTime();
+  const hasTemporaryClosedDisplay = matchEvent.status === "Settled" || matchEvent.status === "Cancelled";
+  const resultRecordedAt = matchEvent.resultRecordedAt
+    ? new Date(matchEvent.resultRecordedAt).getTime()
+    : null;
+  const temporaryClosedDisplayStartedAt = resultRecordedAt ?? startsAt;
+  const temporaryClosedDisplayExpired = hasTemporaryClosedDisplay
+    && now > temporaryClosedDisplayStartedAt + 24 * 60 * 60 * 1000;
+
+  if (temporaryClosedDisplayExpired) {
+    return {
+      isClosed: true,
+      isHidden: true,
+      reason: "Closed event display window has ended.",
+      resultText: null,
+    };
+  }
+
+  const statusClosed = matchEvent.status !== "Scheduled";
+  const kickoffClosed = startsAt <= now;
+  const isClosed = statusClosed || kickoffClosed;
+  const reason = statusClosed
+    ? `Event status is ${matchEvent.status}.`
+    : "Kickoff time has passed.";
+  const resultText = matchEvent.status === "Finished" || matchEvent.status === "Settled"
+    ? {
+      fullTime: formatScore(matchEvent.fullTimeHomeScore, matchEvent.fullTimeAwayScore),
+      firstHalf: formatScore(matchEvent.firstHalfHomeScore, matchEvent.firstHalfAwayScore),
+    }
+    : null;
+
+  return {
+    isClosed,
+    isHidden: false,
+    reason: isClosed ? reason : "",
+    resultText,
+  };
+}
+
+function getMarketAvailability(market: Market, matchEvent: TournamentEvent | undefined, predictionsLocked = false) {
+  if (predictionsLocked) {
+    return { isAvailable: false, reason: "Pool locked" };
+  }
+
   if (market.status !== "Open") {
     return {
       isAvailable: false,
@@ -564,6 +691,10 @@ function getMarketAvailability(market: Market, matchEvent: TournamentEvent | und
 
   if (!matchEvent) {
     return { isAvailable: true, reason: "" };
+  }
+
+  if (matchEvent.status !== "Scheduled") {
+    return { isAvailable: false, reason: `Event status is ${matchEvent.status}` };
   }
 
   const startsAt = new Date(matchEvent.startsAt).getTime();
@@ -584,6 +715,10 @@ function getMarketAvailability(market: Market, matchEvent: TournamentEvent | und
   }
 
   return { isAvailable: true, reason: "" };
+}
+
+function formatScore(homeScore: number | null, awayScore: number | null) {
+  return homeScore === null || awayScore === null ? "-" : `${homeScore}-${awayScore}`;
 }
 
 function isHandicapLinePending(market: Market) {

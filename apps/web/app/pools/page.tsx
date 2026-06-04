@@ -24,6 +24,7 @@ export default function PoolsPage() {
   const [otherPools, setOtherPools] = useState<DiscoverPool[]>([]);
   const [status, setStatus] = useState("Loading pools...");
   const [requestStatus, setRequestStatus] = useState("");
+  const [isSignedIn, setIsSignedIn] = useState(false);
 
   useEffect(() => {
     loadPools();
@@ -32,10 +33,24 @@ export default function PoolsPage() {
   async function loadPools() {
     const token = getStoredToken();
     if (!token) {
-      setStatus("Login is required to view pools.");
+      setIsSignedIn(false);
+      try {
+        const response = await fetch(apiUrl("/api/pools/latest"));
+        if (!response.ok) {
+          setStatus("Could not load community pools.");
+          return;
+        }
+
+        const latestPools = (await response.json()) as DiscoverPool[];
+        setOtherPools(latestPools);
+        setStatus(`${latestPools.length} latest community pool${latestPools.length === 1 ? "" : "s"}.`);
+      } catch (error) {
+        setStatus(error instanceof Error ? error.message : "Could not load community pools.");
+      }
       return;
     }
 
+    setIsSignedIn(true);
     try {
       const [myPoolsResponse, otherPoolsResponse] = await Promise.all([
         fetch(apiUrl("/api/pools"), {
@@ -115,6 +130,7 @@ export default function PoolsPage() {
           title="Lobby"
           icon={CircleDotDashed}
           actions={
+            isSignedIn ? (
             <>
               <Link className="button" href="/pools/new">
                 <IconLabel icon={Plus}>Create pool</IconLabel>
@@ -123,6 +139,7 @@ export default function PoolsPage() {
                 <IconLabel icon={UserPlus}>Join pool</IconLabel>
               </Link>
             </>
+            ) : null
           }
         />
         <StatusPill icon={Users}>{status}</StatusPill>
@@ -133,7 +150,7 @@ export default function PoolsPage() {
           <div className="poolList">
             {pools.length === 0 ? (
               <p className="mutedText">
-                You have not joined or created any pools yet.
+                {isSignedIn ? "You have not joined or created any pools yet." : "Login to see your pools"}
               </p>
             ) : null}
             {pools.map((pool) => (
@@ -173,7 +190,7 @@ export default function PoolsPage() {
             ) : null}
             {otherPools.map((pool) => (
               <article className="poolCard" key={pool.id}>
-                <div className="poolCardLink discoverPoolCardLink">
+                <div className={`poolCardLink ${isSignedIn ? "discoverPoolCardLink" : "homeCommunityCardLink"}`}>
                   <span>
                     <strong>{pool.name}</strong>
                     <small>{pool.profile} profile</small>
@@ -201,18 +218,20 @@ export default function PoolsPage() {
                       </IconLabel>
                     </small>
                   </span>
-                  <button
-                    className="button buttonSecondary"
-                    disabled={pool.hasPendingJoinRequest}
-                    type="button"
-                    onClick={() => requestJoin(pool)}
-                  >
-                    <IconLabel icon={Send}>
-                      {pool.hasPendingJoinRequest
-                        ? "Requested"
-                        : "Request to join"}
-                    </IconLabel>
-                  </button>
+                  {isSignedIn ? (
+                    <button
+                      className="button buttonSecondary"
+                      disabled={pool.hasPendingJoinRequest}
+                      type="button"
+                      onClick={() => requestJoin(pool)}
+                    >
+                      <IconLabel icon={Send}>
+                        {pool.hasPendingJoinRequest
+                          ? "Requested"
+                          : "Request to join"}
+                      </IconLabel>
+                    </button>
+                  ) : null}
                 </div>
               </article>
             ))}

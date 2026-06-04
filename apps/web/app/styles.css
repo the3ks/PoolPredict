@@ -785,7 +785,7 @@ dd {
 }
 
 .poolSettingsForm {
-  grid-template-columns: minmax(220px, 1fr) minmax(180px, 0.65fr) auto;
+  grid-template-columns: minmax(220px, 1fr) minmax(180px, 0.65fr) minmax(170px, 0.55fr) auto;
   align-items: end;
 }
 
@@ -1200,6 +1200,56 @@ dd {
   font-weight: 800;
 }
 
+.eventResultStrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.eventResultStrip span {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--secondary-bg);
+  padding: 0 10px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.eventResultStrip strong {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.eventMarketsClosedNotice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(148, 163, 184, 0.12), rgba(15, 23, 42, 0.08)),
+    var(--tile-bg);
+  padding: 12px;
+}
+
+.eventMarketsClosedNotice strong {
+  color: var(--text);
+}
+
+.eventMarketsClosedNotice small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
 .marketButtonGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
@@ -1248,6 +1298,20 @@ dd {
   color: #fde68a;
 }
 
+.marketButton.poolLocked {
+  border-color: rgba(148, 163, 184, 0.5);
+  background:
+    linear-gradient(180deg, rgba(148, 163, 184, 0.14), rgba(15, 23, 42, 0.1)),
+    var(--tile-bg);
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.marketButton.poolLocked strong,
+.marketButton.poolLocked span {
+  color: var(--muted);
+}
+
 .marketButton strong,
 .marketButton span,
 .marketButton small {
@@ -1293,6 +1357,68 @@ dd {
 }
 
 .selectedMarket small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.predictionSubmitPanelLocked {
+  border-color: rgba(245, 158, 11, 0.7);
+  background:
+    linear-gradient(180deg, rgba(245, 158, 11, 0.12), transparent),
+    var(--surface);
+}
+
+.predictionLockedNotice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(245, 158, 11, 0.6);
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.12);
+  padding: 10px 12px;
+  color: #fde68a;
+}
+
+.predictionLockedNotice svg {
+  flex: 0 0 auto;
+  color: #fbbf24;
+}
+
+.predictionLockedNotice span {
+  display: grid;
+  gap: 3px;
+}
+
+.predictionLockedNotice small {
+  color: #fde68a;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.recentPredictionCard {
+  display: grid;
+  gap: 5px;
+  border: 1px solid rgba(34, 197, 94, 0.5);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(34, 197, 94, 0.14), rgba(34, 197, 94, 0.06)),
+    var(--tile-bg);
+  padding: 12px;
+}
+
+.recentPredictionCard strong {
+  color: #86efac;
+}
+
+.recentPredictionCard span {
+  color: var(--text);
+  font-weight: 800;
+}
+
+.recentPredictionCard small {
   color: var(--muted);
   font-size: 12px;
   font-weight: 800;

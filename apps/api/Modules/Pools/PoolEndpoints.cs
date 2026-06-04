@@ -74,6 +74,52 @@ public static class PoolEndpoints
                 pool.HasPendingJoinRequest)));
         }).RequireAuthorization();
 
+        group.MapGet("/latest", async (
+            IDbContextFactory<PoolPredictDbContext> dbContextFactory,
+            CancellationToken cancellationToken) =>
+        {
+            await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+            var rows = await (
+                from pool in db.Pools.AsNoTracking()
+                join owner in db.Users.AsNoTracking()
+                    on pool.OwnerUserId equals owner.Id
+                join tournament in db.Tournaments.AsNoTracking()
+                    on pool.TournamentId equals tournament.Id
+                join ownerMember in db.PoolMembers.AsNoTracking()
+                    on new { PoolId = pool.Id, UserId = pool.OwnerUserId } equals new { ownerMember.PoolId, ownerMember.UserId }
+                select new
+                {
+                    pool.Id,
+                    pool.Name,
+                    OwnerDisplayName = owner.DisplayName,
+                    TournamentName = tournament.Name,
+                    tournament.Provider,
+                    tournament.IsTestData,
+                    pool.Profile,
+                    pool.StartingBalance,
+                    ownerMember.JoinedAt,
+                    MemberCount = db.PoolMembers.Count(member => member.PoolId == pool.Id),
+                    InviteCount = db.PoolInvites.Count(invite => invite.PoolId == pool.Id && invite.RevokedAt == null)
+                })
+                .OrderByDescending(pool => pool.JoinedAt)
+                .Take(3)
+                .ToArrayAsync(cancellationToken);
+
+            return Results.Ok(rows.Select(pool => new DiscoverPoolResponse(
+                pool.Id,
+                pool.Name,
+                pool.OwnerDisplayName,
+                "",
+                pool.TournamentName,
+                pool.Provider,
+                pool.IsTestData,
+                pool.Profile.ToString(),
+                pool.StartingBalance,
+                pool.MemberCount,
+                pool.InviteCount,
+                false)));
+        });
+
         group.MapPost("/", (ClaimsPrincipal principal, CreatePoolRequest request, PoolStore pools, TournamentCatalog catalog) =>
         {
             if (!TryGetUserId(principal, out var userId))

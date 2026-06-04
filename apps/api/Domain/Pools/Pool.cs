@@ -4,7 +4,7 @@ namespace PoolPredict.Api.Domain.Pools;
 
 public sealed class Pool : Entity
 {
-    public Pool(Guid id, Guid ownerUserId, string name, Guid tournamentId, MarketProfile profile, int startingBalance)
+    public Pool(Guid id, Guid ownerUserId, string name, Guid tournamentId, MarketProfile profile, int startingBalance, bool predictionsLocked = false)
         : base(id)
     {
         OwnerUserId = ownerUserId;
@@ -12,6 +12,7 @@ public sealed class Pool : Entity
         TournamentId = tournamentId;
         Profile = profile;
         StartingBalance = startingBalance;
+        PredictionsLocked = predictionsLocked;
     }
 
     public Guid OwnerUserId { get; }
@@ -24,9 +25,12 @@ public sealed class Pool : Entity
 
     public int StartingBalance { get; private set; }
 
-    public void UpdateSettings(string name, int startingBalance)
+    public bool PredictionsLocked { get; private set; }
+
+    public void UpdateSettings(string name, int startingBalance, bool predictionsLocked)
     {
         Name = name;
         StartingBalance = startingBalance;
+        PredictionsLocked = predictionsLocked;
     }
 }

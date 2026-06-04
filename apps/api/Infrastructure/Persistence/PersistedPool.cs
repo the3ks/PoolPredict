@@ -10,4 +10,5 @@ public sealed class PersistedPool
     public Guid TournamentId { get; set; }
     public MarketProfile Profile { get; set; }
     public int StartingBalance { get; set; }
+    public bool PredictionsLocked { get; set; }
 }

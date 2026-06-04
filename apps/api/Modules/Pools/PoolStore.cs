@@ -122,7 +122,7 @@ public sealed class PoolStore
                 ?? throw new KeyNotFoundException("Pool does not exist.");
 
             EnsureCanManage(poolId, userId);
-            pool.UpdateSettings(request.Name.Trim(), request.StartingBalance);
+            pool.UpdateSettings(request.Name.Trim(), request.StartingBalance, request.PredictionsLocked);
             PersistPoolUpdate(pool);
             return pool;
         }
@@ -494,10 +494,10 @@ public sealed class PoolStore
     }
 
     private PoolSummaryResponse ToSummary(Pool pool, PoolMemberRole role) =>
-        new(pool.Id, pool.Name, pool.TournamentId, pool.Profile, pool.StartingBalance, role, CountMembers(pool.Id), CountInvites(pool.Id));
+        new(pool.Id, pool.Name, pool.TournamentId, pool.Profile, pool.StartingBalance, pool.PredictionsLocked, role, CountMembers(pool.Id), CountInvites(pool.Id));
 
     private PoolDetailsResponse ToDetails(Pool pool, PoolMember member) =>
-        new(pool.Id, member.Id, pool.Name, pool.TournamentId, pool.Profile, pool.StartingBalance, member.Role, CountMembers(pool.Id), CountInvites(pool.Id));
+        new(pool.Id, member.Id, pool.Name, pool.TournamentId, pool.Profile, pool.StartingBalance, pool.PredictionsLocked, member.Role, CountMembers(pool.Id), CountInvites(pool.Id));
 
     private int CountMembers(Guid poolId) => _members.Count(member => member.PoolId == poolId);
 
@@ -520,7 +520,8 @@ public sealed class PoolStore
             pool.Name,
             pool.TournamentId,
             pool.Profile,
-            pool.StartingBalance)));
+            pool.StartingBalance,
+            pool.PredictionsLocked)));
 
         _members.AddRange(db.PoolMembers.AsNoTracking().Select(member => new PoolMember(
             member.Id,
@@ -565,6 +566,7 @@ public sealed class PoolStore
         var persisted = db.Pools.Single(candidate => candidate.Id == pool.Id);
         persisted.Name = pool.Name;
         persisted.StartingBalance = pool.StartingBalance;
+        persisted.PredictionsLocked = pool.PredictionsLocked;
         db.SaveChanges();
     }
 
@@ -625,7 +627,8 @@ public sealed class PoolStore
         Name = pool.Name,
         TournamentId = pool.TournamentId,
         Profile = pool.Profile,
-        StartingBalance = pool.StartingBalance
+        StartingBalance = pool.StartingBalance,
+        PredictionsLocked = pool.PredictionsLocked
     };
 
     private static PersistedPoolMember ToPersistedMember(PoolMember member) => new()
@@ -671,6 +674,7 @@ public sealed record PoolSummaryResponse(
     Guid TournamentId,
     MarketProfile Profile,
     int StartingBalance,
+    bool PredictionsLocked,
     PoolMemberRole Role,
     int MemberCount,
     int InviteCount);
@@ -682,6 +686,7 @@ public sealed record PoolDetailsResponse(
     Guid TournamentId,
     MarketProfile Profile,
     int StartingBalance,
+    bool PredictionsLocked,
     PoolMemberRole Role,
     int MemberCount,
     int InviteCount);

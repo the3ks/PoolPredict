@@ -51,7 +51,12 @@ public sealed record EventResponse(
     EventStatus Status,
     string Provider,
     bool IsTestData,
-    EventManagementMode ManagementMode);
+    EventManagementMode ManagementMode,
+    int? FirstHalfHomeScore,
+    int? FirstHalfAwayScore,
+    int? FullTimeHomeScore,
+    int? FullTimeAwayScore,
+    DateTimeOffset? ResultRecordedAt);
 
 public sealed record AdminEventResponse(
     Guid Id,

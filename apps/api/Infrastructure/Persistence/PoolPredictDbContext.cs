@@ -180,6 +180,7 @@ public sealed class PoolPredictDbContext(DbContextOptions<PoolPredictDbContext> 
             entity.Property(pool => pool.TournamentId).HasColumnName("tournament_id");
             entity.Property(pool => pool.Profile).HasColumnName("profile").HasConversion<string>().HasMaxLength(40);
             entity.Property(pool => pool.StartingBalance).HasColumnName("starting_balance");
+            entity.Property(pool => pool.PredictionsLocked).HasColumnName("predictions_locked");
         });
 
         modelBuilder.Entity<PersistedPoolMember>(entity =>

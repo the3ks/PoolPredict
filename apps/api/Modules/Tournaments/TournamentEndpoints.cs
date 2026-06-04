@@ -13,11 +13,47 @@ public static class TournamentEndpoints
 
         group.MapGet("/", (TournamentCatalog catalog) => Results.Ok(catalog.GetTournamentResponses()));
 
-        group.MapGet("/{tournamentId:guid}/events", (Guid tournamentId, TournamentCatalog catalog) =>
+        group.MapGet("/{tournamentId:guid}/events", async (
+            Guid tournamentId,
+            IDbContextFactory<PoolPredictDbContext> dbContextFactory,
+            CancellationToken cancellationToken) =>
         {
-            return catalog.GetTournament(tournamentId) is null
-                ? Results.NotFound()
-                : Results.Ok(catalog.GetEventResponses(tournamentId));
+            await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+            var tournamentExists = await db.Tournaments.AnyAsync(tournament => tournament.Id == tournamentId, cancellationToken);
+            if (!tournamentExists)
+            {
+                return Results.NotFound();
+            }
+
+            var events = await db.Events
+                .AsNoTracking()
+                .Where(matchEvent => matchEvent.TournamentId == tournamentId)
+                .GroupJoin(
+                    db.EventResults.AsNoTracking(),
+                    matchEvent => matchEvent.Id,
+                    result => result.EventId,
+                    (matchEvent, results) => new { MatchEvent = matchEvent, Result = results.FirstOrDefault() })
+                .OrderBy(item => item.MatchEvent.StartsAt)
+                .Select(item => new EventResponse(
+                    item.MatchEvent.Id,
+                    item.MatchEvent.TournamentId,
+                    item.MatchEvent.HomeParticipantId,
+                    item.MatchEvent.AwayParticipantId,
+                    item.MatchEvent.HomeParticipant,
+                    item.MatchEvent.AwayParticipant,
+                    item.MatchEvent.StartsAt,
+                    item.MatchEvent.Status,
+                    item.MatchEvent.Provider,
+                    item.MatchEvent.IsTestData,
+                    item.MatchEvent.ManagementMode,
+                    item.Result == null ? null : item.Result.FirstHalfHomeScore,
+                    item.Result == null ? null : item.Result.FirstHalfAwayScore,
+                    item.Result == null ? null : item.Result.FullTimeHomeScore,
+                    item.Result == null ? null : item.Result.FullTimeAwayScore,
+                    item.Result == null ? null : item.Result.RecordedAt))
+                .ToArrayAsync(cancellationToken);
+
+            return Results.Ok(events);
         });
 
         group.MapGet("/{tournamentId:guid}/participants", (Guid tournamentId, TournamentCatalog catalog) =>

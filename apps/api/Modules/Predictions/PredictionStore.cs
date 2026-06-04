@@ -47,6 +47,11 @@ public sealed class PredictionStore
         var market = pools.GetMarket(request.MarketId) ?? throw new ArgumentException("Market does not exist.", nameof(request));
         var matchEvent = catalog.GetEvent(market.EventId) ?? throw new ArgumentException("Market event does not exist.", nameof(request));
 
+        if (pool.PredictionsLocked)
+        {
+            throw new InvalidOperationException("Predictions are locked for this pool.");
+        }
+
         if (market.PoolId != pool.Id)
         {
             throw new ArgumentException("Market does not belong to the selected pool.", nameof(request));

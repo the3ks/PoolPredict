@@ -17,6 +17,7 @@ export type PoolSummary = {
   tournamentId: string;
   profile: MarketProfile;
   startingBalance: number;
+  predictionsLocked: boolean;
   role: string;
   memberCount: number;
   inviteCount: number;
@@ -68,6 +69,11 @@ export type TournamentEvent = {
   managementMode: string;
   provider: string;
   isTestData: boolean;
+  firstHalfHomeScore: number | null;
+  firstHalfAwayScore: number | null;
+  fullTimeHomeScore: number | null;
+  fullTimeAwayScore: number | null;
+  resultRecordedAt: string | null;
 };
 
 export type Market = {

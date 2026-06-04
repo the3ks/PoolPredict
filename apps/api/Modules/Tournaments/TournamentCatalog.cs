@@ -102,7 +102,12 @@ public sealed class TournamentCatalog
                         matchEvent.Status,
                         source.Provider,
                         source.IsTestData,
-                        _eventManagementModes.GetValueOrDefault(matchEvent.Id, EventManagementMode.Provider));
+                        _eventManagementModes.GetValueOrDefault(matchEvent.Id, EventManagementMode.Provider),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null);
                 })
                 .ToArray();
         }

@@ -4,10 +4,10 @@ This guide deploys PoolPredict to an Ubuntu VM with CloudPanel, MariaDB, and ngi
 
 The recommended production layout uses CloudPanel as the public site manager:
 
-- CloudPanel `Node.js Site`: `https://poolpredict.example.com`
+- CloudPanel `Node.js Site`: `https://www.wc2026.beer`
 - CloudPanel app port: `3000`, forwarded to the Next.js app
 - CloudPanel database: local MariaDB database and user attached to the site
-- Custom CloudPanel vhost rule: `/api/` proxies to the .NET API on `127.0.0.1:5080`
+- Custom CloudPanel vhost rule: `/api/` proxies to the .NET API on `127.0.0.1:5000`
 - systemd service: keeps only the .NET API running
 
 This keeps CloudPanel responsible for domain ownership, the site user, TLS, nginx, Node version selection, database management, logs, and site-level settings.
@@ -24,7 +24,7 @@ In CloudPanel:
 4. Set:
 
 ```text
-Domain Name: poolpredict.example.com
+Domain Name: www.wc2026.beer
 Node.js Version: 22
 App Port: 3000
 Site User: poolpredict
@@ -36,14 +36,14 @@ Alternative CLI command as root:
 
 ```bash
 clpctl site:add:nodejs \
-  --domainName=poolpredict.example.com \
+  --domainName=www.wc2026.beer \
   --nodejsVersion=22 \
   --appPort=3000 \
   --siteUser=poolpredict \
   --siteUserPassword='REPLACE_WITH_STRONG_PASSWORD'
 ```
 
-After creation, use **Sites > poolpredict.example.com > Settings** to manage:
+After creation, use **Sites > www.wc2026.beer > Settings** to manage:
 
 - Node.js version
 - App port
@@ -58,7 +58,7 @@ Use CloudPanel to issue the Let's Encrypt certificate for the site after DNS poi
 
 In CloudPanel:
 
-1. Open **Sites > poolpredict.example.com**.
+1. Open **Sites > www.wc2026.beer**.
 2. Go to **Databases**.
 3. Create a database and user.
 
@@ -76,7 +76,7 @@ Alternative CLI command as root:
 
 ```bash
 clpctl db:add \
-  --domainName=poolpredict.example.com \
+  --domainName=www.wc2026.beer \
   --databaseName=poolpredict \
   --databaseUserName=poolpredict \
   --databaseUserPassword='REPLACE_WITH_STRONG_PASSWORD'
@@ -117,8 +117,8 @@ CloudPanel stores site files under the site user's home. Use the site directory 
 
 ```bash
 cd /home/poolpredict/htdocs
-git clone https://github.com/YOUR_ORG/YOUR_REPO.git poolpredict.example.com
-cd /home/poolpredict/htdocs/poolpredict.example.com
+git clone https://github.com/YOUR_ORG/YOUR_REPO.git www.wc2026.beer
+cd /home/poolpredict/htdocs/www.wc2026.beer
 ```
 
 If CloudPanel already created a non-empty domain directory, clone into a temporary folder and move the repo contents into the domain directory.
@@ -128,7 +128,7 @@ If CloudPanel already created a non-empty domain directory, clone into a tempora
 Create the API production settings file:
 
 ```bash
-cd /home/poolpredict/htdocs/poolpredict.example.com
+cd /home/poolpredict/htdocs/www.wc2026.beer
 nano apps/api/appsettings.Production.json
 ```
 
@@ -140,7 +140,7 @@ Use:
     "MariaDb": "Server=127.0.0.1;Port=3306;Database=poolpredict;User=poolpredict;Password=REPLACE_WITH_STRONG_PASSWORD;"
   },
   "WebApp": {
-    "BaseUrl": "https://poolpredict.example.com"
+    "BaseUrl": "https://www.wc2026.beer"
   },
   "EventProvider": {
     "Provider": "Mock",
@@ -175,14 +175,14 @@ and configure `EventProvider:FootballData:ApiToken`.
 Create the web production environment file:
 
 ```bash
-cd /home/poolpredict/htdocs/poolpredict.example.com/apps/web
+cd /home/poolpredict/htdocs/www.wc2026.beer/apps/web
 nano .env.production
 ```
 
 Use:
 
 ```text
-NEXT_PUBLIC_API_BASE_URL=https://poolpredict.example.com/api
+NEXT_PUBLIC_API_BASE_URL=https://www.wc2026.beer/api
 ```
 
 `NEXT_PUBLIC_API_BASE_URL` is read at build time, so rebuild the web app whenever this value changes.
@@ -194,7 +194,7 @@ The API does not run migrations at startup. Apply migrations manually before fir
 As the `poolpredict` site user:
 
 ```bash
-cd /home/poolpredict/htdocs/poolpredict.example.com
+cd /home/poolpredict/htdocs/www.wc2026.beer
 dotnet tool restore
 dotnet ef database update \
   --project apps/api/PoolPredict.Api.csproj \
@@ -215,10 +215,8 @@ source ~/.bashrc
 Publish the API into the site user's home:
 
 ```bash
-cd /home/poolpredict/htdocs/poolpredict.example.com
-dotnet publish apps/api/PoolPredict.Api.csproj \
-  -c Release \
-  -o /home/poolpredict/api-publish
+cd /home/poolpredict/htdocs/www.wc2026.beer
+dotnet publish apps/api/PoolPredict.Api.csproj -c Release -o /home/poolpredict/api-publish
 ```
 
 Create the API systemd service as root:
@@ -244,7 +242,7 @@ SyslogIdentifier=poolpredict-api
 User=poolpredict
 Group=poolpredict
 Environment=ASPNETCORE_ENVIRONMENT=Production
-Environment=ASPNETCORE_URLS=http://127.0.0.1:5080
+Environment=ASPNETCORE_URLS=http://127.0.0.1:5000
 
 [Install]
 WantedBy=multi-user.target
@@ -256,7 +254,7 @@ Enable and start:
 sudo systemctl daemon-reload
 sudo systemctl enable --now poolpredict-api
 sudo systemctl status poolpredict-api --no-pager
-curl http://127.0.0.1:5080/health
+curl http://127.0.0.1:5000/health
 ```
 
 ## 8. Build And Run The Next.js Site
@@ -264,7 +262,7 @@ curl http://127.0.0.1:5080/health
 As the `poolpredict` site user:
 
 ```bash
-cd /home/poolpredict/htdocs/poolpredict.example.com/apps/web
+cd /home/poolpredict/htdocs/www.wc2026.beer/apps/web
 npm ci
 npm run build
 ```
@@ -295,14 +293,14 @@ pm2 status
 
 In CloudPanel:
 
-1. Open **Sites > poolpredict.example.com**.
+1. Open **Sites > www.wc2026.beer**.
 2. Open **Vhost**.
 3. Keep CloudPanel's generated server wrapper.
 4. Add this `location` block before the generic `location /` block:
 
 ```nginx
 location /api/ {
-    proxy_pass http://127.0.0.1:5080/;
+    proxy_pass http://127.0.0.1:5000/;
     proxy_http_version 1.1;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
@@ -311,24 +309,144 @@ location /api/ {
 }
 ```
 
-The trailing slash in `proxy_pass http://127.0.0.1:5080/;` is important. It strips `/api/` before forwarding, so `/api/health` reaches the API as `/health`.
+The trailing slash in `proxy_pass http://127.0.0.1:5000/;` is important. It strips `/api/` before forwarding, so `/api/health` reaches the API as `/health`.
 
 Save in the Vhost Editor. CloudPanel validates nginx syntax and reverts invalid changes to avoid downtime.
 
 Verify publicly:
 
 ```text
-https://poolpredict.example.com
-https://poolpredict.example.com/api/health
+https://www.wc2026.beer
+https://www.wc2026.beer/api/health
 ```
 
-## 10. Deploy Updates
+## 10. Incremental Update Deployment
+
+Most releases should be deployed incrementally. Do not recreate the CloudPanel site, database, vhost, PM2 startup service, or API systemd service unless those settings actually changed.
+
+Before updating, identify what changed:
+
+- Web-only changes: files under `apps/web`, frontend config, styles, pages, components.
+- API-only changes: files under `apps/api`, API config, domain logic, endpoints.
+- Database changes: EF migrations or persistence model changes.
+- Infrastructure changes: CloudPanel app port, vhost, domain, TLS, PM2, or systemd service.
+
+### 10.1 Pre-Update Checks
 
 As the `poolpredict` site user:
 
 ```bash
-cd /home/poolpredict/htdocs/poolpredict.example.com
-git pull
+cd /home/poolpredict/htdocs/www.wc2026.beer
+git status --short
+git fetch --prune
+git log --oneline --decorate -5
+```
+
+If the server has local edits, inspect them before pulling:
+
+```bash
+git diff
+```
+
+Production-only files such as `apps/api/appsettings.Production.json` and `apps/web/.env.production` should not be overwritten by Git.
+
+Back up MariaDB before any release that includes migrations. As root:
+
+```bash
+clpctl db:export --databaseName=poolpredict --file=/home/poolpredict/poolpredict-before-update.sql.gz
+```
+
+### 10.2 Web-Only Update
+
+Use this when only the Next.js app changed.
+
+As the `poolpredict` site user:
+
+```bash
+cd /home/poolpredict/htdocs/www.wc2026.beer
+git pull --ff-only
+
+cd apps/web
+npm ci
+npm run build
+pm2 restart poolpredict-web
+pm2 status
+```
+
+Verify:
+
+```bash
+curl -I https://www.wc2026.beer
+pm2 logs poolpredict-web --lines 40
+```
+
+### 10.3 API-Only Update Without Database Migration
+
+Use this when API code changed but no EF migration/schema change is included.
+
+As the `poolpredict` site user:
+
+```bash
+cd /home/poolpredict/htdocs/www.wc2026.beer
+git pull --ff-only
+
+dotnet publish apps/api/PoolPredict.Api.csproj -c Release -o /home/poolpredict/api-publish
+```
+
+As root:
+
+```bash
+sudo systemctl restart poolpredict-api
+sudo systemctl status poolpredict-api --no-pager
+```
+
+Verify:
+
+```bash
+curl https://www.wc2026.beer/api/health
+sudo journalctl -u poolpredict-api -n 60 --no-pager
+```
+
+### 10.4 API Update With Database Migration
+
+Use this when the release includes EF migrations or persistence model changes.
+
+As the `poolpredict` site user:
+
+```bash
+cd /home/poolpredict/htdocs/www.wc2026.beer
+git pull --ff-only
+
+dotnet ef database update \
+  --project apps/api/PoolPredict.Api.csproj \
+  --startup-project apps/api/PoolPredict.Api.csproj \
+  --configuration Release
+
+dotnet publish apps/api/PoolPredict.Api.csproj -c Release -o /home/poolpredict/api-publish
+```
+
+As root:
+
+```bash
+sudo systemctl restart poolpredict-api
+```
+
+Verify:
+
+```bash
+curl https://www.wc2026.beer/api/health
+sudo journalctl -u poolpredict-api -n 80 --no-pager
+```
+
+### 10.5 Full App Update
+
+Use this when both API and web changed.
+
+As the `poolpredict` site user:
+
+```bash
+cd /home/poolpredict/htdocs/www.wc2026.beer
+git pull --ff-only
 
 dotnet ef database update \
   --project apps/api/PoolPredict.Api.csproj \
@@ -354,10 +472,70 @@ sudo systemctl restart poolpredict-api
 Verify:
 
 ```bash
-curl https://poolpredict.example.com/api/health
+curl https://www.wc2026.beer/api/health
 sudo journalctl -u poolpredict-api -n 80 --no-pager
 sudo -iu poolpredict pm2 logs poolpredict-web --lines 80
 ```
+
+### 10.6 Config Or Infrastructure Update
+
+Use this when production settings changed.
+
+If `apps/web/.env.production` changes:
+
+```bash
+cd /home/poolpredict/htdocs/www.wc2026.beer/apps/web
+npm run build
+pm2 restart poolpredict-web
+```
+
+If `apps/api/appsettings.Production.json` changes:
+
+```bash
+sudo systemctl restart poolpredict-api
+curl https://www.wc2026.beer/api/health
+```
+
+If the CloudPanel vhost changes:
+
+1. Edit the site vhost in **Sites > www.wc2026.beer > Vhost**.
+2. Save through CloudPanel so nginx syntax is validated.
+3. Verify both routes:
+
+```bash
+curl -I https://www.wc2026.beer
+curl https://www.wc2026.beer/api/health
+```
+
+### 10.7 Rollback Notes
+
+For a web-only rollback:
+
+```bash
+cd /home/poolpredict/htdocs/www.wc2026.beer
+git log --oneline -10
+git checkout PREVIOUS_GOOD_COMMIT
+cd apps/web
+npm ci
+npm run build
+pm2 restart poolpredict-web
+```
+
+For an API rollback:
+
+```bash
+cd /home/poolpredict/htdocs/www.wc2026.beer
+git checkout PREVIOUS_GOOD_COMMIT
+dotnet publish apps/api/PoolPredict.Api.csproj -c Release -o /home/poolpredict/api-publish
+```
+
+As root:
+
+```bash
+sudo systemctl restart poolpredict-api
+```
+
+Database migrations may not be safely reversible. If a migration has already been applied, prefer a forward fix unless you have confirmed the migration can be rolled back and have a fresh backup.
 
 ## 11. CloudPanel Operations Checklist
 
@@ -392,7 +570,7 @@ Keep these local-only:
 
 ```text
 127.0.0.1:3000  Next.js
-127.0.0.1:5080  .NET API
+127.0.0.1:5000  .NET API
 127.0.0.1:3306  MariaDB
 ```
 
@@ -415,4 +593,3 @@ Important production notes:
 - CloudPanel Site Settings: https://www.cloudpanel.io/docs/v2/frontend-area/settings/
 - CloudPanel Vhost Editor: https://www.cloudpanel.io/docs/v2/frontend-area/vhost/
 - CloudPanel CLI root commands: https://www.cloudpanel.io/docs/v2/cloudpanel-cli/root-user-commands/
-
