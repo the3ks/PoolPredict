@@ -120,19 +120,19 @@ export default function PoolPredictionsPage() {
               {predictions.map((prediction) => (
                 <article className="historyRow" key={prediction.id}>
                   <span>
-                    <strong><IconLabel icon={Trophy}>{prediction.marketType}</IconLabel></strong>
-                    <small>{prediction.marketPeriod}</small>
+                    <strong><IconLabel icon={Trophy}>{formatMarketTypeLabel(prediction.marketType)}</IconLabel></strong>
+                    <small>{formatEventName(prediction.eventName) ?? prediction.marketPeriod}</small>
                   </span>
                   <span>
-                    <strong>{prediction.selectedOption}</strong>
-                    <small>{prediction.stake} points</small>
+                    <strong>{formatMarketOptionLabel(prediction.selectedOption)}</strong>
+                    <small>{prediction.marketPeriod} | {prediction.stake} Điểm</small>
                   </span>
                   <span>
                     <strong>{prediction.payoutMultiplierSnapshot}x</strong>
                     <small>{new Date(prediction.submittedAt).toLocaleString()}</small>
                   </span>
                   <span>
-                    <strong>{prediction.outcome ?? "Pending"}</strong>
+                    <strong>{prediction.outcome ?? "Unsettled"}</strong>
                     <small>{formatNetPoints(prediction.netPoints)}</small>
                   </span>
                 </article>
@@ -151,4 +151,37 @@ function formatNetPoints(value: number | undefined) {
   }
 
   return value > 0 ? `+${value} net` : `${value} net`;
+}
+
+function formatEventName(eventName: string | null | undefined) {
+  return eventName?.replace(" vs ", " -vs- ");
+}
+
+function formatMarketTypeLabel(type: string) {
+  const labels: Record<string, string> = {
+    OneXTwo: "1X2",
+    OverUnder: "Tài/Xỉu",
+    OddEven: "Chẵn/Lẻ",
+    CorrectScore: "Tỷ số",
+  };
+
+  return labels[type] ?? type;
+}
+
+function formatMarketOptionLabel(option: string) {
+  if (option.startsWith("Over ")) {
+    return option.replace("Over ", "Tài ");
+  }
+
+  if (option.startsWith("Under ")) {
+    return option.replace("Under ", "Xỉu ");
+  }
+
+  const labels: Record<string, string> = {
+    Odd: "Lẻ",
+    Even: "Chẵn",
+    Draw: "Hòa",
+  };
+
+  return labels[option] ?? option;
 }

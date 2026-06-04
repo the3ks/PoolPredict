@@ -47,6 +47,8 @@ public sealed record EventResponse(
     Guid AwayParticipantId,
     string HomeParticipant,
     string AwayParticipant,
+    string? HomeParticipantCode,
+    string? AwayParticipantCode,
     DateTimeOffset StartsAt,
     EventStatus Status,
     string Provider,

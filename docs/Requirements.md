@@ -191,10 +191,13 @@ MVP Tournament:
 
 ### Markets
 
+Detailed `1X2` rules are maintained in `docs/Requirements-1X2.md`.
+
 Detailed handicap line rules are maintained in `docs/Requirements-Handicap.md`.
 
 Fulltime:
 
+* 1X2
 * Handicap
 * Over/Under
 * Odd/Even
@@ -211,7 +214,7 @@ First Half:
 
 * Do not use public betting odds
 * External providers do not provide payout values for MVP
-* Winner markets are excluded from the platform because they require volatile outcome-specific payouts
+* 1X2 uses a fixed point payout multiplier instead of volatile outcome-specific public odds
 * MVP markets use fixed point payout multipliers
 * Platform Admin manages global default point payout configuration
 * Global defaults define market line values, payout multipliers and supported line sets
@@ -242,7 +245,7 @@ First Half:
 
 * Automatic settlement is not supported for MVP.
 * Settlement is always initiated manually by Platform Admin.
-* Settlement must support Handicap, Over/Under, Odd/Even and Correct Score markets
+* Settlement must support 1X2, Handicap, Over/Under, Odd/Even and Correct Score markets
 * Settlement must update member balances from the point ledger
 * Settlement reruns must not duplicate payouts, refunds or deductions
 * Platform Admin can execute re-settlement for an event.

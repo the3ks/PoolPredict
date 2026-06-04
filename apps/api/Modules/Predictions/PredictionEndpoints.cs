@@ -75,6 +75,18 @@ public static class PredictionEndpoints
                 : Results.Ok(predictions.GetLeaderboard(poolId, pool.StartingBalance));
         }).RequireAuthorization();
 
+        group.MapGet("/pool/{poolId:guid}/market-summaries", (Guid poolId, ClaimsPrincipal principal, PredictionStore predictions, PoolStore pools) =>
+        {
+            if (!TryGetUserId(principal, out var userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            return pools.GetMember(poolId, userId) is null
+                ? Results.Forbid()
+                : Results.Ok(predictions.GetMarketPredictionSummaries(poolId));
+        }).RequireAuthorization();
+
         return app;
     }
 

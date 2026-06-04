@@ -73,6 +73,8 @@ public sealed class PayoutConfigurationStore
             return;
         }
 
+        EnsureCurrentDefaultRules(db);
+
         var persistedRules = db.PayoutMarketRules.AsNoTracking().ToArray();
         _configurations.AddRange(persistedConfigurations.Select(configuration => new PayoutConfigurationResponse(
             configuration.Id,
@@ -107,6 +109,9 @@ public sealed class PayoutConfigurationStore
     {
         foreach (var period in new[] { MarketPeriod.FullTime })
         {
+            yield return Rule(MarketProfile.Casual, MarketType.OneXTwo, period, null, 2.0m);
+            yield return Rule(MarketProfile.Casual, MarketType.OverUnder, period, 2.5m, 2.0m);
+            yield return Rule(MarketProfile.Casual, MarketType.OddEven, period, null, 2.0m);
             yield return Rule(MarketProfile.Casual, MarketType.CorrectScore, period, null, 5.0m);
         }
 
@@ -114,6 +119,11 @@ public sealed class PayoutConfigurationStore
         {
             foreach (var period in new[] { MarketPeriod.FullTime, MarketPeriod.FirstHalf })
             {
+                if (period == MarketPeriod.FullTime)
+                {
+                    yield return Rule(profile, MarketType.OneXTwo, period, null, 2.0m);
+                }
+
                 yield return Rule(profile, MarketType.Handicap, period, 0.5m, 2.0m);
                 yield return Rule(profile, MarketType.OverUnder, period, 2.5m, 2.0m);
                 yield return Rule(profile, MarketType.OddEven, period, null, 2.0m);
@@ -129,4 +139,40 @@ public sealed class PayoutConfigurationStore
         decimal? lineValue,
         decimal payoutMultiplier) =>
         new(Ids.NewId(), profile, marketType, period, lineValue, payoutMultiplier, true);
+
+    private static void EnsureCurrentDefaultRules(PoolPredictDbContext db)
+    {
+        var activeConfiguration = db.PayoutConfigurations.SingleOrDefault(configuration => configuration.IsActive);
+        if (activeConfiguration is null)
+        {
+            return;
+        }
+
+        var existingRules = db.PayoutMarketRules
+            .Where(rule => rule.PayoutConfigurationId == activeConfiguration.Id)
+            .Select(rule => new { rule.Profile, rule.MarketType, rule.Period })
+            .ToHashSet();
+        var missingRules = CreateDefaultRules()
+            .Where(rule => !existingRules.Contains(new { rule.Profile, rule.MarketType, rule.Period }))
+            .Select(rule => new PersistedPayoutMarketRule
+            {
+                Id = rule.Id,
+                PayoutConfigurationId = activeConfiguration.Id,
+                Profile = rule.Profile,
+                MarketType = rule.MarketType,
+                Period = rule.Period,
+                LineValue = rule.LineValue,
+                PayoutMultiplier = rule.PayoutMultiplier,
+                IsEnabled = rule.IsEnabled
+            })
+            .ToArray();
+
+        if (missingRules.Length == 0)
+        {
+            return;
+        }
+
+        db.PayoutMarketRules.AddRange(missingRules);
+        db.SaveChanges();
+    }
 }

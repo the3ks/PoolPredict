@@ -12,6 +12,9 @@ public sealed class SettlementCalculatorTests
     [InlineData(MarketType.OverUnder, "Over 2.5", 2.5, 2, 1, SettlementOutcome.Win, 200)]
     [InlineData(MarketType.OverUnder, "Under 2.5", 2.5, 2, 1, SettlementOutcome.Lose, 0)]
     [InlineData(MarketType.OverUnder, "Under 3", 3.0, 2, 1, SettlementOutcome.Push, 100)]
+    [InlineData(MarketType.OneXTwo, "Home FC", null, 2, 1, SettlementOutcome.Win, 200)]
+    [InlineData(MarketType.OneXTwo, "Draw", null, 1, 1, SettlementOutcome.Win, 200)]
+    [InlineData(MarketType.OneXTwo, "Away FC", null, 2, 1, SettlementOutcome.Lose, 0)]
     [InlineData(MarketType.OddEven, "Odd", null, 2, 1, SettlementOutcome.Win, 200)]
     [InlineData(MarketType.OddEven, "Even", null, 2, 1, SettlementOutcome.Lose, 0)]
     [InlineData(MarketType.CorrectScore, "2-1", null, 2, 1, SettlementOutcome.Win, 500)]
@@ -85,6 +88,7 @@ public sealed class SettlementCalculatorTests
 
     [Theory]
     [InlineData(MarketType.Handicap, "Home FC", 0.5)]
+    [InlineData(MarketType.OneXTwo, "Home or draw", null)]
     [InlineData(MarketType.OverUnder, "Above 2.5", 2.5)]
     [InlineData(MarketType.OddEven, "Neither", null)]
     [InlineData(MarketType.CorrectScore, "2:1", null)]

@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using PoolPredict.Api.Domain.Common;
 using PoolPredict.Api.Domain.Markets;
 using PoolPredict.Api.Domain.Points;
+using PoolPredict.Api.Domain.Pools;
 using PoolPredict.Api.Domain.Predictions;
 using PoolPredict.Api.Infrastructure.Persistence;
 using PoolPredict.Api.Modules.Markets;
@@ -76,6 +77,8 @@ public sealed class PredictionStore
             }
         }
 
+        ValidateSelectedOption(market, matchEvent, request.SelectedOption);
+
         lock (_gate)
         {
             EnsureMemberInitialized(pool.Id, member.Id, pool.StartingBalance);
@@ -133,6 +136,43 @@ public sealed class PredictionStore
         }
     }
 
+    public IReadOnlyCollection<MarketPredictionSummaryResponse> GetMarketPredictionSummaries(Guid poolId)
+    {
+        using var db = _dbContextFactory.CreateDbContext();
+        var rows = db.Predictions
+            .AsNoTracking()
+            .Where(prediction => prediction.PoolId == poolId)
+            .Join(
+                db.PoolMembers.AsNoTracking(),
+                prediction => prediction.MemberId,
+                member => member.Id,
+                (prediction, member) => new { Prediction = prediction, Member = member })
+            .Join(
+                db.Users.AsNoTracking(),
+                item => item.Member.UserId,
+                user => user.Id,
+                (item, user) => new
+                {
+                    item.Prediction.MarketId,
+                    item.Prediction.SelectedOption,
+                    DisplayName = string.IsNullOrWhiteSpace(user.DisplayName) ? user.Email : user.DisplayName
+                })
+            .ToArray();
+
+        return rows
+            .GroupBy(row => new { row.MarketId, row.SelectedOption })
+            .Select(group => new MarketPredictionSummaryResponse(
+                group.Key.MarketId,
+                group.Key.SelectedOption,
+                group
+                    .Select(row => row.DisplayName)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(displayName => displayName)
+                    .ToArray()))
+            .OrderBy(summary => summary.SelectedOption)
+            .ToArray();
+    }
+
     public IReadOnlyCollection<PredictionHistoryResponse> GetMemberPredictionHistory(Guid poolId, Guid memberId)
     {
         using var db = _dbContextFactory.CreateDbContext();
@@ -147,6 +187,11 @@ public sealed class PredictionStore
             .AsNoTracking()
             .Where(market => marketIds.Contains(market.Id))
             .ToDictionary(market => market.Id);
+        var eventIds = markets.Values.Select(market => market.EventId).Distinct().ToList();
+        var events = db.Events
+            .AsNoTracking()
+            .Where(matchEvent => eventIds.Contains(matchEvent.Id))
+            .ToDictionary(matchEvent => matchEvent.Id);
         var settlementCredits = db.PointLedger
             .AsNoTracking()
             .Where(entry => entry.PredictionId != null
@@ -161,6 +206,7 @@ public sealed class PredictionStore
         return predictions.Select(prediction =>
         {
             var market = markets.GetValueOrDefault(prediction.MarketId);
+            var matchEvent = market is null ? null : events.GetValueOrDefault(market.EventId);
             var credit = settlementCredits.GetValueOrDefault(prediction.Id);
             var outcome = ResolveOutcome(prediction.Stake, credit, market?.Status);
             return new PredictionHistoryResponse(
@@ -172,6 +218,7 @@ public sealed class PredictionStore
                 prediction.Stake,
                 prediction.MarketType,
                 prediction.MarketPeriod,
+                matchEvent is null ? null : $"{matchEvent.HomeParticipant} vs {matchEvent.AwayParticipant}",
                 prediction.LineValueSnapshot,
                 prediction.PayoutMultiplierSnapshot,
                 prediction.PayoutConfigurationVersionSnapshot,
@@ -271,6 +318,42 @@ public sealed class PredictionStore
         {
             EnsureMemberInitialized(pool.Id, pool.MemberId, pool.StartingBalance);
             return GetBalanceUnsafe(pool.Id, pool.MemberId);
+        }
+    }
+
+    public void InitializeMemberBalance(Guid poolId, Guid memberId, int startingBalance)
+    {
+        lock (_gate)
+        {
+            EnsureMemberInitialized(poolId, memberId, startingBalance);
+        }
+    }
+
+    public void ApplyStartingBalanceAdjustment(Guid poolId, IReadOnlyCollection<PoolMember> members, int oldStartingBalance, int newStartingBalance)
+    {
+        var delta = newStartingBalance - oldStartingBalance;
+        if (delta == 0)
+        {
+            return;
+        }
+
+        lock (_gate)
+        {
+            foreach (var member in members)
+            {
+                EnsureMemberInitialized(poolId, member.Id, oldStartingBalance);
+            }
+
+            var entries = members.Select(member => new PointLedgerEntry(
+                Ids.NewId(),
+                poolId,
+                member.Id,
+                delta,
+                PointLedgerReason.StartingBalanceAdjustment,
+                predictionId: null)).ToArray();
+
+            _ledger.AddRange(entries);
+            PersistLedgerEntries(entries);
         }
     }
 
@@ -385,6 +468,27 @@ public sealed class PredictionStore
         db.SaveChanges();
     }
 
+    private void PersistLedgerEntries(IReadOnlyCollection<PointLedgerEntry> entries)
+    {
+        using var db = _dbContextFactory.CreateDbContext();
+        var entryIds = entries.Select(entry => entry.Id).ToHashSet();
+        var existingIds = db.PointLedger
+            .Where(candidate => entryIds.Contains(candidate.Id))
+            .Select(candidate => candidate.Id)
+            .ToHashSet();
+        var persisted = entries
+            .Where(entry => !existingIds.Contains(entry.Id))
+            .Select(ToPersistedLedgerEntry)
+            .ToArray();
+        if (persisted.Length == 0)
+        {
+            return;
+        }
+
+        db.PointLedger.AddRange(persisted);
+        db.SaveChanges();
+    }
+
     private static PersistedPointLedgerEntry ToPersistedLedgerEntry(PointLedgerEntry entry) => new()
     {
         Id = entry.Id,
@@ -400,7 +504,7 @@ public sealed class PredictionStore
     {
         if (marketStatus is null or MarketStatus.Open or MarketStatus.Locked or MarketStatus.Draft or MarketStatus.LinePending)
         {
-            return "Pending";
+            return "Unsettled";
         }
 
         if (marketStatus == MarketStatus.Voided)
@@ -428,6 +532,39 @@ public sealed class PredictionStore
 
     private static string FormatOpenWindow(TimeSpan window) =>
         window.TotalHours == 1 ? "1 hour" : $"{window.TotalHours:0.##} hours";
+
+    private static void ValidateSelectedOption(Market market, Domain.Tournaments.Event matchEvent, string selectedOption)
+    {
+        var trimmed = selectedOption.Trim();
+        var isValid = market.Type switch
+        {
+            MarketType.OneXTwo => IsOneOf(trimmed, matchEvent.HomeParticipant, "Draw", matchEvent.AwayParticipant),
+            MarketType.OverUnder => market.LineValue is decimal line
+                && IsOneOf(trimmed, $"Over {FormatNumber(line)}", $"Under {FormatNumber(line)}"),
+            MarketType.OddEven => IsOneOf(trimmed, "Odd", "Even"),
+            MarketType.Handicap => market.LineValue is decimal line
+                && IsOneOf(
+                    trimmed,
+                    $"{matchEvent.HomeParticipant} {FormatSignedNumber(line)}",
+                    $"{matchEvent.AwayParticipant} {FormatSignedNumber(-line)}"),
+            MarketType.CorrectScore => true,
+            _ => false
+        };
+
+        if (!isValid)
+        {
+            throw new ArgumentException("Selected option is not valid for this market.");
+        }
+    }
+
+    private static bool IsOneOf(string selectedOption, params string[] options) =>
+        options.Any(option => string.Equals(selectedOption, option, StringComparison.OrdinalIgnoreCase));
+
+    private static string FormatSignedNumber(decimal value) =>
+        value > 0 ? $"+{FormatNumber(value)}" : FormatNumber(value);
+
+    private static string FormatNumber(decimal value) =>
+        value.ToString("0.##");
 }
 
 public sealed record PredictionHistoryResponse(
@@ -439,6 +576,7 @@ public sealed record PredictionHistoryResponse(
     int Stake,
     MarketType MarketType,
     MarketPeriod MarketPeriod,
+    string? EventName,
     decimal? LineValueSnapshot,
     decimal PayoutMultiplierSnapshot,
     int PayoutConfigurationVersionSnapshot,
@@ -459,3 +597,8 @@ public sealed record LeaderboardEntryResponse(
     int WinCount,
     decimal WinRate,
     decimal Roi);
+
+public sealed record MarketPredictionSummaryResponse(
+    Guid MarketId,
+    string SelectedOption,
+    IReadOnlyCollection<string> Users);

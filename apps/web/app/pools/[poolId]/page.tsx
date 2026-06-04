@@ -1,11 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useState } from "react";
+import {
+  Dispatch,
+  FormEvent,
+  SetStateAction,
+  useEffect,
+  useState,
+} from "react";
 import { useParams } from "next/navigation";
 import {
-  BadgeDollarSign,
   CalendarClock,
+  ChevronDown,
+  ChevronRight,
   Goal,
   History,
   KeyRound,
@@ -30,16 +37,14 @@ import {
 } from "../../components/ui";
 import { apiUrl, readApiError } from "../../lib/api";
 import { getStoredToken } from "../../lib/auth";
+import { formatParticipantName } from "../../lib/participant-flags";
 import {
+  LeaderboardEntry,
   Market,
   PoolJoinRequest,
   PoolSummary,
   TournamentEvent,
 } from "../../lib/types";
-
-type BalanceResponse = {
-  balance: number;
-};
 
 type RecentPrediction = {
   eventName: string;
@@ -51,24 +56,36 @@ type RecentPrediction = {
   submittedAt: string;
 };
 
+type MarketPredictionSummary = {
+  marketId: string;
+  selectedOption: string;
+  users: string[];
+};
+
 export default function PoolOverviewPage() {
   const params = useParams<{ poolId: string }>();
   const poolId = params.poolId;
   const [pool, setPool] = useState<PoolSummary | null>(null);
   const [events, setEvents] = useState<TournamentEvent[]>([]);
   const [markets, setMarkets] = useState<Market[]>([]);
+  const [marketPredictionSummaries, setMarketPredictionSummaries] = useState<
+    MarketPredictionSummary[]
+  >([]);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [joinRequests, setJoinRequests] = useState<PoolJoinRequest[]>([]);
   const [selectedMarketId, setSelectedMarketId] = useState("");
   const [selectedOption, setSelectedOption] = useState("");
   const [stake, setStake] = useState(100);
-  const [balance, setBalance] = useState<number | null>(null);
   const [name, setName] = useState("");
   const [startingBalance, setStartingBalance] = useState(1000);
   const [predictionsLocked, setPredictionsLocked] = useState(false);
   const [status, setStatus] = useState("Loading pool...");
   const [joinRequestStatus, setJoinRequestStatus] = useState("");
   const [isLoadingJoinRequests, setIsLoadingJoinRequests] = useState(false);
-  const [recentPrediction, setRecentPrediction] = useState<RecentPrediction | null>(null);
+  const [showManagementRow, setShowManagementRow] = useState(false);
+  const [showRecentClosedMarkets, setShowRecentClosedMarkets] = useState(true);
+  const [recentPrediction, setRecentPrediction] =
+    useState<RecentPrediction | null>(null);
 
   useEffect(() => {
     loadPool();
@@ -98,7 +115,8 @@ export default function PoolOverviewPage() {
     await Promise.all([
       loadEvents(result.tournamentId),
       loadMarkets(result.id),
-      loadBalance(result.id),
+      loadMarketPredictionSummaries(result.id),
+      loadLeaderboard(result.id),
       canManagePool(result) ? loadJoinRequests(result.id) : Promise.resolve(),
     ]);
   }
@@ -131,21 +149,39 @@ export default function PoolOverviewPage() {
     setSelectedMarketId((current) => current || result[0]?.id || "");
   }
 
-  async function loadBalance(targetPoolId: string) {
+  async function loadMarketPredictionSummaries(targetPoolId: string) {
     const token = getStoredToken();
     if (!token) {
       return;
     }
 
     const response = await fetch(
-      apiUrl(`/api/predictions/balance?poolId=${targetPoolId}`),
+      apiUrl(`/api/predictions/pool/${targetPoolId}/market-summaries`),
       {
         headers: { Authorization: `Bearer ${token}` },
       },
     );
     if (response.ok) {
-      const result = (await response.json()) as BalanceResponse;
-      setBalance(result.balance);
+      setMarketPredictionSummaries(
+        (await response.json()) as MarketPredictionSummary[],
+      );
+    }
+  }
+
+  async function loadLeaderboard(targetPoolId: string) {
+    const token = getStoredToken();
+    if (!token) {
+      return;
+    }
+
+    const response = await fetch(
+      apiUrl(`/api/predictions/pool/${targetPoolId}/leaderboard`),
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    );
+    if (response.ok) {
+      setLeaderboard((await response.json()) as LeaderboardEntry[]);
     }
   }
 
@@ -172,12 +208,15 @@ export default function PoolOverviewPage() {
         return;
       }
 
-      const result = (await response.json()) as PoolJoinRequest[];
+      const result = ((await response.json()) as PoolJoinRequest[]).filter(
+        (request) => request.status === "Pending",
+      );
       setJoinRequests(result);
+      setShowManagementRow(result.length > 0);
       setJoinRequestStatus(
         result.length === 0
-          ? "No join requests found."
-          : `${result.length} join request${result.length === 1 ? "" : "s"} loaded.`,
+          ? "No pending join requests."
+          : `${result.length} pending join request${result.length === 1 ? "" : "s"}.`,
       );
     } catch (error) {
       setJoinRequestStatus(
@@ -255,9 +294,7 @@ export default function PoolOverviewPage() {
     setStatus("Prediction submitted.");
     if (market) {
       setRecentPrediction({
-        eventName: matchEvent
-          ? `${matchEvent.homeParticipant} vs ${matchEvent.awayParticipant}`
-          : "Selected event",
+        eventName: matchEvent ? formatMatchName(matchEvent) : "Selected event",
         marketType: market.type,
         marketPeriod: market.period,
         selectedOption: option,
@@ -267,7 +304,10 @@ export default function PoolOverviewPage() {
       });
     }
     setSelectedOption("");
-    await loadBalance(pool.id);
+    await Promise.all([
+      loadLeaderboard(pool.id),
+      loadMarketPredictionSummaries(pool.id),
+    ]);
   }
 
   async function decideJoinRequest(
@@ -309,22 +349,28 @@ export default function PoolOverviewPage() {
     ? events.find((event) => event.id === selectedMarket.eventId)
     : null;
   const selectedMarketAvailability = selectedMarket
-    ? getMarketAvailability(selectedMarket, selectedEvent ?? undefined, pool?.predictionsLocked ?? false)
+    ? getMarketAvailability(
+        selectedMarket,
+        selectedEvent ?? undefined,
+        pool?.predictionsLocked ?? false,
+      )
     : { isAvailable: false, reason: "No market selected" };
-  const groupedMarkets = events
+  const marketGroups = events
     .map((matchEvent) => {
-      const eventDisplay = getEventDisplayState(matchEvent);
       return {
         event: matchEvent,
-        eventDisplay,
-        markets: eventDisplay.isHidden
-          ? []
-          : markets
-            .filter((market) => market.eventId === matchEvent.id)
-            .sort(compareMarketsForDisplay),
+        markets: markets
+          .filter((market) => market.eventId === matchEvent.id)
+          .sort(compareMarketsForDisplay),
       };
     })
     .filter((group) => group.markets.length > 0);
+  const upcomingMarketGroups = marketGroups.filter((group) =>
+    shouldShowUpcomingMarketGroup(group.event),
+  );
+  const recentClosedMarketGroups = marketGroups.filter((group) =>
+    shouldShowRecentClosedMarketGroup(group.event),
+  );
 
   return (
     <UserShell>
@@ -346,192 +392,290 @@ export default function PoolOverviewPage() {
         />
         <StatusPill icon={ShieldCheck}>{status}</StatusPill>
         {pool ? (
-          <div className="poolGrid poolGridSingle">
-            <Panel title="Summary">
+          <div className="poolOverviewGrid">
+            <Panel className="poolSummaryPanel" title="Summary">
               <StatGrid
                 items={[
-                  { label: "Role", value: pool.role, icon: ShieldCheck },
-                  { label: "Profile", value: pool.profile, icon: Waves },
                   { label: "Members", value: pool.memberCount, icon: Users },
-                  { label: "Invites", value: pool.inviteCount, icon: KeyRound },
+                  { label: "Role", value: pool.role, icon: ShieldCheck },
                   {
-                    label: "Balance",
-                    value: balance ?? pool.startingBalance,
-                    icon: BadgeDollarSign,
-                  },
-                  {
-                    label: "Predictions",
+                    label: "Prediction status",
                     value: pool.predictionsLocked ? "Locked" : "Open",
                     icon: Lock,
                   },
+                  { label: "Profile", value: pool.profile, icon: Waves },
                 ]}
               />
             </Panel>
-            {canManagePool(pool) ? (
-              <form className="form panel poolSettingsForm" onSubmit={updatePool}>
-                <h2>
-                  <IconLabel icon={Settings}>Settings</IconLabel>
-                </h2>
-                <label>
-                  Pool name
-                  <input
-                    required
-                    type="text"
-                    value={name}
-                    onChange={(event) => setName(event.target.value)}
-                  />
-                </label>
-                <label>
-                  Starting balance
-                  <input
-                    min={1}
-                    required
-                    type="number"
-                    value={startingBalance}
-                    onChange={(event) =>
-                      setStartingBalance(Number(event.target.value))
-                    }
-                  />
-                </label>
-                <label className="checkboxRow poolPredictionLockToggle">
-                  <input
-                    checked={predictionsLocked}
-                    type="checkbox"
-                    onChange={(event) => setPredictionsLocked(event.target.checked)}
-                  />
-                  Lock predictions
-                </label>
-                <button className="button" type="submit">
-                  <IconLabel icon={Save}>Save pool</IconLabel>
-                </button>
-              </form>
-            ) : null}
+            <Panel className="poolLeaderboardPanel" title="Leaderboard">
+              <div className="poolLeaderboardList">
+                {leaderboard.length === 0 ? (
+                  <p className="mutedText">No leaderboard entries yet.</p>
+                ) : (
+                  leaderboard.map((entry, index) => (
+                    <article
+                      className={[
+                        "poolLeaderboardRow",
+                        entry.memberId === pool.memberId ? "active" : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
+                      key={entry.memberId}
+                    >
+                      <span>
+                        <strong>
+                          #{index + 1} {entry.displayName}
+                        </strong>
+                        <small>{entry.role}</small>
+                      </span>
+                      <span>
+                        <strong>{entry.balance}</strong>
+                        <small>Balance</small>
+                      </span>
+                      <span>
+                        <strong>{entry.winRate}%</strong>
+                        <small>Win rate</small>
+                      </span>
+                    </article>
+                  ))
+                )}
+              </div>
+            </Panel>
           </div>
         ) : null}
         {pool && canManagePool(pool) ? (
-          <Panel title="Join requests">
-            {joinRequestStatus ? (
-              <p className="statusText">{joinRequestStatus}</p>
-            ) : null}
-            <div className="buttonRow">
-              <button
-                className="button buttonSecondary compactButton"
-                disabled={isLoadingJoinRequests}
-                type="button"
-                onClick={() => loadJoinRequests(pool.id)}
-              >
-                <IconLabel icon={RefreshCw}>Refresh requests</IconLabel>
-              </button>
-            </div>
-            {joinRequests.length === 0 ? (
-              <p className="mutedText">No join requests yet.</p>
-            ) : (
-              <div className="joinRequestList">
-                {joinRequests.map((request) => (
-                  <article className="joinRequestRow" key={request.id}>
-                    <span>
-                      <strong>{request.displayName}</strong>
-                      <small>{request.email}</small>
-                    </span>
-                    <span>
-                      <strong>{request.status}</strong>
-                      <small>
-                        {new Date(request.requestedAt).toLocaleString()}
-                      </small>
-                    </span>
-                    <span className="joinRequestActions">
-                      <button
-                        className="button buttonSecondary compactButton"
-                        disabled={request.status !== "Pending"}
-                        type="button"
-                        onClick={() => decideJoinRequest(request.id, "deny")}
-                      >
-                        <IconLabel icon={UserX}>Deny</IconLabel>
-                      </button>
-                      <button
-                        className="button compactButton"
-                        disabled={request.status !== "Pending"}
-                        type="button"
-                        onClick={() => decideJoinRequest(request.id, "approve")}
-                      >
-                        <IconLabel icon={UserCheck}>Approve</IconLabel>
-                      </button>
-                    </span>
-                  </article>
-                ))}
+          <section className="poolManagementSection">
+            <button
+              className="closedMarketToggle"
+              type="button"
+              onClick={() => setShowManagementRow((current) => !current)}
+            >
+              <IconLabel icon={showManagementRow ? ChevronDown : ChevronRight}>
+                Owner controls
+              </IconLabel>
+              <span>{joinRequests.length}</span>
+            </button>
+            {showManagementRow ? (
+              <div className="poolManagementGrid">
+                <form
+                  className="form panel poolSettingsForm"
+                  onSubmit={updatePool}
+                >
+                  <h2>
+                    <IconLabel icon={Settings}>Settings</IconLabel>
+                  </h2>
+                  <label>
+                    Pool name
+                    <input
+                      required
+                      type="text"
+                      value={name}
+                      onChange={(event) => setName(event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Starting balance
+                    <input
+                      min={1}
+                      required
+                      type="number"
+                      value={startingBalance}
+                      onChange={(event) =>
+                        setStartingBalance(Number(event.target.value))
+                      }
+                    />
+                  </label>
+                  <label className="checkboxRow poolPredictionLockToggle">
+                    <input
+                      checked={predictionsLocked}
+                      type="checkbox"
+                      onChange={(event) =>
+                        setPredictionsLocked(event.target.checked)
+                      }
+                    />
+                    Lock predictions
+                  </label>
+                  <button className="button compactButton" type="submit">
+                    <IconLabel icon={Save}>Save</IconLabel>
+                  </button>
+                </form>
+                <Panel
+                  className="pendingJoinPanel"
+                  title="Pending join requests"
+                >
+                  {joinRequestStatus ? (
+                    <p className="statusText">{joinRequestStatus}</p>
+                  ) : null}
+                  <div className="buttonRow">
+                    <button
+                      className="button buttonSecondary compactButton"
+                      disabled={isLoadingJoinRequests}
+                      type="button"
+                      onClick={() => loadJoinRequests(pool.id)}
+                    >
+                      <IconLabel icon={RefreshCw}>Refresh</IconLabel>
+                    </button>
+                  </div>
+                  {joinRequests.length === 0 ? (
+                    <p className="mutedText">No pending join requests.</p>
+                  ) : (
+                    <div className="joinRequestList">
+                      {joinRequests.map((request) => (
+                        <article className="joinRequestRow" key={request.id}>
+                          <span>
+                            <strong>{request.displayName}</strong>
+                            <small>{request.email}</small>
+                          </span>
+                          <span>
+                            <small>
+                              {new Date(request.requestedAt).toLocaleString()}
+                            </small>
+                          </span>
+                          <span className="joinRequestActions">
+                            <button
+                              className="button buttonSecondary compactButton"
+                              type="button"
+                              onClick={() =>
+                                decideJoinRequest(request.id, "deny")
+                              }
+                            >
+                              <IconLabel icon={UserX}>Deny</IconLabel>
+                            </button>
+                            <button
+                              className="button compactButton"
+                              type="button"
+                              onClick={() =>
+                                decideJoinRequest(request.id, "approve")
+                              }
+                            >
+                              <IconLabel icon={UserCheck}>Approve</IconLabel>
+                            </button>
+                          </span>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </Panel>
               </div>
-            )}
-          </Panel>
+            ) : null}
+          </section>
         ) : null}
         {pool ? (
           <div className="predictionGrid">
             <Panel title="Markets">
               <div className="marketList">
-                {groupedMarkets.map((group) => (
+                {upcomingMarketGroups.map((group) => (
                   <section className="marketGroup" key={group.event.id}>
                     <div className="marketGroupHeader">
-                      <strong>
-                        {group.event.homeParticipant} vs{" "}
-                        {group.event.awayParticipant}
-                      </strong>
+                      <strong>{formatMatchName(group.event)}</strong>
                       <small>
                         <IconLabel icon={CalendarClock}>
                           {new Date(group.event.startsAt).toLocaleString()}
                         </IconLabel>
                       </small>
                     </div>
-                    {group.eventDisplay.resultText ? (
+                    {getResultText(group.event) ? (
                       <div className="eventResultStrip">
-                        <span><strong>FT</strong>{group.eventDisplay.resultText.fullTime}</span>
-                        <span><strong>HT</strong>{group.eventDisplay.resultText.firstHalf}</span>
+                        <span>
+                          <strong>FT</strong>
+                          {getResultText(group.event)?.fullTime}
+                        </span>
+                        <span>
+                          <strong>HT</strong>
+                          {getResultText(group.event)?.firstHalf}
+                        </span>
                       </div>
                     ) : null}
-                    {group.eventDisplay.isClosed ? (
-                      <div className="eventMarketsClosedNotice">
-                        <strong>Markets closed</strong>
-                        <small>{group.eventDisplay.reason}</small>
-                      </div>
-                    ) : (
-                      <div className="marketButtonGrid">
-                        {group.markets.map((market) => {
-                          const availability = getMarketAvailability(market, group.event, pool.predictionsLocked);
-                          const isPendingHandicapLine = isHandicapLinePending(market);
-                          return (
-                            <button
-                              className={[
-                                "marketButton",
-                                market.id === selectedMarketId ? "active" : "",
-                                availability.isAvailable ? "" : "disabled",
-                                pool.predictionsLocked ? "poolLocked" : "",
-                                isPendingHandicapLine ? "linePending" : "",
-                              ].filter(Boolean).join(" ")}
-                              disabled={!availability.isAvailable}
-                              key={market.id}
-                              type="button"
-                              onClick={() => {
-                                setSelectedMarketId(market.id);
-                                setSelectedOption("");
-                              }}
-                            >
-                              <strong>{market.type}</strong>
-                              <span>{formatMarketCardMeta(market)}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
+                    <MarketGroupButtons
+                      event={group.event}
+                      marketPredictionSummaries={marketPredictionSummaries}
+                      markets={group.markets}
+                      poolPredictionsLocked={pool.predictionsLocked}
+                      selectedMarketId={selectedMarketId}
+                      selectedOption={selectedOption}
+                      setSelectedMarketId={setSelectedMarketId}
+                      setSelectedOption={setSelectedOption}
+                    />
                   </section>
                 ))}
+                {recentClosedMarketGroups.length > 0 ? (
+                  <section className="closedMarketPanel">
+                    <button
+                      className="closedMarketToggle"
+                      type="button"
+                      onClick={() =>
+                        setShowRecentClosedMarkets((current) => !current)
+                      }
+                    >
+                      <IconLabel
+                        icon={
+                          showRecentClosedMarkets ? ChevronDown : ChevronRight
+                        }
+                      >
+                        Recent closed matches
+                      </IconLabel>
+                      <span>{recentClosedMarketGroups.length}</span>
+                    </button>
+                    {showRecentClosedMarkets ? (
+                      <div className="closedMarketList">
+                        {recentClosedMarketGroups.map((group) => (
+                          <section className="marketGroup" key={group.event.id}>
+                            <div className="marketGroupHeader">
+                              <strong>{formatMatchName(group.event)}</strong>
+                              <small>
+                                <IconLabel icon={CalendarClock}>
+                                  {group.event.status} |{" "}
+                                  {new Date(
+                                    group.event.startsAt,
+                                  ).toLocaleString()}
+                                </IconLabel>
+                              </small>
+                            </div>
+                            {getResultText(group.event) ? (
+                              <div className="eventResultStrip">
+                                <span>
+                                  <strong>FT</strong>
+                                  {getResultText(group.event)?.fullTime}
+                                </span>
+                                <span>
+                                  <strong>HT</strong>
+                                  {getResultText(group.event)?.firstHalf}
+                                </span>
+                              </div>
+                            ) : null}
+                            <MarketGroupButtons
+                              event={group.event}
+                              marketPredictionSummaries={
+                                marketPredictionSummaries
+                              }
+                              markets={group.markets}
+                              poolPredictionsLocked={pool.predictionsLocked}
+                              selectedMarketId={selectedMarketId}
+                              selectedOption={selectedOption}
+                              setSelectedMarketId={setSelectedMarketId}
+                              setSelectedOption={setSelectedOption}
+                            />
+                          </section>
+                        ))}
+                      </div>
+                    ) : null}
+                  </section>
+                ) : null}
               </div>
             </Panel>
-            <Panel className={`predictionSubmitPanel ${pool.predictionsLocked ? "predictionSubmitPanelLocked" : ""}`} title="Submit prediction">
+            <Panel
+              className={`predictionSubmitPanel ${pool.predictionsLocked ? "predictionSubmitPanelLocked" : ""}`}
+              title="Chốt kèo đê"
+            >
               <form className="form predictionForm" onSubmit={submitPrediction}>
                 {pool.predictionsLocked ? (
                   <div className="predictionLockedNotice">
                     <Lock aria-hidden="true" size={18} />
                     <span>
                       <strong>Predictions locked</strong>
-                      <small>The pool owner has paused prediction submission.</small>
+                      <small>
+                        The pool owner has paused prediction submission.
+                      </small>
                     </span>
                   </div>
                 ) : null}
@@ -540,13 +684,13 @@ export default function PoolOverviewPage() {
                   <span>
                     <strong>
                       {selectedEvent
-                        ? `${selectedEvent.homeParticipant} vs ${selectedEvent.awayParticipant}`
+                        ? formatMatchName(selectedEvent)
                         : "Select a market"}
                     </strong>
                     <small>
                       {selectedMarket
                         ? selectedMarketAvailability.isAvailable
-                          ? `${selectedMarket.period} ${selectedMarket.type} at ${selectedMarket.payoutMultiplier}x`
+                          ? `${selectedMarket.period} ${formatMarketTypeLabel(selectedMarket.type)} at ${selectedMarket.payoutMultiplier}x`
                           : selectedMarketAvailability.reason
                         : "No market selected"}
                     </small>
@@ -566,20 +710,20 @@ export default function PoolOverviewPage() {
                     </label>
                   ) : (
                     <label>
-                      Pick
+                      Chọn
                       <select
                         value={selectedOption}
                         onChange={(event) =>
                           setSelectedOption(event.target.value)
                         }
                       >
-                        <option value="">Select option</option>
+                        <option value="">---</option>
                         {getMarketOptions(
                           selectedMarket,
                           selectedEvent ?? undefined,
                         ).map((option) => (
                           <option key={option} value={option}>
-                            {option}
+                            {formatMarketOptionDisplay(option, selectedEvent)}
                           </option>
                         ))}
                       </select>
@@ -587,7 +731,7 @@ export default function PoolOverviewPage() {
                   )
                 ) : null}
                 <label>
-                  Stake
+                  Điểm
                   <input
                     min={1}
                     required
@@ -598,25 +742,37 @@ export default function PoolOverviewPage() {
                 </label>
                 <button
                   className="button"
-                  disabled={pool.predictionsLocked || !selectedMarket || !selectedOption || stake <= 0 || !selectedMarketAvailability.isAvailable}
+                  disabled={
+                    pool.predictionsLocked ||
+                    !selectedMarket ||
+                    !selectedOption ||
+                    stake <= 0 ||
+                    !selectedMarketAvailability.isAvailable
+                  }
                   type="submit"
                 >
-                  <IconLabel icon={Send}>Submit prediction</IconLabel>
+                  <IconLabel icon={Send}>Dứt</IconLabel>
                 </button>
                 <Link
                   className="button buttonSecondary"
                   href={`/pools/${pool.id}/predictions`}
                 >
-                  <IconLabel icon={History}>View prediction history</IconLabel>
+                  <IconLabel icon={History}>Xem lịch sử dự đoán</IconLabel>
                 </Link>
                 {recentPrediction ? (
                   <div className="recentPredictionCard">
                     <strong>Prediction submitted</strong>
                     <span>{recentPrediction.eventName}</span>
                     <small>
-                      {recentPrediction.marketPeriod} {recentPrediction.marketType} | {recentPrediction.selectedOption} | {recentPrediction.stake} points | {recentPrediction.payoutMultiplier}x
+                      {recentPrediction.marketPeriod}{" "}
+                      {formatMarketTypeLabel(recentPrediction.marketType)} |{" "}
+                      {formatMarketOptionLabel(recentPrediction.selectedOption)}{" "}
+                      | {recentPrediction.stake} Điểm |{" "}
+                      {recentPrediction.payoutMultiplier}x
                     </small>
-                    <small>{new Date(recentPrediction.submittedAt).toLocaleString()}</small>
+                    <small>
+                      {new Date(recentPrediction.submittedAt).toLocaleString()}
+                    </small>
                   </div>
                 ) : null}
               </form>
@@ -628,6 +784,118 @@ export default function PoolOverviewPage() {
   );
 }
 
+type MarketGroupButtonsProps = {
+  event: TournamentEvent;
+  marketPredictionSummaries: MarketPredictionSummary[];
+  markets: Market[];
+  poolPredictionsLocked: boolean;
+  selectedMarketId: string;
+  selectedOption: string;
+  setSelectedMarketId: Dispatch<SetStateAction<string>>;
+  setSelectedOption: Dispatch<SetStateAction<string>>;
+};
+
+function MarketGroupButtons({
+  event,
+  marketPredictionSummaries,
+  markets,
+  poolPredictionsLocked,
+  selectedMarketId,
+  selectedOption,
+  setSelectedMarketId,
+  setSelectedOption,
+}: MarketGroupButtonsProps) {
+  return (
+    <>
+      {markets
+        .filter((market) => market.type === "OneXTwo")
+        .map((market) => {
+          const availability = getMarketAvailability(
+            market,
+            event,
+            poolPredictionsLocked,
+          );
+          return (
+            <div className="oneXTwoMarketRow" key={market.id}>
+              {getMarketOptions(market, event).map((option) => (
+                <button
+                  className={[
+                    "oneXTwoOption",
+                    market.id === selectedMarketId && selectedOption === option
+                      ? "active"
+                      : "",
+                    availability.isAvailable ? "" : "disabled",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  disabled={!availability.isAvailable}
+                  key={`${market.id}-${option}`}
+                  type="button"
+                  onClick={() => {
+                    setSelectedMarketId(market.id);
+                    setSelectedOption(option);
+                  }}
+                >
+                  <strong>{formatOneXTwoOptionLabel(option, event)}</strong>
+                  <span>{formatOneXTwoOptionScore(option, event)}</span>
+                  <small>
+                    {formatPredictionUsers(
+                      getPredictionUsers(
+                        marketPredictionSummaries,
+                        market.id,
+                        option,
+                      ),
+                    )}
+                  </small>
+                </button>
+              ))}
+            </div>
+          );
+        })}
+      <div className="marketButtonGrid">
+        {markets
+          .filter((market) => market.type !== "OneXTwo")
+          .map((market) => {
+            const availability = getMarketAvailability(
+              market,
+              event,
+              poolPredictionsLocked,
+            );
+            const isPendingHandicapLine = isHandicapLinePending(market);
+            return (
+              <button
+                className={[
+                  "marketButton",
+                  market.id === selectedMarketId ? "active" : "",
+                  availability.isAvailable ? "" : "disabled",
+                  poolPredictionsLocked ? "poolLocked" : "",
+                  isPendingHandicapLine ? "linePending" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                disabled={!availability.isAvailable}
+                key={market.id}
+                type="button"
+                onClick={() => {
+                  setSelectedMarketId(market.id);
+                  setSelectedOption("");
+                }}
+              >
+                <strong>{formatMarketCardTitle(market)}</strong>
+                <span>
+                  {formatMarketPredictionUsers(
+                    marketPredictionSummaries,
+                    market,
+                  )}
+                </span>
+              </button>
+            );
+          })}
+      </div>
+    </>
+  );
+}
+
 function canManagePool(pool: PoolSummary) {
   return pool.role === "Owner" || pool.role === "Admin";
 }
@@ -636,48 +904,59 @@ function canManageInvites(pool: PoolSummary) {
   return pool.role === "Owner";
 }
 
-function getEventDisplayState(matchEvent: TournamentEvent) {
-  const now = Date.now();
-  const startsAt = new Date(matchEvent.startsAt).getTime();
-  const hasTemporaryClosedDisplay = matchEvent.status === "Settled" || matchEvent.status === "Cancelled";
-  const resultRecordedAt = matchEvent.resultRecordedAt
-    ? new Date(matchEvent.resultRecordedAt).getTime()
-    : null;
-  const temporaryClosedDisplayStartedAt = resultRecordedAt ?? startsAt;
-  const temporaryClosedDisplayExpired = hasTemporaryClosedDisplay
-    && now > temporaryClosedDisplayStartedAt + 24 * 60 * 60 * 1000;
-
-  if (temporaryClosedDisplayExpired) {
-    return {
-      isClosed: true,
-      isHidden: true,
-      reason: "Closed event display window has ended.",
-      resultText: null,
-    };
-  }
-
-  const statusClosed = matchEvent.status !== "Scheduled";
-  const kickoffClosed = startsAt <= now;
-  const isClosed = statusClosed || kickoffClosed;
-  const reason = statusClosed
-    ? `Event status is ${matchEvent.status}.`
-    : "Kickoff time has passed.";
-  const resultText = matchEvent.status === "Finished" || matchEvent.status === "Settled"
-    ? {
-      fullTime: formatScore(matchEvent.fullTimeHomeScore, matchEvent.fullTimeAwayScore),
-      firstHalf: formatScore(matchEvent.firstHalfHomeScore, matchEvent.firstHalfAwayScore),
-    }
-    : null;
-
-  return {
-    isClosed,
-    isHidden: false,
-    reason: isClosed ? reason : "",
-    resultText,
-  };
+function formatMatchName(matchEvent: TournamentEvent) {
+  return `${formatParticipantName(matchEvent.homeParticipant, matchEvent.homeParticipantCode)} -vs- ${formatParticipantName(matchEvent.awayParticipant, matchEvent.awayParticipantCode)}`;
 }
 
-function getMarketAvailability(market: Market, matchEvent: TournamentEvent | undefined, predictionsLocked = false) {
+const scheduledMarketWindowMs = 48 * 60 * 60 * 1000;
+const recentClosedMarketWindowMs = 24 * 60 * 60 * 1000;
+
+function shouldShowUpcomingMarketGroup(matchEvent: TournamentEvent) {
+  const now = Date.now();
+  const startsAt = new Date(matchEvent.startsAt).getTime();
+  return (
+    matchEvent.status === "Scheduled" &&
+    startsAt > now &&
+    startsAt <= now + scheduledMarketWindowMs
+  );
+}
+
+function shouldShowRecentClosedMarketGroup(matchEvent: TournamentEvent) {
+  const recentClosedStatuses = new Set([
+    "Finished",
+    "Settled",
+    "Cancelled",
+    "Postponed",
+  ]);
+  if (!recentClosedStatuses.has(matchEvent.status)) {
+    return false;
+  }
+
+  const now = Date.now();
+  const startsAt = new Date(matchEvent.startsAt).getTime();
+  return Math.abs(startsAt - now) <= recentClosedMarketWindowMs;
+}
+
+function getResultText(matchEvent: TournamentEvent) {
+  return matchEvent.status === "Finished" || matchEvent.status === "Settled"
+    ? {
+        fullTime: formatScore(
+          matchEvent.fullTimeHomeScore,
+          matchEvent.fullTimeAwayScore,
+        ),
+        firstHalf: formatScore(
+          matchEvent.firstHalfHomeScore,
+          matchEvent.firstHalfAwayScore,
+        ),
+      }
+    : null;
+}
+
+function getMarketAvailability(
+  market: Market,
+  matchEvent: TournamentEvent | undefined,
+  predictionsLocked = false,
+) {
   if (predictionsLocked) {
     return { isAvailable: false, reason: "Pool locked" };
   }
@@ -694,7 +973,10 @@ function getMarketAvailability(market: Market, matchEvent: TournamentEvent | und
   }
 
   if (matchEvent.status !== "Scheduled") {
-    return { isAvailable: false, reason: `Event status is ${matchEvent.status}` };
+    return {
+      isAvailable: false,
+      reason: `Event status is ${matchEvent.status}`,
+    };
   }
 
   const startsAt = new Date(matchEvent.startsAt).getTime();
@@ -718,15 +1000,21 @@ function getMarketAvailability(market: Market, matchEvent: TournamentEvent | und
 }
 
 function formatScore(homeScore: number | null, awayScore: number | null) {
-  return homeScore === null || awayScore === null ? "-" : `${homeScore}-${awayScore}`;
+  return homeScore === null || awayScore === null
+    ? "-"
+    : `${homeScore}-${awayScore}`;
 }
 
 function isHandicapLinePending(market: Market) {
-  return market.type === "Handicap" && (market.status === "LinePending" || market.lineValue === null);
+  return (
+    market.type === "Handicap" &&
+    (market.status === "LinePending" || market.lineValue === null)
+  );
 }
 
 function compareMarketsForDisplay(first: Market, second: Market) {
-  const periodDifference = getMarketPeriodOrder(first.period) - getMarketPeriodOrder(second.period);
+  const periodDifference =
+    getMarketPeriodOrder(first.period) - getMarketPeriodOrder(second.period);
   if (periodDifference !== 0) {
     return periodDifference;
   }
@@ -740,18 +1028,14 @@ function getMarketPeriodOrder(period: string) {
 
 function getMarketTypeOrder(type: string) {
   const order: Record<string, number> = {
-    Handicap: 0,
-    OverUnder: 1,
-    OddEven: 2,
-    CorrectScore: 3,
+    OneXTwo: 0,
+    Handicap: 1,
+    OverUnder: 2,
+    OddEven: 3,
+    CorrectScore: 4,
   };
 
   return order[type] ?? 99;
-}
-
-function formatMarketCardMeta(market: Market) {
-  const lineValue = market.lineValue === null ? "" : market.lineValue;
-  return `${formatMarketPeriodLabel(market.period)} ${lineValue}@${market.payoutMultiplier}X`;
 }
 
 function formatMarketPeriodLabel(period: string) {
@@ -766,6 +1050,8 @@ function getMarketOptions(
   const away = matchEvent?.awayParticipant ?? "Away";
 
   switch (market.type) {
+    case "OneXTwo":
+      return [home, "Draw", away];
     case "Handicap":
       return [
         `${home} ${formatLine(market.lineValue)}`,
@@ -781,6 +1067,156 @@ function getMarketOptions(
     default:
       return [];
   }
+}
+
+function formatMarketTypeLabel(type: string) {
+  const labels: Record<string, string> = {
+    OneXTwo: "1X2",
+    OverUnder: "Tài/Xỉu",
+    OddEven: "Chẵn/Lẻ",
+    CorrectScore: "Tỷ số",
+  };
+
+  return labels[type] ?? type;
+}
+
+function formatMarketCardTitle(market: Market) {
+  const payoutRate = formatPayoutRate(market.payoutMultiplier);
+  if (market.type === "OverUnder") {
+    return `${formatMarketTypeLabel(market.type)} (${market.lineValue ?? "-"} @${payoutRate})`;
+  }
+
+  if (market.type === "OddEven" || market.type === "CorrectScore") {
+    return `${formatMarketTypeLabel(market.type)} (${payoutRate})`;
+  }
+
+  return `${formatMarketTypeLabel(market.type)} (${formatMarketPeriodLabel(market.period)} @${payoutRate})`;
+}
+
+function formatPayoutRate(payoutMultiplier: number) {
+  const profit = Math.max(0, payoutMultiplier - 1);
+  return `1:${formatCompactNumber(profit)}`;
+}
+
+function formatCompactNumber(value: number) {
+  return Number.isInteger(value)
+    ? `${value}`
+    : value.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+}
+
+function formatOneXTwoOptionScore(option: string, matchEvent: TournamentEvent) {
+  if (option === "Draw") {
+    return "-";
+  }
+
+  if (option === matchEvent.homeParticipant) {
+    return `${matchEvent.fullTimeHomeScore ?? 0}`;
+  }
+
+  if (option === matchEvent.awayParticipant) {
+    return `${matchEvent.fullTimeAwayScore ?? 0}`;
+  }
+
+  return "0";
+}
+
+function formatOneXTwoOptionLabel(option: string, matchEvent: TournamentEvent) {
+  if (option === matchEvent.homeParticipant) {
+    return formatParticipantName(option, matchEvent.homeParticipantCode);
+  }
+
+  if (option === matchEvent.awayParticipant) {
+    return formatParticipantName(option, matchEvent.awayParticipantCode);
+  }
+
+  return formatMarketOptionLabel(option);
+}
+
+function formatMarketOptionDisplay(
+  option: string,
+  matchEvent?: TournamentEvent | null,
+) {
+  if (!matchEvent) {
+    return formatMarketOptionLabel(option);
+  }
+
+  if (option.startsWith(`${matchEvent.homeParticipant} `)) {
+    return option.replace(
+      matchEvent.homeParticipant,
+      formatParticipantName(
+        matchEvent.homeParticipant,
+        matchEvent.homeParticipantCode,
+      ),
+    );
+  }
+
+  if (option.startsWith(`${matchEvent.awayParticipant} `)) {
+    return option.replace(
+      matchEvent.awayParticipant,
+      formatParticipantName(
+        matchEvent.awayParticipant,
+        matchEvent.awayParticipantCode,
+      ),
+    );
+  }
+
+  return formatOneXTwoOptionLabel(option, matchEvent);
+}
+
+function getPredictionUsers(
+  summaries: MarketPredictionSummary[],
+  marketId: string,
+  selectedOption?: string,
+) {
+  return summaries
+    .filter(
+      (summary) =>
+        summary.marketId === marketId &&
+        (selectedOption === undefined ||
+          summary.selectedOption === selectedOption),
+    )
+    .flatMap((summary) => summary.users);
+}
+
+function formatPredictionUsers(users: string[]) {
+  return users.length === 0 ? "" : users.join(", ");
+}
+
+function formatMarketPredictionUsers(
+  summaries: MarketPredictionSummary[],
+  market: Market,
+) {
+  const marketSummaries = summaries.filter(
+    (summary) => summary.marketId === market.id,
+  );
+  if (marketSummaries.length === 0) {
+    return "";
+  }
+
+  return marketSummaries
+    .map(
+      (summary) =>
+        `${formatMarketOptionLabel(summary.selectedOption)}: ${summary.users.join(", ")}`,
+    )
+    .join(" | ");
+}
+
+function formatMarketOptionLabel(option: string) {
+  if (option.startsWith("Over ")) {
+    return option.replace("Over ", "Tài ");
+  }
+
+  if (option.startsWith("Under ")) {
+    return option.replace("Under ", "Xỉu ");
+  }
+
+  const labels: Record<string, string> = {
+    Odd: "Lẻ",
+    Even: "Chẵn",
+    Draw: "Hòa",
+  };
+
+  return labels[option] ?? option;
 }
 
 function formatLine(value: number | null) {

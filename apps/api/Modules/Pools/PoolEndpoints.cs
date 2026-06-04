@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using PoolPredict.Api.Domain.Common;
+using PoolPredict.Api.Domain.Pools;
 using PoolPredict.Api.Infrastructure.Persistence;
+using PoolPredict.Api.Modules.Predictions;
 using PoolPredict.Api.Modules.Tournaments;
 using System.Security.Claims;
 
@@ -120,7 +122,7 @@ public static class PoolEndpoints
                 false)));
         });
 
-        group.MapPost("/", (ClaimsPrincipal principal, CreatePoolRequest request, PoolStore pools, TournamentCatalog catalog) =>
+        group.MapPost("/", (ClaimsPrincipal principal, CreatePoolRequest request, PoolStore pools, TournamentCatalog catalog, PredictionStore predictions) =>
         {
             if (!TryGetUserId(principal, out var userId))
             {
@@ -129,7 +131,17 @@ public static class PoolEndpoints
 
             try
             {
+                if (request.Profile == MarketProfile.Expert && !principal.IsInRole("PlatformAdmin"))
+                {
+                    return Results.Forbid();
+                }
+
                 var pool = pools.CreatePool(userId, request, catalog);
+                var owner = pools.GetMember(pool.Id, userId);
+                if (owner is not null)
+                {
+                    predictions.InitializeMemberBalance(pool.Id, owner.Id, pool.StartingBalance);
+                }
                 return Results.Created($"/api/pools/{pool.Id}", pool);
             }
             catch (ArgumentException ex)
@@ -149,7 +161,7 @@ public static class PoolEndpoints
             return pool is null ? Results.NotFound() : Results.Ok(pool);
         }).RequireAuthorization();
 
-        group.MapPut("/{poolId:guid}", (Guid poolId, ClaimsPrincipal principal, UpdatePoolRequest request, PoolStore pools) =>
+        group.MapPut("/{poolId:guid}", (Guid poolId, ClaimsPrincipal principal, UpdatePoolRequest request, PoolStore pools, PredictionStore predictions) =>
         {
             if (!TryGetUserId(principal, out var userId))
             {
@@ -158,7 +170,16 @@ public static class PoolEndpoints
 
             try
             {
-                return Results.Ok(pools.UpdatePool(poolId, userId, request));
+                var existing = pools.GetPool(poolId);
+                if (existing is null)
+                {
+                    return Results.NotFound();
+                }
+
+                var previousStartingBalance = existing.StartingBalance;
+                var updated = pools.UpdatePool(poolId, userId, request);
+                predictions.ApplyStartingBalanceAdjustment(updated.Id, pools.GetMembers(updated.Id), previousStartingBalance, updated.StartingBalance);
+                return Results.Ok(updated);
             }
             catch (KeyNotFoundException)
             {
@@ -311,7 +332,7 @@ public static class PoolEndpoints
             }
         }).RequireAuthorization();
 
-        group.MapPost("/{poolId:guid}/join-requests/{requestId:guid}/approve", (Guid poolId, Guid requestId, ClaimsPrincipal principal, PoolStore pools) =>
+        group.MapPost("/{poolId:guid}/join-requests/{requestId:guid}/approve", (Guid poolId, Guid requestId, ClaimsPrincipal principal, PoolStore pools, PredictionStore predictions) =>
         {
             if (!TryGetUserId(principal, out var userId))
             {
@@ -320,7 +341,14 @@ public static class PoolEndpoints
 
             try
             {
-                return Results.Ok(pools.ApproveJoinRequest(poolId, requestId, userId));
+                var decision = pools.ApproveJoinRequest(poolId, requestId, userId);
+                var pool = pools.GetPool(poolId);
+                if (pool is not null && decision.MemberId is Guid memberId)
+                {
+                    predictions.InitializeMemberBalance(poolId, memberId, pool.StartingBalance);
+                }
+
+                return Results.Ok(decision);
             }
             catch (KeyNotFoundException)
             {
@@ -359,7 +387,7 @@ public static class PoolEndpoints
             return invite is null ? Results.NotFound() : Results.Ok(invite);
         });
 
-        group.MapPost("/join", (ClaimsPrincipal principal, JoinPoolRequest request, PoolStore pools) =>
+        group.MapPost("/join", (ClaimsPrincipal principal, JoinPoolRequest request, PoolStore pools, PredictionStore predictions) =>
         {
             if (!TryGetUserId(principal, out var userId))
             {
@@ -368,7 +396,9 @@ public static class PoolEndpoints
 
             try
             {
-                return Results.Ok(pools.JoinPool(userId, request));
+                var pool = pools.JoinPool(userId, request);
+                predictions.InitializeMemberBalance(pool.Id, pool.MemberId, pool.StartingBalance);
+                return Results.Ok(pool);
             }
             catch (KeyNotFoundException ex)
             {

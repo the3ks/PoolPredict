@@ -64,6 +64,8 @@ export type TournamentEvent = {
   tournamentId: string;
   homeParticipant: string;
   awayParticipant: string;
+  homeParticipantCode?: string | null;
+  awayParticipantCode?: string | null;
   startsAt: string;
   status: string;
   managementMode: string;
@@ -97,6 +99,7 @@ export type Prediction = {
   stake: number;
   marketType: string;
   marketPeriod: string;
+  eventName?: string | null;
   lineValueSnapshot: number | null;
   payoutMultiplierSnapshot: number;
   payoutConfigurationVersionSnapshot: number;

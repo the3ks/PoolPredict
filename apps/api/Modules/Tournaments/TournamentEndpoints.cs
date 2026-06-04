@@ -25,7 +25,13 @@ public static class TournamentEndpoints
                 return Results.NotFound();
             }
 
-            var events = await db.Events
+            var participantCodes = await db.Participants
+                .AsNoTracking()
+                .Where(participant => participant.TournamentId == tournamentId)
+                .Select(participant => new { participant.Id, participant.Code })
+                .ToDictionaryAsync(participant => participant.Id, participant => participant.Code, cancellationToken);
+
+            var eventRows = await db.Events
                 .AsNoTracking()
                 .Where(matchEvent => matchEvent.TournamentId == tournamentId)
                 .GroupJoin(
@@ -34,6 +40,9 @@ public static class TournamentEndpoints
                     result => result.EventId,
                     (matchEvent, results) => new { MatchEvent = matchEvent, Result = results.FirstOrDefault() })
                 .OrderBy(item => item.MatchEvent.StartsAt)
+                .ToArrayAsync(cancellationToken);
+
+            var events = eventRows
                 .Select(item => new EventResponse(
                     item.MatchEvent.Id,
                     item.MatchEvent.TournamentId,
@@ -41,6 +50,8 @@ public static class TournamentEndpoints
                     item.MatchEvent.AwayParticipantId,
                     item.MatchEvent.HomeParticipant,
                     item.MatchEvent.AwayParticipant,
+                    participantCodes.GetValueOrDefault(item.MatchEvent.HomeParticipantId),
+                    participantCodes.GetValueOrDefault(item.MatchEvent.AwayParticipantId),
                     item.MatchEvent.StartsAt,
                     item.MatchEvent.Status,
                     item.MatchEvent.Provider,
@@ -51,7 +62,7 @@ public static class TournamentEndpoints
                     item.Result == null ? null : item.Result.FullTimeHomeScore,
                     item.Result == null ? null : item.Result.FullTimeAwayScore,
                     item.Result == null ? null : item.Result.RecordedAt))
-                .ToArrayAsync(cancellationToken);
+                .ToArray();
 
             return Results.Ok(events);
         });

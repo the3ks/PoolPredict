@@ -6,7 +6,7 @@ import { Plus, Waves } from "lucide-react";
 import { UserShell } from "../../components/user-shell";
 import { IconLabel, PageHeader } from "../../components/ui";
 import { apiUrl, readApiError } from "../../lib/api";
-import { getStoredToken } from "../../lib/auth";
+import { getStoredToken, UserProfile } from "../../lib/auth";
 import { MarketProfile, Tournament } from "../../lib/types";
 
 export default function NewPoolPage() {
@@ -15,6 +15,7 @@ export default function NewPoolPage() {
   const [selectedTournamentId, setSelectedTournamentId] = useState("");
   const [name, setName] = useState("");
   const [profile, setProfile] = useState<MarketProfile>("Standard");
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [startingBalance, setStartingBalance] = useState(1000);
   const [status, setStatus] = useState("Create a pool.");
 
@@ -31,7 +32,24 @@ export default function NewPoolPage() {
         );
       })
       .catch((error) => setStatus(error instanceof Error ? error.message : "Could not load tournaments."));
+
+    const token = getStoredToken();
+    if (!token) {
+      return;
+    }
+
+    fetch(apiUrl("/api/auth/me"), {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(async (response) => {
+        if (response.ok) {
+          setUserProfile((await response.json()) as UserProfile);
+        }
+      })
+      .catch(() => setUserProfile(null));
   }, []);
+
+  const canUseExpertProfile = userProfile?.role === "PlatformAdmin";
 
   async function createPool(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -82,7 +100,7 @@ export default function NewPoolPage() {
           <select value={profile} onChange={(event) => setProfile(event.target.value as MarketProfile)}>
             <option value="Casual">Casual</option>
             <option value="Standard">Standard</option>
-            <option value="Expert">Expert</option>
+            {canUseExpertProfile ? <option value="Expert">Expert</option> : null}
           </select>
         </label>
         <label>

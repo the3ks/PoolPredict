@@ -91,6 +91,8 @@ public sealed class TournamentCatalog
                 .Select(matchEvent =>
                 {
                     var source = _eventSources.GetValueOrDefault(matchEvent.Id, UnknownSource);
+                    var homeParticipant = _participants.FirstOrDefault(participant => participant.Id == matchEvent.HomeParticipantId);
+                    var awayParticipant = _participants.FirstOrDefault(participant => participant.Id == matchEvent.AwayParticipantId);
                     return new EventResponse(
                         matchEvent.Id,
                         matchEvent.TournamentId,
@@ -98,6 +100,8 @@ public sealed class TournamentCatalog
                         matchEvent.AwayParticipantId,
                         matchEvent.HomeParticipant,
                         matchEvent.AwayParticipant,
+                        homeParticipant?.Code,
+                        awayParticipant?.Code,
                         matchEvent.StartsAt,
                         matchEvent.Status,
                         source.Provider,
