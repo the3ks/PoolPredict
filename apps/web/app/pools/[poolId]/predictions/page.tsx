@@ -83,35 +83,6 @@ export default function PoolPredictionsPage() {
         />
         <StatusPill icon={History}>{status}</StatusPill>
 
-        <Panel title="Leaderboard">
-          {leaderboard.length > 0 ? (
-            <div className="leaderboardList">
-              {leaderboard.map((entry, index) => (
-                <article className={entry.memberId === pool?.memberId ? "leaderboardRow active" : "leaderboardRow"} key={entry.memberId}>
-                  <span>
-                    <strong>#{index + 1} {entry.displayName}</strong>
-                    <small>{entry.role}</small>
-                  </span>
-                  <span>
-                    <strong>{entry.balance}</strong>
-                    <small>Balance</small>
-                  </span>
-                  <span>
-                    <strong>{entry.winRate}%</strong>
-                    <small>{entry.winCount}/{entry.settledPredictionCount} wins</small>
-                  </span>
-                  <span>
-                    <strong>{entry.roi}%</strong>
-                    <small>{entry.predictionCount} picks</small>
-                  </span>
-                </article>
-              ))}
-            </div>
-          ) : (
-            <p className="mutedText">No leaderboard rows yet.</p>
-          )}
-        </Panel>
-
         <Panel title="My predictions">
           {predictions.length === 0 ? (
             <p className="mutedText">No predictions submitted yet.</p>
@@ -138,6 +109,35 @@ export default function PoolPredictionsPage() {
                 </article>
               ))}
             </div>
+          )}
+        </Panel>
+
+        <Panel title="Leaderboard">
+          {leaderboard.length > 0 ? (
+            <div className="leaderboardList">
+              {leaderboard.map((entry, index) => (
+                <article className={entry.memberId === pool?.memberId ? "leaderboardRow active" : "leaderboardRow"} key={entry.memberId}>
+                  <span>
+                    <strong>#{index + 1} {entry.displayName}</strong>
+                    <small>{entry.role}</small>
+                  </span>
+                  <span>
+                    <strong>{entry.balance}</strong>
+                    <small>Balance</small>
+                  </span>
+                  <span>
+                    <strong>{entry.winRate}%</strong>
+                    <small>{entry.winCount}/{entry.settledPredictionCount} wins</small>
+                  </span>
+                  <span>
+                    <strong>{entry.roi}%</strong>
+                    <small>{entry.predictionCount} picks</small>
+                  </span>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="mutedText">No leaderboard rows yet.</p>
           )}
         </Panel>
       </section>

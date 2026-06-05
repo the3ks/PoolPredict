@@ -37,7 +37,10 @@ import {
 } from "../../components/ui";
 import { apiUrl, readApiError } from "../../lib/api";
 import { getStoredToken } from "../../lib/auth";
-import { formatParticipantName } from "../../lib/participant-flags";
+import {
+  ParticipantName,
+  formatParticipantName,
+} from "../../lib/participant-flags";
 import {
   LeaderboardEntry,
   Market,
@@ -84,6 +87,7 @@ export default function PoolOverviewPage() {
   const [isLoadingJoinRequests, setIsLoadingJoinRequests] = useState(false);
   const [showManagementRow, setShowManagementRow] = useState(false);
   const [showRecentClosedMarkets, setShowRecentClosedMarkets] = useState(true);
+  const [isPredictionSlipExpanded, setIsPredictionSlipExpanded] = useState(false);
   const [recentPrediction, setRecentPrediction] =
     useState<RecentPrediction | null>(null);
 
@@ -590,7 +594,9 @@ export default function PoolOverviewPage() {
                       event={group.event}
                       marketPredictionSummaries={marketPredictionSummaries}
                       markets={group.markets}
+                      onMarketPick={() => setIsPredictionSlipExpanded(true)}
                       poolPredictionsLocked={pool.predictionsLocked}
+                      poolProfile={pool.profile}
                       selectedMarketId={selectedMarketId}
                       selectedOption={selectedOption}
                       setSelectedMarketId={setSelectedMarketId}
@@ -649,7 +655,11 @@ export default function PoolOverviewPage() {
                                 marketPredictionSummaries
                               }
                               markets={group.markets}
+                              onMarketPick={() =>
+                                setIsPredictionSlipExpanded(true)
+                              }
                               poolPredictionsLocked={pool.predictionsLocked}
+                              poolProfile={pool.profile}
                               selectedMarketId={selectedMarketId}
                               selectedOption={selectedOption}
                               setSelectedMarketId={setSelectedMarketId}
@@ -664,9 +674,36 @@ export default function PoolOverviewPage() {
               </div>
             </Panel>
             <Panel
-              className={`predictionSubmitPanel ${pool.predictionsLocked ? "predictionSubmitPanelLocked" : ""}`}
-              title="Chốt kèo đê"
+              className={[
+                "predictionSubmitPanel",
+                pool.predictionsLocked ? "predictionSubmitPanelLocked" : "",
+                isPredictionSlipExpanded ? "predictionSubmitPanelExpanded" : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
             >
+              <button
+                className="mobilePredictionSlipToggle"
+                type="button"
+                onClick={() =>
+                  setIsPredictionSlipExpanded((current) => !current)
+                }
+              >
+                <span>
+                  <strong>Chốt kèo đê</strong>
+                  <small>
+                    {selectedMarket
+                      ? selectedOption || formatMarketTypeLabel(selectedMarket.type)
+                      : "Chọn kèo"}
+                  </small>
+                </span>
+                {isPredictionSlipExpanded ? (
+                  <ChevronDown aria-hidden="true" size={18} />
+                ) : (
+                  <ChevronRight aria-hidden="true" size={18} />
+                )}
+              </button>
+              <h2 className="predictionPanelTitle">Chốt kèo đê</h2>
               <form className="form predictionForm" onSubmit={submitPrediction}>
                 {pool.predictionsLocked ? (
                   <div className="predictionLockedNotice">
@@ -723,7 +760,7 @@ export default function PoolOverviewPage() {
                           selectedEvent ?? undefined,
                         ).map((option) => (
                           <option key={option} value={option}>
-                            {formatMarketOptionDisplay(option, selectedEvent)}
+                            {formatMarketOptionText(option, selectedEvent)}
                           </option>
                         ))}
                       </select>
@@ -788,7 +825,9 @@ type MarketGroupButtonsProps = {
   event: TournamentEvent;
   marketPredictionSummaries: MarketPredictionSummary[];
   markets: Market[];
+  onMarketPick: () => void;
   poolPredictionsLocked: boolean;
+  poolProfile: string;
   selectedMarketId: string;
   selectedOption: string;
   setSelectedMarketId: Dispatch<SetStateAction<string>>;
@@ -799,12 +838,15 @@ function MarketGroupButtons({
   event,
   marketPredictionSummaries,
   markets,
+  onMarketPick,
   poolPredictionsLocked,
+  poolProfile,
   selectedMarketId,
   selectedOption,
   setSelectedMarketId,
   setSelectedOption,
 }: MarketGroupButtonsProps) {
+  const shouldShowPeriodLabel = poolProfile === "Standard";
   return (
     <>
       {markets
@@ -834,6 +876,7 @@ function MarketGroupButtons({
                   onClick={() => {
                     setSelectedMarketId(market.id);
                     setSelectedOption(option);
+                    onMarketPick();
                   }}
                 >
                   <strong>{formatOneXTwoOptionLabel(option, event)}</strong>
@@ -852,9 +895,70 @@ function MarketGroupButtons({
             </div>
           );
         })}
+      {markets
+        .filter((market) => market.type === "Handicap")
+        .map((market) => {
+          const availability = getMarketAvailability(
+            market,
+            event,
+            poolPredictionsLocked,
+          );
+          const isPendingHandicapLine = isHandicapLinePending(market);
+          return (
+            <div
+              className={[
+                "handicapMarketRow",
+                isPendingHandicapLine ? "linePending" : "",
+                poolPredictionsLocked ? "poolLocked" : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              key={market.id}
+            >
+              {shouldShowPeriodLabel ? (
+                <strong className="handicapMarketPeriod">
+                  {formatMarketPeriodLongLabel(market.period)}
+                </strong>
+              ) : null}
+              {getMarketOptions(market, event).map((option) => (
+                <button
+                  className={[
+                    "handicapOption",
+                    market.id === selectedMarketId && selectedOption === option
+                      ? "active"
+                      : "",
+                    availability.isAvailable ? "" : "disabled",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  disabled={!availability.isAvailable}
+                  key={`${market.id}-${option}`}
+                  type="button"
+                  onClick={() => {
+                    setSelectedMarketId(market.id);
+                    setSelectedOption(option);
+                    onMarketPick();
+                  }}
+                >
+                  <strong>{formatHandicapOptionLabel(option, event)}</strong>
+                  <span>{formatHandicapOptionLine(option, event)}</span>
+                  <small>
+                    {formatPredictionUsers(
+                      getPredictionUsers(
+                        marketPredictionSummaries,
+                        market.id,
+                        option,
+                      ),
+                    )}
+                  </small>
+                </button>
+              ))}
+            </div>
+          );
+        })}
       <div className="marketButtonGrid">
         {markets
-          .filter((market) => market.type !== "OneXTwo")
+          .filter((market) => market.type !== "OneXTwo" && market.type !== "Handicap")
           .map((market) => {
             const availability = getMarketAvailability(
               market,
@@ -879,9 +983,12 @@ function MarketGroupButtons({
                 onClick={() => {
                   setSelectedMarketId(market.id);
                   setSelectedOption("");
+                  onMarketPick();
                 }}
               >
-                <strong>{formatMarketCardTitle(market)}</strong>
+                <strong>
+                  {formatMarketCardTitle(market, shouldShowPeriodLabel)}
+                </strong>
                 <span>
                   {formatMarketPredictionUsers(
                     marketPredictionSummaries,
@@ -1042,6 +1149,14 @@ function formatMarketPeriodLabel(period: string) {
   return period === "FullTime" ? "FT" : period === "FirstHalf" ? "HT" : period;
 }
 
+function formatMarketPeriodLongLabel(period: string) {
+  return period === "FullTime"
+    ? "Full-Time"
+    : period === "FirstHalf"
+      ? "Half-Time"
+      : period;
+}
+
 function getMarketOptions(
   market: Market,
   matchEvent: TournamentEvent | undefined,
@@ -1080,17 +1195,20 @@ function formatMarketTypeLabel(type: string) {
   return labels[type] ?? type;
 }
 
-function formatMarketCardTitle(market: Market) {
+function formatMarketCardTitle(market: Market, includePeriodLabel = false) {
   const payoutRate = formatPayoutRate(market.payoutMultiplier);
+  const marketName = includePeriodLabel
+    ? `${formatMarketTypeLabel(market.type)} ${formatMarketPeriodLabel(market.period)}`
+    : formatMarketTypeLabel(market.type);
   if (market.type === "OverUnder") {
-    return `${formatMarketTypeLabel(market.type)} (${market.lineValue ?? "-"} @${payoutRate})`;
+    return `${marketName} (${market.lineValue ?? "-"} @${payoutRate})`;
   }
 
   if (market.type === "OddEven" || market.type === "CorrectScore") {
-    return `${formatMarketTypeLabel(market.type)} (${payoutRate})`;
+    return `${marketName} (${payoutRate})`;
   }
 
-  return `${formatMarketTypeLabel(market.type)} (${formatMarketPeriodLabel(market.period)} @${payoutRate})`;
+  return `${marketName} (${formatMarketPeriodLabel(market.period)} @${payoutRate})`;
 }
 
 function formatPayoutRate(payoutMultiplier: number) {
@@ -1122,17 +1240,61 @@ function formatOneXTwoOptionScore(option: string, matchEvent: TournamentEvent) {
 
 function formatOneXTwoOptionLabel(option: string, matchEvent: TournamentEvent) {
   if (option === matchEvent.homeParticipant) {
-    return formatParticipantName(option, matchEvent.homeParticipantCode);
+    return (
+      <ParticipantName
+        code={matchEvent.homeParticipantCode}
+        name={option}
+      />
+    );
   }
 
   if (option === matchEvent.awayParticipant) {
-    return formatParticipantName(option, matchEvent.awayParticipantCode);
+    return (
+      <ParticipantName
+        code={matchEvent.awayParticipantCode}
+        name={option}
+      />
+    );
   }
 
   return formatMarketOptionLabel(option);
 }
 
-function formatMarketOptionDisplay(
+function formatHandicapOptionLabel(option: string, matchEvent: TournamentEvent) {
+  if (option.startsWith(`${matchEvent.homeParticipant} `)) {
+    return (
+      <ParticipantName
+        code={matchEvent.homeParticipantCode}
+        name={matchEvent.homeParticipant}
+      />
+    );
+  }
+
+  if (option.startsWith(`${matchEvent.awayParticipant} `)) {
+    return (
+      <ParticipantName
+        code={matchEvent.awayParticipantCode}
+        name={matchEvent.awayParticipant}
+      />
+    );
+  }
+
+  return option;
+}
+
+function formatHandicapOptionLine(option: string, matchEvent: TournamentEvent) {
+  if (option.startsWith(`${matchEvent.homeParticipant} `)) {
+    return option.slice(matchEvent.homeParticipant.length).trim();
+  }
+
+  if (option.startsWith(`${matchEvent.awayParticipant} `)) {
+    return option.slice(matchEvent.awayParticipant.length).trim();
+  }
+
+  return "";
+}
+
+function formatMarketOptionText(
   option: string,
   matchEvent?: TournamentEvent | null,
 ) {
@@ -1160,7 +1322,7 @@ function formatMarketOptionDisplay(
     );
   }
 
-  return formatOneXTwoOptionLabel(option, matchEvent);
+  return formatMarketOptionLabel(option);
 }
 
 function getPredictionUsers(

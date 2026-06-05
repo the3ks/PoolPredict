@@ -1303,6 +1303,10 @@ dd {
   overflow: auto;
 }
 
+.mobilePredictionSlipToggle {
+  display: none;
+}
+
 .marketList,
 .predictionHistory,
 .leaderboardList {
@@ -1435,7 +1439,7 @@ dd {
 
 .marketButtonGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -1451,7 +1455,41 @@ dd {
   padding: 10px;
 }
 
-.oneXTwoOption {
+.handicapMarketRow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  border: 1px solid rgba(70, 212, 140, 0.3);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(70, 212, 140, 0.11), rgba(59, 130, 246, 0.05)),
+    var(--surface-raised);
+  padding: 10px;
+}
+
+.handicapMarketPeriod {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  grid-column: 1 / -1;
+  letter-spacing: 0;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.handicapMarketRow.linePending {
+  border-color: rgba(245, 158, 11, 0.72);
+  background:
+    linear-gradient(180deg, rgba(245, 158, 11, 0.17), rgba(245, 158, 11, 0.06)),
+    var(--surface-raised);
+}
+
+.handicapMarketRow.poolLocked {
+  border-color: rgba(148, 163, 184, 0.42);
+}
+
+.oneXTwoOption,
+.handicapOption {
   display: grid;
   gap: 7px;
   min-height: 104px;
@@ -1466,33 +1504,51 @@ dd {
 }
 
 .oneXTwoOption:hover,
-.oneXTwoOption.active {
+.oneXTwoOption.active,
+.handicapOption:hover,
+.handicapOption.active {
   border-color: var(--accent-border);
   background: var(--accent-soft);
 }
 
-.oneXTwoOption.active {
+.oneXTwoOption.active,
+.handicapOption.active {
   box-shadow: inset 0 3px 0 var(--accent);
 }
 
 .oneXTwoOption:disabled,
-.oneXTwoOption.disabled {
+.oneXTwoOption.disabled,
+.handicapOption:disabled,
+.handicapOption.disabled {
   cursor: not-allowed;
   opacity: 0.58;
 }
 
 .oneXTwoOption strong,
-.oneXTwoOption span {
+.oneXTwoOption span,
+.handicapOption strong,
+.handicapOption span {
   overflow-wrap: anywhere;
 }
 
-.oneXTwoOption span {
+.oneXTwoOption span,
+.handicapOption span {
   color: var(--gold);
   font-size: 22px;
   font-weight: 900;
 }
 
-.oneXTwoOption small {
+.handicapOption span {
+  color: var(--accent);
+}
+
+.handicapMarketRow.linePending .handicapOption span,
+.handicapMarketRow.linePending .handicapOption small {
+  color: #fde68a;
+}
+
+.oneXTwoOption small,
+.handicapOption small {
   color: var(--muted);
   font-size: 12px;
   font-weight: 800;
@@ -1570,6 +1626,10 @@ dd {
 }
 
 .predictionForm {
+  margin-top: 0;
+}
+
+.predictionPanelTitle {
   margin-top: 0;
 }
 
@@ -2063,15 +2123,98 @@ dd {
     grid-template-columns: 1fr;
   }
 
+  .pageStack:has(.predictionSubmitPanel) {
+    padding-bottom: 190px;
+  }
+
   .poolSummaryPanel,
   .poolLeaderboardPanel {
     max-height: none;
   }
 
   .predictionSubmitPanel {
-    position: static;
-    max-height: none;
-    overflow: visible;
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    box-shadow: 0 20px 70px rgba(0, 0, 0, 0.42);
+    left: 10px;
+    max-height: min(70vh, 520px);
+    overflow: auto;
+    padding: 12px;
+    position: fixed;
+    right: 10px;
+    top: auto;
+    z-index: 40;
+  }
+
+  .predictionPanelTitle {
+    display: none;
+  }
+
+  .mobilePredictionSlipToggle {
+    align-items: center;
+    background: transparent;
+    border: 0;
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    gap: 10px;
+    justify-content: space-between;
+    padding: 0;
+    text-align: left;
+    width: 100%;
+  }
+
+  .mobilePredictionSlipToggle span {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .mobilePredictionSlipToggle strong,
+  .mobilePredictionSlipToggle small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobilePredictionSlipToggle small {
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  .predictionSubmitPanel .predictionForm {
+    margin-top: 10px;
+  }
+
+  .predictionSubmitPanel:not(.predictionSubmitPanelExpanded) .predictionForm {
+    align-items: center;
+    display: grid;
+    gap: 10px;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .predictionSubmitPanel:not(.predictionSubmitPanelExpanded) .predictionLockedNotice,
+  .predictionSubmitPanel:not(.predictionSubmitPanelExpanded) .predictionForm label,
+  .predictionSubmitPanel:not(.predictionSubmitPanelExpanded) .predictionForm .buttonSecondary,
+  .predictionSubmitPanel:not(.predictionSubmitPanelExpanded) .recentPredictionCard {
+    display: none;
+  }
+
+  .predictionSubmitPanel:not(.predictionSubmitPanelExpanded) .selectedMarket {
+    min-height: 54px;
+    padding: 10px;
+  }
+
+  .predictionSubmitPanel:not(.predictionSubmitPanelExpanded) .selectedMarket small,
+  .predictionSubmitPanel:not(.predictionSubmitPanelExpanded) .selectedMarket strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .predictionSubmitPanel:not(.predictionSubmitPanelExpanded) .predictionForm > .button {
+    min-height: 54px;
+    padding-inline: 16px;
   }
 
   .topbar {
@@ -2121,7 +2264,9 @@ dd {
     flex-direction: column;
   }
 
-  .oneXTwoMarketRow {
+  .marketButtonGrid,
+  .oneXTwoMarketRow,
+  .handicapMarketRow {
     grid-template-columns: 1fr;
   }
 }
