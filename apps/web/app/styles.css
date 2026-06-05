@@ -272,22 +272,24 @@ select {
 }
 
 .brandLink {
+  align-items: center;
   color: var(--text);
+  display: inline-flex;
   font-size: 19px;
+  gap: 10px;
   font-weight: 800;
   letter-spacing: 0;
   text-decoration: none;
 }
 
-.brandLink::before {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  margin-right: 10px;
-  border-radius: 999px;
-  background: var(--accent);
-  box-shadow: 0 0 20px var(--brand-dot-shadow);
-  content: "";
+.brandBallIcon {
+  display: inline-grid;
+  flex: 0 0 auto;
+  font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
+  font-size: 25px;
+  line-height: 1;
+  place-items: center;
+  transform: translateY(1px);
 }
 
 .iconLabel {

@@ -272,6 +272,10 @@ export default function PoolOverviewPage() {
       setStatus("Select a prediction option.");
       return;
     }
+    if (market?.type === "CorrectScore" && !isCorrectScoreOption(option)) {
+      setStatus("Correct score must use format score_number-score_number, for example 2-1.");
+      return;
+    }
     const matchEvent = market
       ? events.find((item) => item.id === market.eventId)
       : null;
@@ -738,6 +742,8 @@ export default function PoolOverviewPage() {
                     <label>
                       Score
                       <input
+                        inputMode="numeric"
+                        pattern="[0-9]+-[0-9]+"
                         placeholder="2-1"
                         value={selectedOption}
                         onChange={(event) =>
@@ -941,7 +947,7 @@ function MarketGroupButtons({
                   }}
                 >
                   <strong>{formatHandicapOptionLabel(option, event)}</strong>
-                  <span>{formatHandicapOptionLine(option, event)}</span>
+                  <span>{formatHandicapOptionScore(option, event, market)}</span>
                   <small>
                     {formatPredictionUsers(
                       getPredictionUsers(
@@ -1110,6 +1116,10 @@ function formatScore(homeScore: number | null, awayScore: number | null) {
   return homeScore === null || awayScore === null
     ? "-"
     : `${homeScore}-${awayScore}`;
+}
+
+function isCorrectScoreOption(option: string) {
+  return /^[0-9]+-[0-9]+$/.test(option);
 }
 
 function isHandicapLinePending(market: Market) {
@@ -1292,6 +1302,30 @@ function formatHandicapOptionLine(option: string, matchEvent: TournamentEvent) {
   }
 
   return "";
+}
+
+function formatHandicapOptionScore(
+  option: string,
+  matchEvent: TournamentEvent,
+  market: Market,
+) {
+  const line = formatHandicapOptionLine(option, matchEvent);
+  const isFirstHalf = market.period === "FirstHalf";
+  let score = 0;
+
+  if (option.startsWith(`${matchEvent.homeParticipant} `)) {
+    score = isFirstHalf
+      ? matchEvent.firstHalfHomeScore ?? 0
+      : matchEvent.fullTimeHomeScore ?? 0;
+  }
+
+  if (option.startsWith(`${matchEvent.awayParticipant} `)) {
+    score = isFirstHalf
+      ? matchEvent.firstHalfAwayScore ?? 0
+      : matchEvent.fullTimeAwayScore ?? 0;
+  }
+
+  return line ? `${score} (${line})` : `${score}`;
 }
 
 function formatMarketOptionText(

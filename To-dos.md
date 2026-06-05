@@ -1,0 +1,3 @@
+- Profile page: allow to change display name and avatar
+- Pool background cover from pool owner's uploaded image
+- Pool stake settings: default, min/max per prediction, max total per event

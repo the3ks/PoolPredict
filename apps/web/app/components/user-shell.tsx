@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ReactNode, useEffect, useState } from "react";
-import { LogIn, LogOut, Shield, UserPlus } from "lucide-react";
+import { Home, LogIn, LogOut, Shield, UserPlus, Waves } from "lucide-react";
 import { clearToken, getStoredToken, UserProfile } from "../lib/auth";
 import { appName } from "../lib/config";
 import { IconLabel } from "./ui";
@@ -44,11 +44,18 @@ export function UserShell({ children }: { children: ReactNode }) {
     <main className="publicShell">
       <header className="publicTopbar">
         <Link className="brandLink" href="/">
+          <span aria-hidden="true" className="brandBallIcon">⚽</span>
           {appName}
         </Link>
         <nav className="userNav" aria-label="Primary">
-          <Link href="/">Tournaments</Link>
-          {isSignedIn ? <Link href="/pools">Pools</Link> : null}
+          <Link href="/">
+            <IconLabel icon={Home}>Home</IconLabel>
+          </Link>
+          {isSignedIn ? (
+            <Link href="/pools">
+              <IconLabel icon={Waves}>Pools</IconLabel>
+            </Link>
+          ) : null}
           {profile?.role === "PlatformAdmin" ? (
             <Link href="/admin">
               <IconLabel icon={Shield}>Admin</IconLabel>

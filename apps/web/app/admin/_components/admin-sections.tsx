@@ -922,7 +922,9 @@ function useAdminEvents(initialMessage: string) {
         return;
       }
 
-      const result = (await response.json()) as AdminEvent[];
+      const result = ((await response.json()) as AdminEvent[])
+        .filter(shouldShowAdminEvent)
+        .sort(compareAdminEventsForDisplay);
       setEvents(result);
       setSelectedEventId((current) => result.some((item) => item.id === current) ? current : result[0]?.id ?? "");
       setMessage(result.length === 0 ? "No events match the filters." : `${result.length} events loaded.`);
@@ -1065,6 +1067,27 @@ async function updateSelectedEventMode(eventId: string, token: string, targetMod
 }
 
 const eventStatuses = ["Scheduled", "Live", "Finished", "Postponed", "Cancelled", "Settled"];
+const adminClosedEventStatuses = new Set(["Cancelled", "Canceled", "Settled"]);
+const adminClosedEventDisplayWindowMs = 72 * 60 * 60 * 1000;
+
+function shouldShowAdminEvent(matchEvent: AdminEvent) {
+  if (!adminClosedEventStatuses.has(matchEvent.status)) {
+    return true;
+  }
+
+  const startsAt = new Date(matchEvent.startsAt).getTime();
+  return Date.now() - startsAt <= adminClosedEventDisplayWindowMs;
+}
+
+function compareAdminEventsForDisplay(first: AdminEvent, second: AdminEvent) {
+  const firstClosedRank = adminClosedEventStatuses.has(first.status) ? 1 : 0;
+  const secondClosedRank = adminClosedEventStatuses.has(second.status) ? 1 : 0;
+  if (firstClosedRank !== secondClosedRank) {
+    return firstClosedRank - secondClosedRank;
+  }
+
+  return new Date(first.startsAt).getTime() - new Date(second.startsAt).getTime();
+}
 
 function scoreToText(score: number | null) {
   return score === null ? "" : String(score);
