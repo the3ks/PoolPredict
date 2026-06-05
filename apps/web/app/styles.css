@@ -801,6 +801,29 @@ dd {
   grid-template-columns: 1fr;
 }
 
+.poolOverviewSection {
+  display: grid;
+  gap: 12px;
+}
+
+.overviewRowToggle {
+  display: inline-flex;
+  width: max-content;
+  min-height: 36px;
+  align-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-soft);
+  padding: 0 2px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.overviewRowToggle:hover {
+  color: var(--text);
+}
+
 .poolOverviewGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

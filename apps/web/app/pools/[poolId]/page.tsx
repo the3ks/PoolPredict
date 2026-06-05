@@ -85,6 +85,7 @@ export default function PoolOverviewPage() {
   const [status, setStatus] = useState("Loading pool...");
   const [joinRequestStatus, setJoinRequestStatus] = useState("");
   const [isLoadingJoinRequests, setIsLoadingJoinRequests] = useState(false);
+  const [showOverviewRow, setShowOverviewRow] = useState(true);
   const [showManagementRow, setShowManagementRow] = useState(false);
   const [showRecentClosedMarkets, setShowRecentClosedMarkets] = useState(true);
   const [isPredictionSlipExpanded, setIsPredictionSlipExpanded] = useState(false);
@@ -94,6 +95,10 @@ export default function PoolOverviewPage() {
   useEffect(() => {
     loadPool();
   }, [poolId]);
+
+  useEffect(() => {
+    setShowOverviewRow(!window.matchMedia("(max-width: 760px)").matches);
+  }, []);
 
   async function loadPool() {
     const token = getStoredToken();
@@ -400,56 +405,69 @@ export default function PoolOverviewPage() {
         />
         <StatusPill icon={ShieldCheck}>{status}</StatusPill>
         {pool ? (
-          <div className="poolOverviewGrid">
-            <Panel className="poolSummaryPanel" title="Summary">
-              <StatGrid
-                items={[
-                  { label: "Members", value: pool.memberCount, icon: Users },
-                  { label: "Role", value: pool.role, icon: ShieldCheck },
-                  {
-                    label: "Prediction status",
-                    value: pool.predictionsLocked ? "Locked" : "Open",
-                    icon: Lock,
-                  },
-                  { label: "Profile", value: pool.profile, icon: Waves },
-                ]}
-              />
-            </Panel>
-            <Panel className="poolLeaderboardPanel" title="Leaderboard">
-              <div className="poolLeaderboardList">
-                {leaderboard.length === 0 ? (
-                  <p className="mutedText">No leaderboard entries yet.</p>
-                ) : (
-                  leaderboard.map((entry, index) => (
-                    <article
-                      className={[
-                        "poolLeaderboardRow",
-                        entry.memberId === pool.memberId ? "active" : "",
-                      ]
-                        .filter(Boolean)
-                        .join(" ")}
-                      key={entry.memberId}
-                    >
-                      <span>
-                        <strong>
-                          #{index + 1} {entry.displayName}
-                        </strong>
-                        <small>{entry.role}</small>
-                      </span>
-                      <span>
-                        <strong>{entry.balance}</strong>
-                        <small>Balance</small>
-                      </span>
-                      <span>
-                        <strong>{entry.winRate}%</strong>
-                        <small>Win rate</small>
-                      </span>
-                    </article>
-                  ))
-                )}
+          <section className="poolOverviewSection">
+            <button
+              className="overviewRowToggle"
+              type="button"
+              onClick={() => setShowOverviewRow((current) => !current)}
+            >
+              <IconLabel icon={showOverviewRow ? ChevronDown : ChevronRight}>
+                Summary & Leaderboard
+              </IconLabel>
+            </button>
+            {showOverviewRow ? (
+              <div className="poolOverviewGrid">
+                <Panel className="poolSummaryPanel" title="Summary">
+                  <StatGrid
+                    items={[
+                      { label: "Members", value: pool.memberCount, icon: Users },
+                      { label: "Role", value: pool.role, icon: ShieldCheck },
+                      {
+                        label: "Prediction status",
+                        value: pool.predictionsLocked ? "Locked" : "Open",
+                        icon: Lock,
+                      },
+                      { label: "Profile", value: pool.profile, icon: Waves },
+                    ]}
+                  />
+                </Panel>
+                <Panel className="poolLeaderboardPanel" title="Leaderboard">
+                  <div className="poolLeaderboardList">
+                    {leaderboard.length === 0 ? (
+                      <p className="mutedText">No leaderboard entries yet.</p>
+                    ) : (
+                      leaderboard.map((entry, index) => (
+                        <article
+                          className={[
+                            "poolLeaderboardRow",
+                            entry.memberId === pool.memberId ? "active" : "",
+                          ]
+                            .filter(Boolean)
+                            .join(" ")}
+                          key={entry.memberId}
+                        >
+                          <span>
+                            <strong>
+                              #{index + 1} {entry.displayName}
+                            </strong>
+                            <small>{entry.role}</small>
+                          </span>
+                          <span>
+                            <strong>{entry.balance}</strong>
+                            <small>Balance</small>
+                          </span>
+                          <span>
+                            <strong>{entry.winRate}%</strong>
+                            <small>Win rate</small>
+                          </span>
+                        </article>
+                      ))
+                    )}
+                  </div>
+                </Panel>
               </div>
-            </Panel>
-          </div>
+            ) : null}
+          </section>
         ) : null}
         {pool && canManagePool(pool) ? (
           <section className="poolManagementSection">
