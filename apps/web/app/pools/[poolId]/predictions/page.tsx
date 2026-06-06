@@ -96,7 +96,9 @@ export default function PoolPredictionsPage() {
                   </span>
                   <span>
                     <strong>{formatMarketOptionLabel(prediction.selectedOption)}</strong>
-                    <small>{prediction.marketPeriod} | {prediction.stake} Điểm</small>
+                    <small>
+                      {prediction.marketPeriod} | {formatNumberDisplay(prediction.stake)} Điểm
+                    </small>
                   </span>
                   <span>
                     <strong>{prediction.payoutMultiplierSnapshot}x</strong>
@@ -118,11 +120,25 @@ export default function PoolPredictionsPage() {
               {leaderboard.map((entry, index) => (
                 <article className={entry.memberId === pool?.memberId ? "leaderboardRow active" : "leaderboardRow"} key={entry.memberId}>
                   <span>
-                    <strong>#{index + 1} {entry.displayName}</strong>
-                    <small>{entry.role}</small>
+                    <strong className="leaderboardIdentity">
+                      <span className="leaderboardName">
+                        <span className="leaderboardRank">#{index + 1}</span>
+                        <span className="leaderboardAvatarWrap">
+                          {entry.avatarUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img alt="" className="leaderboardAvatar" src={entry.avatarUrl} />
+                          ) : (
+                            <span className="leaderboardAvatarFallback">
+                              {entry.displayName.slice(0, 1).toUpperCase()}
+                            </span>
+                          )}
+                        </span>
+                        <span className="leaderboardLabel">{entry.displayName}</span>
+                      </span>
+                    </strong>
                   </span>
                   <span>
-                    <strong>{entry.balance}</strong>
+                    <strong>{formatNumberDisplay(entry.balance)}</strong>
                     <small>Balance</small>
                   </span>
                   <span>
@@ -150,7 +166,20 @@ function formatNetPoints(value: number | undefined) {
     return "Not settled";
   }
 
-  return value > 0 ? `+${value} net` : `${value} net`;
+  return value > 0
+    ? `+${formatNumberDisplay(value)} net`
+    : `${formatNumberDisplay(value)} net`;
+}
+
+function formatNumberDisplay(value: number) {
+  if (Number.isInteger(value)) {
+    return value.toLocaleString();
+  }
+
+  return value.toLocaleString(undefined, {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 0,
+  });
 }
 
 function formatEventName(eventName: string | null | undefined) {

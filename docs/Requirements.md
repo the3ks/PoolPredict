@@ -124,8 +124,15 @@ Pool route behavior:
 * `/pools` should show pools the signed-in user owns or joined first, then other available pools.
 * Other pool rows should show basic information and a request-to-join action.
 * Pool detail pages should show join requests to pool owners/admins.
+* Pool owner/admin controls on the pool detail page should show only pending join requests by default.
+* The pool owner/admin settings and pending join requests area should be collapsible.
+* The owner/admin controls area should expand by default when pending join requests exist and collapse by default when none exist.
 * Approving a join request should add the requester as a pool member.
 * Denying a join request should keep the requester outside the pool.
+* Pool owner/admin can configure a pool background cover image.
+* Pool detail summary should show compact pool settings, including stake-rule values.
+* Normal users must not be able to create Expert profile pools.
+* Expert profile pool creation is restricted to Platform Admin users.
 * The web app should not expose `/app` as a product route family; `apps/web/app` is only the Next.js App Router source directory.
 
 ### Admin Panel
@@ -174,6 +181,8 @@ MVP Tournament:
   * full-time home score
   * full-time away score
 * Platform Admin can switch an event between provider-managed and manually managed modes at any time.
+* Admin Event Management and Settlement event lists should sort `Settled` and `Cancelled` events below active/manageable events.
+* Admin Event Management and Settlement event lists should hide `Settled` and `Cancelled` events once kickoff time is more than 72 hours ago.
 
 ### Parallel Provider Testing
 
@@ -194,6 +203,12 @@ MVP Tournament:
 Detailed `1X2` rules are maintained in `docs/Requirements-1X2.md`.
 
 Detailed handicap line rules are maintained in `docs/Requirements-Handicap.md`.
+
+Profile behavior:
+
+* Casual profile includes Fulltime-only 1X2, Over/Under, Odd/Even and Correct Score markets.
+* Standard profile includes 1X2 plus Fulltime and First Half Handicap, Over/Under, Odd/Even and Correct Score markets.
+* Expert profile is reserved for Platform Admin-created pools.
 
 Fulltime:
 
@@ -232,6 +247,20 @@ First Half:
 * View history
 * Deduct points immediately when a prediction is submitted
 * Prevent new predictions when member balance is negative
+* Each pool must define:
+  * default stake
+  * minimum stake per prediction
+  * maximum stake per prediction
+  * maximum total stake per event
+* Prediction submit UI must guide the user with the pool's current stake limits.
+* Prediction submit UI should show remaining per-event allowance for the selected event when practical.
+* Prediction API must enforce all pool stake rules server-side.
+* Correct Score input must use `score_number-score_number` format.
+* Correct Score score numbers must be zero or positive integers.
+* Pool market displays should show current prediction users grouped by selected market option.
+* Market lists should show only scheduled matches that kick off inside the configured upcoming display window.
+* Recently closed matches should remain visible only inside the configured recent closed display window.
+* On mobile, the prediction form should remain accessible as a bottom sticky prediction slip without hiding the final market rows.
 
 ### Points
 
@@ -240,6 +269,12 @@ First Half:
 * Prediction points are deducted at submit time
 * Negative balances are allowed
 * Members with negative balances cannot submit additional predictions until their balance is positive again
+
+### Profile
+
+* Signed-in users can update their display name.
+* Signed-in users can update their avatar.
+* MVP avatar editing may use a URL-based image reference instead of file upload/storage.
 
 ### Settlement
 
@@ -254,6 +289,8 @@ First Half:
 
 * Individual ranking
 * Pool ranking
+* Pool detail pages should show the leaderboard beside the summary on larger screens.
+* Prediction history pages should show the member's prediction history before the leaderboard.
 
 ### AI
 

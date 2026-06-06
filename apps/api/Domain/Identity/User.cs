@@ -8,6 +8,7 @@ public sealed class User : Entity
         Guid id,
         string email,
         string displayName,
+        string? avatarUrl,
         UserRole role,
         string? passwordHash = null,
         DateTimeOffset? createdAt = null,
@@ -20,6 +21,7 @@ public sealed class User : Entity
         Email = email;
         NormalizedEmail = email.Trim().ToUpperInvariant();
         DisplayName = displayName;
+        AvatarUrl = avatarUrl;
         Role = role;
         PasswordHash = passwordHash;
         CreatedAt = createdAt ?? DateTimeOffset.UtcNow;
@@ -34,6 +36,8 @@ public sealed class User : Entity
     public string NormalizedEmail { get; }
 
     public string DisplayName { get; private set; }
+
+    public string? AvatarUrl { get; private set; }
 
     public UserRole Role { get; private set; }
 
@@ -73,6 +77,13 @@ public sealed class User : Entity
     public void ClearMustChangePassword()
     {
         MustChangePassword = false;
+        Touch();
+    }
+
+    public void UpdateProfile(string displayName, string? avatarUrl)
+    {
+        DisplayName = displayName;
+        AvatarUrl = avatarUrl;
         Touch();
     }
 

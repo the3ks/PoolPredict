@@ -73,7 +73,17 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           </Link>
           <ThemeToggle />
           <Link className="appProfileLink" href="/profile">
-            {profile?.displayName ?? status}
+            <span className="appProfileIdentity">
+              {profile?.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img alt="" className="topbarAvatar" src={profile.avatarUrl} />
+              ) : (
+                <span className="topbarAvatarFallback">
+                  {(profile?.displayName ?? "A").slice(0, 1).toUpperCase()}
+                </span>
+              )}
+              <span>{profile?.displayName ?? status}</span>
+            </span>
           </Link>
           <button className="button buttonSecondary compactButton" type="button" onClick={signOut}>
             <IconLabel icon={LogOut}>Sign out</IconLabel>

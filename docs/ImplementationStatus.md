@@ -1,6 +1,6 @@
 # Implementation Status
 
-Last updated: 2026-06-03
+Last updated: 2026-06-05
 
 ## Current State
 
@@ -8,7 +8,7 @@ The project has an initial MVP foundation using a DDD-lite structure.
 
 The web app now includes Sprint 1 authentication and Sprint 2 pool management screens backed by authenticated API endpoints. Authentication and pool management are separated into dedicated routes under the planned app structure.
 
-Sprint 3 tournament infrastructure is implemented with participant records, an event provider abstraction and a mock World Cup provider. Sprint 4 external integration is implemented with configurable provider selection, a FootballData provider adapter and an admin-triggered tournament sync path. Sprint 5 market and settlement foundation is implemented with DB-backed payout defaults, profile-based market generation and settlement run/log tables. Sprint 6 prediction submission is implemented with authenticated prediction entry, member balances and prediction history. Sprint 7 settlement is implemented for manual admin settlement, event result storage, re-settlement correction entries and provider/manual event management modes. Sprint 8 settlement hardening is implemented with calculator-level and service-level automated tests, selected-option validation, cancelled-event settlement and quarter-line handicap support. Sprint 9 admin event management is implemented with event browse/filter, manual event editing and selected-event settlement from the admin UI. Sprint 10 leaderboards and settled prediction display are implemented from persisted prediction, market and point-ledger read models. Sprint 11 user/admin route reorganization, pool discovery and identity/admin security is implemented with root-route normal user flows, a dedicated `/admin` panel, pool discovery, join-request approval, email verification, password recovery, admin user management and SMTP settings. MariaDB-backed EF Core persistence is now required for the API.
+Sprint 3 tournament infrastructure is implemented with participant records, an event provider abstraction and a mock World Cup provider. Sprint 4 external integration is implemented with configurable provider selection, a FootballData provider adapter and an admin-triggered tournament sync path. Sprint 5 market and settlement foundation is implemented with DB-backed payout defaults, profile-based market generation and settlement run/log tables. Sprint 6 prediction submission is implemented with authenticated prediction entry, member balances and prediction history. Sprint 7 settlement is implemented for manual admin settlement, event result storage, re-settlement correction entries and provider/manual event management modes. Sprint 8 settlement hardening is implemented with calculator-level and service-level automated tests, selected-option validation, cancelled-event settlement and quarter-line handicap support. Sprint 9 admin event management is implemented with event browse/filter, manual event editing and selected-event settlement from the admin UI. Sprint 10 leaderboards and settled prediction display are implemented from persisted prediction, market and point-ledger read models. Sprint 11 user/admin route reorganization, pool discovery and identity/admin security is implemented with root-route normal user flows, a dedicated `/admin` panel, pool discovery, join-request approval, email verification, password recovery, admin user management and SMTP settings. Sprint 12 market profile, 1X2, pool-detail UX and admin event-list polish is implemented with 1X2 settlement, option-level market prediction summaries, wider 1X2/Handicap market rows, mobile prediction slip, Standard/Casual profile refinements, PlatformAdmin-only Expert pool creation and closed-event admin list cleanup. Sprint 13 profile personalization and pool stake controls is implemented with editable display name/avatar, pool cover images and server-enforced stake rules. MariaDB-backed EF Core persistence is now required for the API.
 
 ## Completed
 
@@ -38,6 +38,7 @@ Sprint 3 tournament infrastructure is implemented with participant records, an e
 * Added Point Payout Configuration instead of public betting odds
 * Clarified Platform Admin global payout defaults
 * Clarified prediction-time snapshots for line values and payout configuration
+* Added dedicated `docs/Requirements-1X2.md`
 * Clarified UUID v7 database ID strategy
 * Updated README with local testing guidance
 * Added `docs/UIStandards.md` for dark-theme UI rules and future AI-assisted frontend work
@@ -58,6 +59,7 @@ Implemented endpoints:
 * `POST /api/auth/forgot-password`
 * `POST /api/auth/reset-password`
 * `POST /api/auth/change-password`
+* `PUT /api/auth/me`
 * `GET /api/admin/users`
 * `POST /api/admin/users/{userId}/password-reset`
 * `POST /api/admin/users/{userId}/verify-email`
@@ -89,6 +91,7 @@ Implemented endpoints:
 * `GET /api/pools/{poolId}/markets`
 * `POST /api/predictions`
 * `GET /api/predictions/pool/{poolId}`
+* `GET /api/predictions/pool/{poolId}/market-summaries`
 * `GET /api/predictions/pool/{poolId}/leaderboard`
 * `GET /api/predictions/balance?poolId={poolId}`
 * `POST /api/settlement/events/{eventId}/result`
@@ -131,12 +134,18 @@ Tournament behavior:
 * Provider/source metadata is stored for tournaments, participants and events
 * Provider external IDs are scoped by provider so Mock and FootballData data cannot overwrite each other
 
+Current Casual pool behavior:
+
+* Creates Fulltime-only 1X2, Over/Under, Odd/Even and Correct Score markets
+* Uses fixed point payout defaults from the active payout configuration
+
 Current Standard pool behavior:
 
 * Creates full-time and first-half markets
-* Generates Handicap, Over/Under, Odd/Even and Correct Score markets
+* Generates 1X2, Handicap, Over/Under, Odd/Even and Correct Score markets
 * Generates market lines and payout multipliers from the active payout configuration
 * Winner markets are intentionally excluded because they require volatile outcome-specific payouts
+* Expert profile pool creation is guarded so only PlatformAdmin users can create Expert pools
 
 Market configuration behavior:
 
@@ -154,7 +163,7 @@ Settlement foundation behavior:
 * Adds persisted settlement log records linked to settlement runs
 * Stores event results in `event_results`
 * Supports admin-triggered settlement from a recorded event result
-* Settles Handicap, Over/Under, Odd/Even and Correct Score predictions
+* Settles 1X2, Handicap, Over/Under, Odd/Even and Correct Score predictions
 * Validates selected options for settled markets
 * Supports quarter-line handicap half-win and half-lose outcomes
 * Supports cancelled-event settlement as stake refunds and market voiding
@@ -169,7 +178,9 @@ Prediction behavior:
 * Deducts stake immediately
 * Adds starting balance ledger entry for first member action
 * Blocks new predictions when member balance is negative
+* Enforces pool-level minimum, maximum and per-event stake caps
 * Blocks prediction submission after the market event start time
+* Validates Correct Score prediction input as `score_number-score_number` with zero-or-positive integer scores
 * Snapshots:
   * market type
   * market period
@@ -187,6 +198,7 @@ Authentication behavior:
 * Supports forgot-password reset links
 * Supports reset-password token consumption
 * Supports signed-in password changes from the profile page
+* Supports signed-in display-name and avatar URL updates from the profile page
 * Hashes passwords with PBKDF2-SHA256
 * Stores only hashed verification and reset tokens
 * Issues signed JWT bearer tokens
@@ -219,9 +231,30 @@ Pool behavior:
 * Pool owners/admins can approve join requests, which adds the requester as a pool member
 * Pool owners/admins can deny join requests
 * Pool owners/admins can edit pool name and starting balance
+* Pool owners/admins can configure a cover image URL
+* Pool owners/admins can configure default stake, min stake, max stake and per-event total stake cap
 * Pool owners/admins can create invite codes
 * Authenticated users can join pools by invite code
 * Pool summaries include member and invite counts
+* Pool join requests are filtered to pending requests in the owner/admin pool-detail controls
+
+Sprint 12 market and pool UX behavior:
+
+* 1X2 markets render as a full-width three-option row on the pool detail Markets card
+* Handicap markets render as a full-width two-option row on the pool detail Markets card
+* Handicap option boxes show team label, FT/HT score context and handicap line
+* Over/Under, Odd/Even and Correct Score cards show option-level prediction users
+* Standard profile cards show FT/HT period labels where the profile includes multiple periods
+* Pool market display limits scheduled matches to the configured upcoming window
+* Recently finished, settled, cancelled and postponed matches are grouped in a collapsible recent-closed panel
+* Recent closed match visibility uses a 24-hour pool-detail display window
+* Pool Summary and Leaderboard share the top row on pool detail pages
+* Owner/admin settings and pending join requests share a collapsible row
+* Prediction history page shows My predictions before Leaderboard
+* Mobile pool detail uses a bottom sticky prediction slip so prediction entry remains reachable while browsing markets
+* Header navigation labels use Home and Pools with icons, and the brand uses a soccer-ball mark
+* Participant codes are exposed on event responses and used by the frontend to render flags when mapped
+* Admin Event Management and Settlement sort Settled/Cancelled events to the bottom and hide them 72 hours after kickoff
 
 ### Web
 
@@ -252,12 +285,14 @@ Current web behavior:
 * Creates invite codes for owner/admin pools on `/pools/[poolId]/invites`
 * Joins pools by invite code on `/pools/join`
 * Shows signed-in profile details on `/profile`
+* Allows signed-in users to edit display name and avatar URL on `/profile`
 * Allows signed-in users to change password on `/profile`
 * Provides a dedicated PlatformAdmin panel under `/admin`
 * Shows all pools across all users on `/admin/pools`
 * Shows provider status and selected-provider sync on `/admin/provider` for PlatformAdmin users
 * Allows PlatformAdmin users to browse and filter events by provider/source, management mode and status on `/admin/events`
 * Allows PlatformAdmin users to edit event kickoff, status, mode and stored scores on `/admin/events`
+* Sorts settled/cancelled admin events to the bottom and hides them after the 72-hour closed-event window
 * Allows PlatformAdmin users to switch events between provider-managed and manually managed mode on `/admin/events`
 * Allows PlatformAdmin users to settle or cancel-settle a selected event on `/admin/settlement`
 * Shows active payout defaults on `/admin/payout` for PlatformAdmin users
@@ -266,6 +301,8 @@ Current web behavior:
 * Allows PlatformAdmin users to configure SMTP settings and send a test email on `/admin/system`
 * Shows pool markets grouped by match on `/pools/[poolId]`
 * Allows signed-in pool members to submit predictions from available markets
+* Shows pool cover image and compact stake-rule summary on `/pools/[poolId]`
+* Prefills pool default stake and shows per-pool stake limits in the prediction form
 * Shows current member balance and enriched prediction history with settlement outcome and net points on the pool page
 * Shows pool leaderboard rows with balance, win rate, ROI and prediction counts on the pool page
 * Links to API health
@@ -343,7 +380,7 @@ Manual smoke tests verified:
 * Pool update works for owner/admin members
 * Invite creation works for owner/admin members
 * Join by invite code works for authenticated users
-* Standard profile generates 30 markets
+* Standard profile generates the configured MVP market set
 * API build passes after Sprint 5 migration
 * Web production build passes after Sprint 5 admin UI update
 * Prediction submission deducts points
@@ -361,6 +398,7 @@ Manual smoke tests verified:
 * EF migration `20260602080731_IdentityEmailAndPasswordManagement` was generated and applied locally
 * `dotnet test PoolPredict.sln -c Release` and web production build pass after Sprint 11 route reorganization, pool join-request and identity/admin security updates
 * EF migration `20260602125442_PoolJoinRequests` was generated
+* API build and web production build pass after Sprint 12 1X2, market UX, profile restriction and admin event-list updates
 
 ## Known Gaps
 
@@ -379,16 +417,19 @@ Manual smoke tests verified:
 * Tournament sync is manually triggered from admin UI; recurring background scheduling is not implemented yet
 * Settlement is admin-triggered by design; automatic settlement is not supported for MVP
 * Admin event-management list is functional but intentionally basic; pagination and text search are not implemented yet
-* Admin UI displays payout configuration, but editing payout defaults or line overrides is not implemented yet
+* Admin UI displays payout configuration, but editing global payout defaults is not implemented yet
+* Existing pools do not automatically receive newly added 1X2 markets without an explicit backfill or regeneration action
+* Participant flag rendering depends on mapped provider participant codes; unmapped codes fall back to plain names
+* Mobile prediction slip and market-row interactions do not yet have automated UI tests
+* Avatar and pool cover editing are URL-based only; direct file upload/storage is not implemented yet
 * Leaderboard is read-only and derived from current point ledger; historical leaderboard snapshots are not implemented yet
 * No localization implementation yet
 * Prediction UI is functional but still basic; deeper result visualizations can be improved later
 * Test coverage is focused on settlement; broader API and UI coverage is not implemented yet
-* Repository is not initialized as a Git repo yet
 
 ## Next Recommended Step
 
-Proceed to Sprint 12 AI recap:
+Proceed to Sprint 14 AI recap:
 
 1. Add weekly recap generation model and persistence
 2. Add recap page UI

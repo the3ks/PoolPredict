@@ -1,6 +1,6 @@
 # Web App Structure Plan
 
-Last updated: 2026-06-02
+Last updated: 2026-06-05
 
 ## Problem
 
@@ -173,6 +173,11 @@ MVP editable fields:
 
 * Pool name
 * Starting balance
+* Cover image
+* Default stake
+* Min stake
+* Max stake
+* Max total stake per event
 
 Profile and tournament should remain locked after creation unless a later requirement says otherwise.
 
@@ -213,9 +218,14 @@ Signed-in user profile and session controls.
 Show:
 
 * Display name
+* Editable avatar
 * Email
 * Platform role
 * Sign out
+
+MVP editing:
+
+* Allow the user to update display name and avatar image reference from the profile page.
 
 ### Admin Pages
 

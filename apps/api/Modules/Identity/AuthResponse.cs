@@ -11,6 +11,7 @@ public sealed record UserProfileResponse(
     Guid Id,
     string Email,
     string DisplayName,
+    string? AvatarUrl,
     UserRole Role,
     bool IsEmailVerified,
     bool MustChangePassword);

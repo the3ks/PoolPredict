@@ -117,6 +117,7 @@ public sealed class PoolPredictDbContext(DbContextOptions<PoolPredictDbContext> 
             entity.Property(user => user.Email).HasColumnName("email").HasMaxLength(320);
             entity.Property(user => user.NormalizedEmail).HasColumnName("normalized_email").HasMaxLength(320);
             entity.Property(user => user.DisplayName).HasColumnName("display_name").HasMaxLength(200);
+            entity.Property(user => user.AvatarUrl).HasColumnName("avatar_url").HasMaxLength(1000);
             entity.Property(user => user.Role).HasColumnName("role").HasConversion<string>().HasMaxLength(40);
             entity.Property(user => user.PasswordHash).HasColumnName("password_hash");
             entity.Property(user => user.CreatedAt).HasColumnName("created_at");
@@ -181,6 +182,11 @@ public sealed class PoolPredictDbContext(DbContextOptions<PoolPredictDbContext> 
             entity.Property(pool => pool.Profile).HasColumnName("profile").HasConversion<string>().HasMaxLength(40);
             entity.Property(pool => pool.StartingBalance).HasColumnName("starting_balance");
             entity.Property(pool => pool.PredictionsLocked).HasColumnName("predictions_locked");
+            entity.Property(pool => pool.CoverImageUrl).HasColumnName("cover_image_url").HasMaxLength(1000);
+            entity.Property(pool => pool.DefaultStake).HasColumnName("default_stake");
+            entity.Property(pool => pool.MinStake).HasColumnName("min_stake");
+            entity.Property(pool => pool.MaxStake).HasColumnName("max_stake");
+            entity.Property(pool => pool.MaxTotalStakePerEvent).HasColumnName("max_total_stake_per_event");
         });
 
         modelBuilder.Entity<PersistedPoolMember>(entity =>

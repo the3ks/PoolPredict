@@ -43,9 +43,23 @@ public sealed class PoolStore
             throw new ArgumentException("Tournament does not exist.", nameof(request));
         }
 
+        var stakeSettings = CreateDefaultStakeSettings(request.StartingBalance);
+
         lock (_gate)
         {
-            var pool = new Pool(Ids.NewId(), ownerUserId, request.Name.Trim(), request.TournamentId, request.Profile, request.StartingBalance);
+            var pool = new Pool(
+                Ids.NewId(),
+                ownerUserId,
+                request.Name.Trim(),
+                request.TournamentId,
+                request.Profile,
+                request.StartingBalance,
+                predictionsLocked: false,
+                coverImageUrl: null,
+                defaultStake: stakeSettings.defaultStake,
+                minStake: stakeSettings.minStake,
+                maxStake: stakeSettings.maxStake,
+                maxTotalStakePerEvent: stakeSettings.maxTotalStakePerEvent);
             var owner = new PoolMember(Ids.NewId(), pool.Id, ownerUserId, PoolMemberRole.Owner, DateTimeOffset.UtcNow);
             var generatedMarkets = catalog.GetEvents(request.TournamentId)
                 .SelectMany(matchEvent => GenerateMarkets(pool, matchEvent.Id, _payoutConfigurations.GetActiveConfiguration()))
@@ -116,13 +130,34 @@ public sealed class PoolStore
             throw new ArgumentException("Starting balance must be greater than zero.", nameof(request));
         }
 
+        var normalizedStakeSettings = NormalizeStakeSettings(
+            request.StartingBalance,
+            request.DefaultStake,
+            request.MinStake,
+            request.MaxStake,
+            request.MaxTotalStakePerEvent);
+        ValidateStakeSettings(
+            normalizedStakeSettings.defaultStake,
+            normalizedStakeSettings.minStake,
+            normalizedStakeSettings.maxStake,
+            normalizedStakeSettings.maxTotalStakePerEvent);
+        var coverImageUrl = NormalizeOptionalUrl(request.CoverImageUrl, "Cover image URL");
+
         lock (_gate)
         {
             var pool = _pools.SingleOrDefault(candidate => candidate.Id == poolId)
                 ?? throw new KeyNotFoundException("Pool does not exist.");
 
             EnsureCanManage(poolId, userId);
-            pool.UpdateSettings(request.Name.Trim(), request.StartingBalance, request.PredictionsLocked);
+            pool.UpdateSettings(
+                request.Name.Trim(),
+                request.StartingBalance,
+                request.PredictionsLocked,
+                coverImageUrl,
+                normalizedStakeSettings.defaultStake,
+                normalizedStakeSettings.minStake,
+                normalizedStakeSettings.maxStake,
+                normalizedStakeSettings.maxTotalStakePerEvent);
             PersistPoolUpdate(pool);
             return pool;
         }
@@ -494,10 +529,39 @@ public sealed class PoolStore
     }
 
     private PoolSummaryResponse ToSummary(Pool pool, PoolMemberRole role) =>
-        new(pool.Id, pool.Name, pool.TournamentId, pool.Profile, pool.StartingBalance, pool.PredictionsLocked, role, CountMembers(pool.Id), CountInvites(pool.Id));
+        new(
+            pool.Id,
+            pool.Name,
+            pool.TournamentId,
+            pool.Profile,
+            pool.StartingBalance,
+            pool.PredictionsLocked,
+            pool.CoverImageUrl,
+            pool.DefaultStake,
+            pool.MinStake,
+            pool.MaxStake,
+            pool.MaxTotalStakePerEvent,
+            role,
+            CountMembers(pool.Id),
+            CountInvites(pool.Id));
 
     private PoolDetailsResponse ToDetails(Pool pool, PoolMember member) =>
-        new(pool.Id, member.Id, pool.Name, pool.TournamentId, pool.Profile, pool.StartingBalance, pool.PredictionsLocked, member.Role, CountMembers(pool.Id), CountInvites(pool.Id));
+        new(
+            pool.Id,
+            member.Id,
+            pool.Name,
+            pool.TournamentId,
+            pool.Profile,
+            pool.StartingBalance,
+            pool.PredictionsLocked,
+            pool.CoverImageUrl,
+            pool.DefaultStake,
+            pool.MinStake,
+            pool.MaxStake,
+            pool.MaxTotalStakePerEvent,
+            member.Role,
+            CountMembers(pool.Id),
+            CountInvites(pool.Id));
 
     private int CountMembers(Guid poolId) => _members.Count(member => member.PoolId == poolId);
 
@@ -514,14 +578,29 @@ public sealed class PoolStore
     {
         using var db = _dbContextFactory.CreateDbContext();
 
-        _pools.AddRange(db.Pools.AsNoTracking().Select(pool => new Pool(
-            pool.Id,
-            pool.OwnerUserId,
-            pool.Name,
-            pool.TournamentId,
-            pool.Profile,
-            pool.StartingBalance,
-            pool.PredictionsLocked)));
+        _pools.AddRange(db.Pools.AsNoTracking().AsEnumerable().Select(pool =>
+        {
+            var normalizedStakeSettings = NormalizeStakeSettings(
+                pool.StartingBalance,
+                pool.DefaultStake,
+                pool.MinStake,
+                pool.MaxStake,
+                pool.MaxTotalStakePerEvent);
+
+            return new Pool(
+                pool.Id,
+                pool.OwnerUserId,
+                pool.Name,
+                pool.TournamentId,
+                pool.Profile,
+                pool.StartingBalance,
+                pool.PredictionsLocked,
+                pool.CoverImageUrl,
+                normalizedStakeSettings.defaultStake,
+                normalizedStakeSettings.minStake,
+                normalizedStakeSettings.maxStake,
+                normalizedStakeSettings.maxTotalStakePerEvent);
+        }));
 
         _members.AddRange(db.PoolMembers.AsNoTracking().Select(member => new PoolMember(
             member.Id,
@@ -567,6 +646,11 @@ public sealed class PoolStore
         persisted.Name = pool.Name;
         persisted.StartingBalance = pool.StartingBalance;
         persisted.PredictionsLocked = pool.PredictionsLocked;
+        persisted.CoverImageUrl = pool.CoverImageUrl;
+        persisted.DefaultStake = pool.DefaultStake;
+        persisted.MinStake = pool.MinStake;
+        persisted.MaxStake = pool.MaxStake;
+        persisted.MaxTotalStakePerEvent = pool.MaxTotalStakePerEvent;
         db.SaveChanges();
     }
 
@@ -628,7 +712,12 @@ public sealed class PoolStore
         TournamentId = pool.TournamentId,
         Profile = pool.Profile,
         StartingBalance = pool.StartingBalance,
-        PredictionsLocked = pool.PredictionsLocked
+        PredictionsLocked = pool.PredictionsLocked,
+        CoverImageUrl = pool.CoverImageUrl,
+        DefaultStake = pool.DefaultStake,
+        MinStake = pool.MinStake,
+        MaxStake = pool.MaxStake,
+        MaxTotalStakePerEvent = pool.MaxTotalStakePerEvent
     };
 
     private static PersistedPoolMember ToPersistedMember(PoolMember member) => new()
@@ -654,6 +743,85 @@ public sealed class PoolStore
     };
 
     private static bool IsValidQuarterLine(decimal value) => decimal.Remainder(value * 100m, 25m) == 0m;
+
+    private static void ValidateStakeSettings(int defaultStake, int minStake, int maxStake, int maxTotalStakePerEvent)
+    {
+        if (minStake <= 0)
+        {
+            throw new ArgumentException("Minimum stake must be greater than zero.", nameof(minStake));
+        }
+
+        if (defaultStake <= 0)
+        {
+            throw new ArgumentException("Default stake must be greater than zero.", nameof(defaultStake));
+        }
+
+        if (maxStake <= 0)
+        {
+            throw new ArgumentException("Maximum stake must be greater than zero.", nameof(maxStake));
+        }
+
+        if (maxTotalStakePerEvent <= 0)
+        {
+            throw new ArgumentException("Maximum total stake per event must be greater than zero.", nameof(maxTotalStakePerEvent));
+        }
+
+        if (minStake > defaultStake)
+        {
+            throw new ArgumentException("Minimum stake cannot exceed default stake.", nameof(minStake));
+        }
+
+        if (defaultStake > maxStake)
+        {
+            throw new ArgumentException("Default stake cannot exceed maximum stake.", nameof(defaultStake));
+        }
+
+        if (maxTotalStakePerEvent < maxStake)
+        {
+            throw new ArgumentException("Maximum total stake per event cannot be lower than maximum stake.", nameof(maxTotalStakePerEvent));
+        }
+    }
+
+    private static string? NormalizeOptionalUrl(string? value, string fieldName)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var normalized = value.Trim();
+        if (!Uri.TryCreate(normalized, UriKind.Absolute, out var uri)
+            || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+        {
+            throw new ArgumentException($"{fieldName} must be a valid HTTP or HTTPS URL.", fieldName);
+        }
+
+        return normalized;
+    }
+
+    private static (int defaultStake, int minStake, int maxStake, int maxTotalStakePerEvent) CreateDefaultStakeSettings(int startingBalance)
+    {
+        var defaultStake = Math.Max(1, startingBalance / 10);
+        var minStake = Math.Max(1, defaultStake / 2);
+        var maxStake = Math.Max(defaultStake, defaultStake * 2);
+        var maxTotalStakePerEvent = Math.Max(maxStake, defaultStake * 4);
+        return (defaultStake, minStake, maxStake, maxTotalStakePerEvent);
+    }
+
+    private static (int defaultStake, int minStake, int maxStake, int maxTotalStakePerEvent) NormalizeStakeSettings(
+        int startingBalance,
+        int defaultStake,
+        int minStake,
+        int maxStake,
+        int maxTotalStakePerEvent)
+    {
+        if (defaultStake > 0 && minStake > 0 && maxStake > 0 && maxTotalStakePerEvent > 0)
+        {
+            return (defaultStake, minStake, maxStake, maxTotalStakePerEvent);
+        }
+
+        return CreateDefaultStakeSettings(startingBalance);
+    }
 }
 
 public sealed record ConfirmHandicapLineRequest(MarketPeriod MarketPeriod, decimal LineValue);
@@ -675,6 +843,11 @@ public sealed record PoolSummaryResponse(
     MarketProfile Profile,
     int StartingBalance,
     bool PredictionsLocked,
+    string? CoverImageUrl,
+    int DefaultStake,
+    int MinStake,
+    int MaxStake,
+    int MaxTotalStakePerEvent,
     PoolMemberRole Role,
     int MemberCount,
     int InviteCount);
@@ -687,6 +860,11 @@ public sealed record PoolDetailsResponse(
     MarketProfile Profile,
     int StartingBalance,
     bool PredictionsLocked,
+    string? CoverImageUrl,
+    int DefaultStake,
+    int MinStake,
+    int MaxStake,
+    int MaxTotalStakePerEvent,
     PoolMemberRole Role,
     int MemberCount,
     int InviteCount);

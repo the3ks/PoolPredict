@@ -149,6 +149,28 @@ public static class IdentityEndpoints
             }
         }).RequireAuthorization();
 
+        group.MapPut("/me", (UpdateProfileRequest request, ClaimsPrincipal principal, IdentityStore users) =>
+        {
+            var subject = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!Guid.TryParse(subject, out var userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            try
+            {
+                return Results.Ok(users.UpdateProfile(userId, request).ToProfileResponse());
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Unauthorized();
+            }
+        }).RequireAuthorization();
+
         group.MapPost("/google", (GoogleLoginRequest request, IdentityStore users, JwtTokenService tokens) =>
         {
             try
@@ -183,7 +205,7 @@ public static class IdentityEndpoints
     }
 
     private static UserProfileResponse ToProfileResponse(this Domain.Identity.User user) =>
-        new(user.Id, user.Email, user.DisplayName, user.Role, user.IsEmailVerified, user.MustChangePassword);
+        new(user.Id, user.Email, user.DisplayName, user.AvatarUrl, user.Role, user.IsEmailVerified, user.MustChangePassword);
 
     private static string BuildWebLink(IConfiguration configuration, string path, string token)
     {

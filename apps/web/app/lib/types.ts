@@ -18,6 +18,11 @@ export type PoolSummary = {
   profile: MarketProfile;
   startingBalance: number;
   predictionsLocked: boolean;
+  coverImageUrl?: string | null;
+  defaultStake: number;
+  minStake: number;
+  maxStake: number;
+  maxTotalStakePerEvent: number;
   role: string;
   memberCount: number;
   inviteCount: number;
@@ -26,6 +31,7 @@ export type PoolSummary = {
 export type DiscoverPool = {
   id: string;
   name: string;
+  coverImageUrl?: string | null;
   ownerDisplayName: string;
   ownerEmail: string;
   tournamentName: string;
@@ -114,6 +120,7 @@ export type LeaderboardEntry = {
   memberId: string;
   userId: string;
   displayName: string;
+  avatarUrl?: string | null;
   role: string;
   balance: number;
   predictionCount: number;

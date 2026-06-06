@@ -161,7 +161,7 @@ export default function PoolsPage() {
                     <small>{pool.profile} profile</small>
                   </span>
                   <span>
-                    <strong>{pool.memberCount}</strong>
+                    <strong>{formatNumberDisplay(pool.memberCount)}</strong>
                     <small>
                       <IconLabel icon={Users}>members</IconLabel>
                     </small>
@@ -172,7 +172,7 @@ export default function PoolsPage() {
                       <IconLabel
                         icon={pool.role === "Member" ? Hash : ShieldCheck}
                       >
-                        {pool.inviteCount} invites
+                        {formatNumberDisplay(pool.inviteCount)} invites
                       </IconLabel>
                     </small>
                   </span>
@@ -205,13 +205,13 @@ export default function PoolsPage() {
                     </small>
                   </span>
                   <span>
-                    <strong>{pool.memberCount}</strong>
+                    <strong>{formatNumberDisplay(pool.memberCount)}</strong>
                     <small>
                       <IconLabel icon={Users}>members</IconLabel>
                     </small>
                   </span>
                   <span>
-                    <strong>{pool.startingBalance}</strong>
+                    <strong>{formatNumberDisplay(pool.startingBalance)}</strong>
                     <small>
                       <IconLabel icon={BadgeDollarSign}>
                         starting balance
@@ -240,4 +240,15 @@ export default function PoolsPage() {
       </section>
     </UserShell>
   );
+}
+
+function formatNumberDisplay(value: number) {
+  if (Number.isInteger(value)) {
+    return value.toLocaleString();
+  }
+
+  return value.toLocaleString(undefined, {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 0,
+  });
 }

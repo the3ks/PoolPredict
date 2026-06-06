@@ -6,10 +6,10 @@ See `docs/ImplementationStatus.md` for the latest implementation handoff notes.
 
 Current status:
 
-* Sprint 0 through Sprint 11 are implemented for the current MVP scope
+* Sprint 0 through Sprint 13 are implemented for the current MVP scope
 * API and web apps have working auth, identity security flows, pool management, pool discovery/join requests, tournament browsing and admin provider sync
 * MariaDB persistence uses EF Core migrations when configured
-* The web app has prediction entry and PlatformAdmin manual settlement flows
+* The web app has prediction entry, enhanced market displays and PlatformAdmin manual settlement flows
 * Automatic settlement is not part of the MVP path
 
 ---
@@ -559,6 +559,136 @@ Known limitations to fix later:
 
 ## Goal
 
+Market Profiles, 1X2, Pool Detail UX & Admin Event Polish
+
+## Deliverables
+
+Market profile behavior:
+
+* Add Fulltime 1X2 market support.
+* Include 1X2 in Casual and Standard profile defaults.
+* Keep Casual profile Fulltime-only with 1X2, Over/Under, Odd/Even and Correct Score.
+* Restrict Expert profile pool creation to PlatformAdmin users.
+
+Pool detail market UX:
+
+* Render 1X2 as a full-width three-option row.
+* Render Handicap as a full-width two-option row.
+* Show current option prediction users on market displays.
+* Show Handicap period, line and FT/HT score context.
+* Show Standard profile FT/HT labels on multi-period market cards.
+* Show only upcoming scheduled matches inside the configured upcoming window.
+* Keep recent closed matches collapsible and hide them after the recent closed window.
+* Add mobile sticky prediction slip.
+* Validate Correct Score input as zero-or-positive integer score pairs.
+
+Pool detail summary and owner controls:
+
+* Show Summary and Leaderboard side by side on larger screens.
+* Move prediction history leaderboard below My predictions.
+* Make owner settings and pending join requests collapsible.
+* Show pending join requests only in the owner/admin pool detail panel.
+
+Admin and event polish:
+
+* Sort Settled and Cancelled events to the bottom on admin Event Management and Settlement screens.
+* Hide Settled and Cancelled events more than 72 hours after kickoff.
+* Add participant-code flag display support without database schema changes.
+* Refresh header navigation labels and icons.
+
+Acceptance:
+
+Casual and Standard pools expose the intended market sets with clearer option-level prediction visibility.
+
+Pool members can submit predictions efficiently on desktop and mobile.
+
+PlatformAdmin event management lists stay focused on actionable events while still briefly showing recently closed matches.
+
+## Current Implementation Notes
+
+Implemented:
+
+* `OneXTwo` market type, default payout rules and settlement calculation.
+* 1X2 requirement document in `docs/Requirements-1X2.md`.
+* Casual profile default rules with Fulltime-only 1X2, Over/Under, Odd/Even and Correct Score.
+* Standard profile 1X2 support.
+* PlatformAdmin-only Expert profile creation guard in API and web pool creation.
+* Market prediction summary endpoint for option-level user lists.
+* Pool detail 1X2 and Handicap wide-row market UI.
+* Market display windows for upcoming scheduled and recent closed events.
+* Summary/leaderboard pool detail layout and collapsible owner controls.
+* Mobile sticky prediction slip for pool detail prediction entry.
+* Correct Score format validation on prediction submit.
+* Admin event list closed-event sorting and 72-hour closed-event hide window.
+* Participant code enrichment on event responses and frontend flag rendering helper.
+* Header navigation rename from Tournaments to Home, menu icons and soccer ball brand mark.
+
+Known limitations to fix later:
+
+* Existing pools do not automatically receive newly added 1X2 markets without an explicit backfill or regeneration action.
+* Emoji/SVG flag rendering can vary by provider code coverage; unmapped participant codes fall back to plain participant names.
+* Mobile prediction slip is CSS-driven and does not yet include full interaction tests.
+
+---
+
+# Sprint 13
+
+## Goal
+
+Profile Personalization & Pool Stake Controls
+
+## Deliverables
+
+Profile:
+
+* Signed-in users can update display name.
+* Signed-in users can update avatar URL.
+
+Pool presentation:
+
+* Pool owner/admin can set a pool cover image URL.
+* Pool detail summary shows the cover and compact stake-rule summary.
+
+Pool stake controls:
+
+* Pool owner/admin can set:
+  * default stake
+  * minimum stake per prediction
+  * maximum stake per prediction
+  * maximum total stake per event
+* Prediction submit UI must show stake hints and enforce those limits.
+* API must enforce the same limits server-side.
+
+Acceptance:
+
+Users can personalize their profile.
+
+Pool owners/admins can configure pool cover and stake rules.
+
+Pool members can only submit predictions that satisfy the pool's configured stake limits.
+
+## Current Implementation Notes
+
+Implemented:
+
+* Signed-in profile editing for display name and avatar URL on `/profile`
+* Pool cover image URL in owner/admin settings on `/pools/[poolId]`
+* Compact pool summary display for starting balance and stake rules
+* Pool-level default stake, min stake, max stake and per-event cap persistence
+* Prediction form guidance for default stake, range and per-event remaining allowance
+* Server-side stake validation for per-prediction and per-event limits
+
+Known limitations to fix later:
+
+* Avatar and cover images are URL-based only; direct file upload/storage is not implemented.
+* Pool list and dashboard cards do not yet reuse the cover image as a preview surface.
+
+---
+
+# Sprint 14
+
+## Goal
+
 AI Recap
 
 ## Deliverables
@@ -579,7 +709,7 @@ One recap generated per pool per week.
 
 ---
 
-# Sprint 13
+# Sprint 15
 
 ## Goal
 

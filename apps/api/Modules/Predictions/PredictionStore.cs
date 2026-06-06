@@ -53,6 +53,16 @@ public sealed class PredictionStore
             throw new InvalidOperationException("Predictions are locked for this pool.");
         }
 
+        if (request.Stake < pool.MinStake)
+        {
+            throw new InvalidOperationException($"Stake must be at least {pool.MinStake}.");
+        }
+
+        if (request.Stake > pool.MaxStake)
+        {
+            throw new InvalidOperationException($"Stake cannot exceed {pool.MaxStake}.");
+        }
+
         if (market.PoolId != pool.Id)
         {
             throw new ArgumentException("Market does not belong to the selected pool.", nameof(request));
@@ -86,6 +96,14 @@ public sealed class PredictionStore
             if (GetBalanceUnsafe(pool.Id, member.Id) < 0)
             {
                 throw new InvalidOperationException("Member balance is negative. New predictions are blocked.");
+            }
+
+            var totalStakeForEvent = GetTotalStakeForEventUnsafe(pool.Id, member.Id, market.EventId);
+            if (totalStakeForEvent + request.Stake > pool.MaxTotalStakePerEvent)
+            {
+                var remaining = Math.Max(0, pool.MaxTotalStakePerEvent - totalStakeForEvent);
+                throw new InvalidOperationException(
+                    $"This prediction exceeds the event cap of {pool.MaxTotalStakePerEvent}. Remaining allowance: {remaining}.");
             }
 
             var prediction = new Prediction(
@@ -290,6 +308,7 @@ public sealed class PredictionStore
                     item.Member.Id,
                     item.Member.UserId,
                     string.IsNullOrWhiteSpace(item.User.DisplayName) ? item.User.Email : item.User.DisplayName,
+                    item.User.AvatarUrl,
                     item.Member.Role.ToString(),
                     balances.GetValueOrDefault(item.Member.Id, startingBalance),
                     memberPredictions.Length,
@@ -402,6 +421,20 @@ public sealed class PredictionStore
         _ledger
             .Where(entry => entry.PoolId == poolId && entry.MemberId == memberId)
             .Sum(entry => entry.Points);
+
+    private int GetTotalStakeForEventUnsafe(Guid poolId, Guid memberId, Guid eventId)
+    {
+        using var db = _dbContextFactory.CreateDbContext();
+        return db.Predictions
+            .AsNoTracking()
+            .Where(prediction => prediction.PoolId == poolId && prediction.MemberId == memberId)
+            .Join(
+                db.Markets.AsNoTracking().Where(market => market.EventId == eventId),
+                prediction => prediction.MarketId,
+                market => market.Id,
+                (prediction, _) => prediction.Stake)
+            .Sum();
+    }
 
     private void LoadPersisted()
     {
@@ -590,6 +623,7 @@ public sealed record LeaderboardEntryResponse(
     Guid MemberId,
     Guid UserId,
     string DisplayName,
+    string? AvatarUrl,
     string Role,
     int Balance,
     int PredictionCount,

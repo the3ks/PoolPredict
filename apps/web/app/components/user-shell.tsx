@@ -67,7 +67,17 @@ export function UserShell({ children }: { children: ReactNode }) {
           {isSignedIn ? (
             <>
               <Link className="appProfileLink" href="/profile">
-                {profile?.displayName ?? "Profile"}
+                <span className="appProfileIdentity">
+                  {profile?.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img alt="" className="topbarAvatar" src={profile.avatarUrl} />
+                  ) : (
+                    <span className="topbarAvatarFallback">
+                      {(profile?.displayName ?? "P").slice(0, 1).toUpperCase()}
+                    </span>
+                  )}
+                  <span>{profile?.displayName ?? "Profile"}</span>
+                </span>
               </Link>
               <button
                 className="button buttonSecondary"

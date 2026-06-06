@@ -356,6 +356,35 @@ select {
   color: var(--text);
 }
 
+.appProfileIdentity {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.topbarAvatar,
+.topbarAvatarFallback {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+}
+
+.topbarAvatar {
+  object-fit: cover;
+}
+
+.topbarAvatarFallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 900;
+}
+
 .compactButton {
   min-height: 36px;
   padding: 0 12px;
@@ -465,6 +494,70 @@ select {
 
 .narrowPanel {
   max-width: 560px;
+}
+
+.profileGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.profileActionColumn {
+  display: grid;
+  gap: 16px;
+}
+
+.profileReadPanel,
+.profileCompactPanel {
+  min-width: 0;
+}
+
+.profileStaticHeader {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.profileIdentityBlock {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.profileIdentityBlock strong,
+.profileIdentityBlock small {
+  overflow-wrap: anywhere;
+}
+
+.profileIdentityBlock small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.profileStaticDetails {
+  margin-bottom: 18px;
+}
+
+.profileCompactForm {
+  gap: 12px;
+  margin-top: 0;
+}
+
+.profileCompactForm .statusText {
+  margin-bottom: 0;
+}
+
+.profileCompactForm label {
+  gap: 5px;
+  font-size: 12px;
+}
+
+.profileCompactForm input {
+  min-height: 38px;
 }
 
 .topbar {
@@ -839,13 +932,61 @@ dd {
   flex-direction: column;
 }
 
+.poolSummaryTitle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.poolSummaryTitle .iconLabel {
+  color: var(--muted-strong);
+  font-size: 16px;
+  gap: 6px;
+  vertical-align: middle;
+}
+
 .poolSummaryPanel .statGrid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   margin-bottom: 0;
 }
 
-.poolSummaryPanel .statTile {
-  min-height: 102px;
+.poolSummaryCompactGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.poolSummaryStatBox {
+  display: grid;
+  gap: 6px;
+  min-height: 64px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--tile-bg);
+  padding: 8px 12px;
+}
+
+.poolSummaryStatBox small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.poolSummaryStatBox small .iconLabel {
+  justify-content: flex-start;
+  gap: 6px;
+}
+
+.poolSummaryStatBox small .iconLabel span {
+  min-width: 0;
+}
+
+.poolSummaryStatBox strong {
+  color: var(--text);
+  font-size: 18px;
+  overflow-wrap: anywhere;
 }
 
 .poolLeaderboardList {
@@ -883,6 +1024,68 @@ dd {
   overflow-wrap: anywhere;
 }
 
+.leaderboardIdentity {
+  display: block;
+  min-width: 0;
+  overflow-wrap: normal;
+}
+
+.leaderboardName {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  overflow-wrap: normal;
+}
+
+.leaderboardRank {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.leaderboardAvatarWrap {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+}
+
+.leaderboardLabel {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  text-overflow: ellipsis;
+  color: var(--text);
+}
+
+.leaderboardAvatar,
+.leaderboardAvatarFallback {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+}
+
+.leaderboardAvatar {
+  object-fit: cover;
+}
+
+.leaderboardAvatarFallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 800;
+}
+
 .poolLeaderboardRow small {
   color: var(--muted);
   font-size: 11px;
@@ -907,7 +1110,7 @@ dd {
 }
 
 .poolSettingsForm {
-  grid-template-columns: minmax(0, 1fr) minmax(120px, 0.48fr) auto auto;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: end;
   gap: 12px;
   margin-top: 0;
@@ -921,6 +1124,10 @@ dd {
 .poolSettingsForm input {
   min-height: 36px;
   padding: 0 10px;
+}
+
+.poolSettingsWideField {
+  grid-column: 1 / -1;
 }
 
 .poolSettingsForm label {
@@ -1260,7 +1467,7 @@ dd {
 }
 
 .horizontalDetails {
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   margin-bottom: 0;
 }
@@ -1753,6 +1960,33 @@ dd {
   text-transform: uppercase;
 }
 
+.stakeHintList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.stakeHintList small {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--secondary-bg);
+  padding: 0 10px;
+  color: var(--muted-strong);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.stakeValidationText {
+  margin: -4px 0 0;
+  color: #fbbf24;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .eventIdText {
   display: block;
   margin-top: 2px;
@@ -2050,6 +2284,27 @@ dd {
   content: "";
 }
 
+.profileAvatarPreview {
+  display: inline-flex;
+  width: 84px;
+  height: 84px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--tile-bg);
+  color: var(--accent);
+  font-size: 28px;
+  font-weight: 900;
+  overflow: hidden;
+}
+
+.profileAvatarPreview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .tournamentCard:hover {
   border-color: var(--accent-border);
   transform: translateY(-1px);
@@ -2141,6 +2396,7 @@ dd {
 
   .topbar,
   .workspace,
+  .profileGrid,
   .poolOverviewGrid,
   .poolManagementGrid,
   .poolGrid,

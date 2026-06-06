@@ -4,6 +4,7 @@ export type UserProfile = {
   id: string;
   email: string;
   displayName: string;
+  avatarUrl?: string | null;
   role: string;
   isEmailVerified: boolean;
   mustChangePassword: boolean;

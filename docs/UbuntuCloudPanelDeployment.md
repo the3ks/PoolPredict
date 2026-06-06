@@ -191,6 +191,13 @@ NEXT_PUBLIC_API_BASE_URL=https://www.wc2026.beer/api
 
 The API does not run migrations at startup. Apply migrations manually before first launch and before each release with schema changes.
 
+You have two supported options:
+
+- Option A: run `dotnet ef database update` on the server.
+- Option B: generate the SQL locally, review it, copy it to production, then run it against MariaDB manually.
+
+### Option A: Run EF Migrations On The Server
+
 As the `poolpredict` site user:
 
 ```bash
@@ -209,6 +216,58 @@ dotnet tool install --global dotnet-ef
 echo 'export PATH="$PATH:$HOME/.dotnet/tools"' >> ~/.bashrc
 source ~/.bashrc
 ```
+
+### Option B: Generate SQL Locally, Then Apply It On Production
+
+This is a good fit when you want a reviewable migration artifact or stricter control over production schema changes.
+
+Input parameter:
+
+```text
+FROM_MIGRATION=0
+```
+
+Use `0` for a brand new empty production database. For later updates, set `FROM_MIGRATION` to the migration already applied in production.
+
+Windows PowerShell:
+
+```powershell
+$fromMigration = "0"
+New-Item -ItemType Directory -Force -Path artifacts/sql
+dotnet ef migrations script $fromMigration `
+  --idempotent `
+  --output "artifacts/sql/poolpredict-$fromMigration-to-latest.sql" `
+  --project apps/api/PoolPredict.Api.csproj `
+  --startup-project apps/api/PoolPredict.Api.csproj `
+  --configuration Release
+```
+
+Linux/macOS shell:
+
+```bash
+FROM_MIGRATION=0
+mkdir -p artifacts/sql
+dotnet ef migrations script "$FROM_MIGRATION" \
+  --idempotent \
+  --output "artifacts/sql/poolpredict-${FROM_MIGRATION}-to-latest.sql" \
+  --project apps/api/PoolPredict.Api.csproj \
+  --startup-project apps/api/PoolPredict.Api.csproj \
+  --configuration Release
+```
+
+Review the script locally, then copy it to the server:
+
+```bash
+scp "artifacts/sql/poolpredict-${FROM_MIGRATION}-to-latest.sql" poolpredict@www.wc2026.beer:/home/poolpredict/
+```
+
+Apply it on production:
+
+```bash
+mariadb -h 127.0.0.1 -P 3306 -u poolpredict -p poolpredict < "/home/poolpredict/poolpredict-${FROM_MIGRATION}-to-latest.sql"
+```
+
+For later production updates, you can use the same pattern with an incremental script from the migration already applied in production to the latest migration. See **10.4 API Update With Database Migration** below for that workflow.
 
 ## 7. Publish And Run The .NET API
 

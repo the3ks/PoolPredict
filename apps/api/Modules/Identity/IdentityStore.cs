@@ -43,6 +43,7 @@ public sealed class IdentityStore
                 Ids.NewId(),
                 email,
                 displayName,
+                avatarUrl: null,
                 UserRole.PoolMember,
                 PasswordService.Hash(request.Password));
 
@@ -194,6 +195,22 @@ public sealed class IdentityStore
         }
     }
 
+    public User UpdateProfile(Guid userId, UpdateProfileRequest request)
+    {
+        var displayName = NormalizeRequiredDisplayName(request.DisplayName);
+        var avatarUrl = NormalizeOptionalUrl(request.AvatarUrl, "Avatar URL");
+
+        lock (_gate)
+        {
+            var user = _users.SingleOrDefault(candidate => candidate.Id == userId)
+                ?? throw new UnauthorizedAccessException("User was not found.");
+
+            user.UpdateProfile(displayName, avatarUrl);
+            UpdateUser(user);
+            return user;
+        }
+    }
+
     public string CreateEmailVerificationToken(Guid userId)
     {
         return CreateToken(userId, EmailVerificationPurpose, DateTimeOffset.UtcNow.AddHours(24));
@@ -298,7 +315,7 @@ public sealed class IdentityStore
 
     private User CreateGoogleUser(string email, string displayName)
     {
-        var user = new User(Ids.NewId(), email, displayName, UserRole.PoolMember, emailVerifiedAt: DateTimeOffset.UtcNow);
+        var user = new User(Ids.NewId(), email, displayName, avatarUrl: null, UserRole.PoolMember, emailVerifiedAt: DateTimeOffset.UtcNow);
         _users.Add(user);
         PersistUser(user);
         return user;
@@ -332,6 +349,7 @@ public sealed class IdentityStore
             Ids.NewId(),
             normalizedEmail,
             NormalizeDisplayName(displayName, email),
+            avatarUrl: null,
             UserRole.PlatformAdmin,
             PasswordService.Hash(password),
             emailVerifiedAt: DateTimeOffset.UtcNow);
@@ -348,6 +366,7 @@ public sealed class IdentityStore
             user.Id,
             user.Email,
             user.DisplayName,
+            user.AvatarUrl,
             user.Role,
             user.PasswordHash,
             user.CreatedAt,
@@ -385,6 +404,7 @@ public sealed class IdentityStore
         }
 
         persisted.DisplayName = user.DisplayName;
+        persisted.AvatarUrl = user.AvatarUrl;
         persisted.Role = user.Role;
         persisted.PasswordHash = user.PasswordHash;
         persisted.EmailVerifiedAt = user.EmailVerifiedAt;
@@ -400,6 +420,7 @@ public sealed class IdentityStore
         Email = user.Email,
         NormalizedEmail = user.NormalizedEmail,
         DisplayName = user.DisplayName,
+        AvatarUrl = user.AvatarUrl,
         Role = user.Role,
         PasswordHash = user.PasswordHash,
         CreatedAt = user.CreatedAt,
@@ -453,6 +474,39 @@ public sealed class IdentityStore
         return string.IsNullOrWhiteSpace(displayName)
             ? email.Split('@')[0]
             : displayName.Trim();
+    }
+
+    private static string NormalizeRequiredDisplayName(string displayName)
+    {
+        var normalized = displayName?.Trim() ?? "";
+        if (normalized.Length == 0)
+        {
+            throw new ArgumentException("Display name is required.", nameof(displayName));
+        }
+
+        if (normalized.Length > 200)
+        {
+            throw new ArgumentException("Display name must be 200 characters or fewer.", nameof(displayName));
+        }
+
+        return normalized;
+    }
+
+    private static string? NormalizeOptionalUrl(string? value, string fieldName)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var normalized = value.Trim();
+        if (!Uri.TryCreate(normalized, UriKind.Absolute, out var uri)
+            || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+        {
+            throw new ArgumentException($"{fieldName} must be a valid HTTP or HTTPS URL.", fieldName);
+        }
+
+        return normalized;
     }
 
     private static string GenerateToken() => Base64UrlEncode(RandomNumberGenerator.GetBytes(32));

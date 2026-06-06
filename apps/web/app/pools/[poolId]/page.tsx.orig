@@ -32,6 +32,7 @@ import {
   IconLabel,
   PageHeader,
   Panel,
+  StatGrid,
   StatusPill,
 } from "../../components/ui";
 import { apiUrl, readApiError } from "../../lib/api";
@@ -89,14 +90,9 @@ export default function PoolOverviewPage() {
   const [maxStake, setMaxStake] = useState(200);
   const [maxTotalStakePerEvent, setMaxTotalStakePerEvent] = useState(400);
   const [status, setStatus] = useState("Loading pool...");
-  const [isSavingPool, setIsSavingPool] = useState(false);
   const [joinRequestStatus, setJoinRequestStatus] = useState("");
   const [isLoadingJoinRequests, setIsLoadingJoinRequests] = useState(false);
-  const [showOverviewRow, setShowOverviewRow] = useState(() =>
-    typeof window === "undefined"
-      ? true
-      : !window.matchMedia("(max-width: 760px)").matches,
-  );
+  const [showOverviewRow, setShowOverviewRow] = useState(true);
   const [showManagementRow, setShowManagementRow] = useState(false);
   const [showRecentClosedMarkets, setShowRecentClosedMarkets] = useState(true);
   const [isPredictionSlipExpanded, setIsPredictionSlipExpanded] = useState(false);
@@ -108,16 +104,7 @@ export default function PoolOverviewPage() {
   }, [poolId]);
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia("(max-width: 760px)");
-    const syncOverviewVisibility = () => {
-      setShowOverviewRow(!mediaQuery.matches);
-    };
-
-    syncOverviewVisibility();
-    mediaQuery.addEventListener("change", syncOverviewVisibility);
-    return () => {
-      mediaQuery.removeEventListener("change", syncOverviewVisibility);
-    };
+    setShowOverviewRow(!window.matchMedia("(max-width: 760px)").matches);
   }, []);
 
   async function loadPool() {
@@ -281,48 +268,36 @@ export default function PoolOverviewPage() {
 
   async function updatePool(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await savePoolSettings();
-  }
-
-  async function savePoolSettings() {
     const token = getStoredToken();
     if (!token || !pool) {
       return;
     }
 
-    setIsSavingPool(true);
-    setStatus("Saving pool settings...");
-    try {
-      const response = await fetch(apiUrl(`/api/pools/${pool.id}`), {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name,
-          startingBalance,
-          predictionsLocked,
-          coverImageUrl: coverImageUrl.trim() || null,
-          defaultStake,
-          minStake,
-          maxStake,
-          maxTotalStakePerEvent,
-        }),
-      });
+    const response = await fetch(apiUrl(`/api/pools/${pool.id}`), {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name,
+        startingBalance,
+        predictionsLocked,
+        coverImageUrl: coverImageUrl.trim() || null,
+        defaultStake,
+        minStake,
+        maxStake,
+        maxTotalStakePerEvent,
+      }),
+    });
 
-      if (!response.ok) {
-        setStatus(await readApiError(response, "Pool update failed."));
-        return;
-      }
-
-      setStatus("Pool updated.");
-      await loadPool();
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Pool update failed.");
-    } finally {
-      setIsSavingPool(false);
+    if (!response.ok) {
+      setStatus(await readApiError(response, "Pool update failed."));
+      return;
     }
+
+    setStatus("Pool updated.");
+    await loadPool();
   }
 
   async function submitPrediction(event: FormEvent<HTMLFormElement>) {
@@ -443,9 +418,6 @@ export default function PoolOverviewPage() {
   const exceedsEventStakeLimit = pool
     ? selectedEventStakeUsed + stake > pool.maxTotalStakePerEvent
     : false;
-  const currentMemberLeaderboardEntry = pool?.memberId
-    ? leaderboard.find((entry) => entry.memberId === pool.memberId) ?? null
-    : null;
   const marketGroups = events
     .map((matchEvent) => {
       return {
@@ -483,6 +455,7 @@ export default function PoolOverviewPage() {
         />
         <StatusPill icon={ShieldCheck}>{status}</StatusPill>
         {pool ? (
+<<<<<<< Updated upstream
           <section className="poolOverviewSection">
             <button
               className="overviewRowToggle"
@@ -495,42 +468,19 @@ export default function PoolOverviewPage() {
             </button>
             {showOverviewRow ? (
               <div className="poolOverviewGrid">
-                <Panel className="poolSummaryPanel">
-                  <h2 className="poolSummaryTitle">
-                    Summary (<IconLabel icon={Users}>{pool.memberCount}</IconLabel>)
-                  </h2>
-                  <div className="poolSummaryCompactGrid">
-                    <div className="poolSummaryStatBox">
-                      <small><IconLabel icon={ShieldCheck}>Role</IconLabel></small>
-                      <strong>{pool.role}</strong>
-                    </div>
-                    <div className="poolSummaryStatBox">
-                      <small><IconLabel icon={Lock}>Prediction status</IconLabel></small>
-                      <strong>{pool.predictionsLocked ? "Locked" : "Open"}</strong>
-                    </div>
-                    <div className="poolSummaryStatBox">
-                      <small><IconLabel icon={Waves}>Profile</IconLabel></small>
-                      <strong>{pool.profile}</strong>
-                    </div>
-                    <div className="poolSummaryStatBox">
-                      <small>Your balance</small>
-                      <strong>
-                        {currentMemberLeaderboardEntry
-                          ? formatNumberDisplay(currentMemberLeaderboardEntry.balance)
-                          : "-"}
-                      </strong>
-                    </div>
-                    <div className="poolSummaryStatBox">
-                      <small>Stake range</small>
-                      <strong>
-                        {formatNumberDisplay(pool.minStake)}-{formatNumberDisplay(pool.maxStake)}
-                      </strong>
-                    </div>
-                    <div className="poolSummaryStatBox">
-                      <small>Event cap</small>
-                      <strong>{formatNumberDisplay(pool.maxTotalStakePerEvent)}</strong>
-                    </div>
-                  </div>
+                <Panel className="poolSummaryPanel" title="Summary">
+                  <StatGrid
+                    items={[
+                      { label: "Members", value: pool.memberCount, icon: Users },
+                      { label: "Role", value: pool.role, icon: ShieldCheck },
+                      {
+                        label: "Prediction status",
+                        value: pool.predictionsLocked ? "Locked" : "Open",
+                        icon: Lock,
+                      },
+                      { label: "Profile", value: pool.profile, icon: Waves },
+                    ]}
+                  />
                 </Panel>
                 <Panel className="poolLeaderboardPanel" title="Leaderboard">
                   <div className="poolLeaderboardList">
@@ -548,25 +498,13 @@ export default function PoolOverviewPage() {
                           key={entry.memberId}
                         >
                           <span>
-                            <strong className="leaderboardIdentity">
-                              <span className="leaderboardName">
-                                <span className="leaderboardRank">#{index + 1}</span>
-                                <span className="leaderboardAvatarWrap">
-                                  {entry.avatarUrl ? (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img alt="" className="leaderboardAvatar" src={entry.avatarUrl} />
-                                  ) : (
-                                    <span className="leaderboardAvatarFallback">
-                                      {entry.displayName.slice(0, 1).toUpperCase()}
-                                    </span>
-                                  )}
-                                </span>
-                                <span className="leaderboardLabel">{entry.displayName}</span>
-                              </span>
+                            <strong>
+                              #{index + 1} {entry.displayName}
                             </strong>
+                            <small>{entry.role}</small>
                           </span>
                           <span>
-                            <strong>{formatNumberDisplay(entry.balance)}</strong>
+                            <strong>{entry.balance}</strong>
                             <small>Balance</small>
                           </span>
                           <span>
@@ -578,6 +516,79 @@ export default function PoolOverviewPage() {
                     )}
                   </div>
                 </Panel>
+=======
+          <div className="poolOverviewGrid">
+            <Panel className="poolSummaryPanel" title="Summary">
+              <div
+                className={[
+                  "poolSummaryCover",
+                  pool.coverImageUrl ? "hasImage" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                style={
+                  pool.coverImageUrl
+                    ? { backgroundImage: `linear-gradient(180deg, rgba(5, 12, 10, 0.28), rgba(5, 12, 10, 0.82)), url(${pool.coverImageUrl})` }
+                    : undefined
+                }
+              >
+                <div>
+                  <strong>{pool.name}</strong>
+                  <small>{pool.profile} profile</small>
+                </div>
+              </div>
+              <StatGrid
+                items={[
+                  { label: "Members", value: pool.memberCount, icon: Users },
+                  { label: "Role", value: pool.role, icon: ShieldCheck },
+                  {
+                    label: "Prediction status",
+                    value: pool.predictionsLocked ? "Locked" : "Open",
+                    icon: Lock,
+                  },
+                  { label: "Profile", value: pool.profile, icon: Waves },
+                ]}
+              />
+              <dl className="detailList horizontalDetails poolStakeDetails">
+                <div><dt>Balance</dt><dd>{pool.startingBalance}</dd></div>
+                <div><dt>Default</dt><dd>{pool.defaultStake}</dd></div>
+                <div><dt>Stake range</dt><dd>{pool.minStake}-{pool.maxStake}</dd></div>
+                <div><dt>Event cap</dt><dd>{pool.maxTotalStakePerEvent}</dd></div>
+              </dl>
+            </Panel>
+            <Panel className="poolLeaderboardPanel" title="Leaderboard">
+              <div className="poolLeaderboardList">
+                {leaderboard.length === 0 ? (
+                  <p className="mutedText">No leaderboard entries yet.</p>
+                ) : (
+                  leaderboard.map((entry, index) => (
+                    <article
+                      className={[
+                        "poolLeaderboardRow",
+                        entry.memberId === pool.memberId ? "active" : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
+                      key={entry.memberId}
+                    >
+                      <span>
+                        <strong>
+                          #{index + 1} {entry.displayName}
+                        </strong>
+                        <small>{entry.role}</small>
+                      </span>
+                      <span>
+                        <strong>{entry.balance}</strong>
+                        <small>Balance</small>
+                      </span>
+                      <span>
+                        <strong>{entry.winRate}%</strong>
+                        <small>Win rate</small>
+                      </span>
+                    </article>
+                  ))
+                )}
+>>>>>>> Stashed changes
               </div>
             ) : null}
           </section>
@@ -683,13 +694,8 @@ export default function PoolOverviewPage() {
                     />
                     Lock predictions
                   </label>
-                  <button
-                    className="button compactButton"
-                    disabled={isSavingPool}
-                    type="button"
-                    onClick={() => void savePoolSettings()}
-                  >
-                    <IconLabel icon={Save}>{isSavingPool ? "Saving..." : "Save"}</IconLabel>
+                  <button className="button compactButton" type="submit">
+                    <IconLabel icon={Save}>Save</IconLabel>
                   </button>
                 </form>
                 <Panel
@@ -959,7 +965,7 @@ export default function PoolOverviewPage() {
                   )
                 ) : null}
                 <label>
-                  Điểm
+                  Stake
                   <input
                     max={pool.maxStake}
                     min={pool.minStake}
@@ -970,26 +976,24 @@ export default function PoolOverviewPage() {
                   />
                 </label>
                 <div className="stakeHintList">
+                  <small>Default {pool.defaultStake}</small>
+                  <small>Range {pool.minStake}-{pool.maxStake}</small>
+                  <small>
+                    Event cap {selectedEventStakeUsed}/{pool.maxTotalStakePerEvent}
+                  </small>
                   {selectedEvent ? (
-                    <small>
-                      Remaining on this match {formatNumberDisplay(selectedEventStakeRemaining)}
-                    </small>
+                    <small>Remaining on this match {selectedEventStakeRemaining}</small>
                   ) : null}
                 </div>
                 {isStakeBelowMin ? (
-                  <p className="stakeValidationText">
-                    Stake must be at least {formatNumberDisplay(pool.minStake)}.
-                  </p>
+                  <p className="stakeValidationText">Stake must be at least {pool.minStake}.</p>
                 ) : null}
                 {isStakeAboveMax ? (
-                  <p className="stakeValidationText">
-                    Stake cannot exceed {formatNumberDisplay(pool.maxStake)}.
-                  </p>
+                  <p className="stakeValidationText">Stake cannot exceed {pool.maxStake}.</p>
                 ) : null}
                 {exceedsEventStakeLimit ? (
                   <p className="stakeValidationText">
-                    This match allows {formatNumberDisplay(pool.maxTotalStakePerEvent)} total stake.
-                    {" "}Remaining allowance: {formatNumberDisplay(selectedEventStakeRemaining)}.
+                    This match allows {pool.maxTotalStakePerEvent} total stake. Remaining allowance: {selectedEventStakeRemaining}.
                   </p>
                 ) : null}
                 <button
@@ -1022,7 +1026,7 @@ export default function PoolOverviewPage() {
                       {recentPrediction.marketPeriod}{" "}
                       {formatMarketTypeLabel(recentPrediction.marketType)} |{" "}
                       {formatMarketOptionLabel(recentPrediction.selectedOption)}{" "}
-                      | {formatNumberDisplay(recentPrediction.stake)} Điểm |{" "}
+                      | {recentPrediction.stake} Điểm |{" "}
                       {recentPrediction.payoutMultiplier}x
                     </small>
                     <small>
@@ -1436,17 +1440,6 @@ function formatMarketCardTitle(market: Market, includePeriodLabel = false) {
 function formatPayoutRate(payoutMultiplier: number) {
   const profit = Math.max(0, payoutMultiplier - 1);
   return `1:${formatCompactNumber(profit)}`;
-}
-
-function formatNumberDisplay(value: number) {
-  if (Number.isInteger(value)) {
-    return value.toLocaleString();
-  }
-
-  return value.toLocaleString(undefined, {
-    maximumFractionDigits: 2,
-    minimumFractionDigits: 0,
-  });
 }
 
 function formatCompactNumber(value: number) {

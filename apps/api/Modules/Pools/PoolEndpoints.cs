@@ -43,6 +43,7 @@ public static class PoolEndpoints
                 {
                     pool.Id,
                     pool.Name,
+                    pool.CoverImageUrl,
                     OwnerDisplayName = owner.DisplayName,
                     OwnerEmail = owner.Email,
                     TournamentName = tournament.Name,
@@ -64,6 +65,7 @@ public static class PoolEndpoints
             return Results.Ok(rows.Select(pool => new DiscoverPoolResponse(
                 pool.Id,
                 pool.Name,
+                pool.CoverImageUrl,
                 pool.OwnerDisplayName,
                 pool.OwnerEmail,
                 pool.TournamentName,
@@ -93,6 +95,7 @@ public static class PoolEndpoints
                 {
                     pool.Id,
                     pool.Name,
+                    pool.CoverImageUrl,
                     OwnerDisplayName = owner.DisplayName,
                     TournamentName = tournament.Name,
                     tournament.Provider,
@@ -110,6 +113,7 @@ public static class PoolEndpoints
             return Results.Ok(rows.Select(pool => new DiscoverPoolResponse(
                 pool.Id,
                 pool.Name,
+                pool.CoverImageUrl,
                 pool.OwnerDisplayName,
                 "",
                 pool.TournamentName,
@@ -436,6 +440,7 @@ public static class PoolEndpoints
 public sealed record DiscoverPoolResponse(
     Guid Id,
     string Name,
+    string? CoverImageUrl,
     string OwnerDisplayName,
     string OwnerEmail,
     string TournamentName,
