@@ -42,7 +42,8 @@ if (string.IsNullOrWhiteSpace(mariaDbConnectionString))
 builder.Services.AddDbContextFactory<PoolPredictDbContext>(options =>
     options.UseMySql(
         mariaDbConnectionString,
-        ServerVersion.Create(new Version(12, 0, 0), ServerType.MariaDb)));
+        ServerVersion.Create(new Version(12, 0, 0), ServerType.MariaDb),
+        mySqlOptions => mySqlOptions.MigrationsHistoryTable(PoolPredictDatabaseOptions.MigrationsHistoryTable)));
 builder.Services.AddSingleton<ITournamentPersistence, EfTournamentPersistence>();
 
 builder.Services.AddSingleton<TournamentCatalog>();

@@ -37,7 +37,8 @@ public sealed class PoolPredictDbContextFactory : IDesignTimeDbContextFactory<Po
         var options = new DbContextOptionsBuilder<PoolPredictDbContext>()
             .UseMySql(
                 connectionString,
-                ServerVersion.Create(new Version(12, 0, 0), ServerType.MariaDb))
+                ServerVersion.Create(new Version(12, 0, 0), ServerType.MariaDb),
+                mySqlOptions => mySqlOptions.MigrationsHistoryTable(PoolPredictDatabaseOptions.MigrationsHistoryTable))
             .Options;
 
         return new PoolPredictDbContext(options);
