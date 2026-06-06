@@ -65,6 +65,23 @@ export type PoolInvite = {
   isRevoked?: boolean;
 };
 
+export type PoolMessageKind = "Chat" | "Announcement";
+
+export type PoolMessage = {
+  id: string;
+  poolId: string;
+  authorMemberId: string;
+  authorDisplayName: string;
+  authorAvatarUrl?: string | null;
+  authorRole: string;
+  kind: PoolMessageKind;
+  announcementSlot?: number | null;
+  title: string;
+  bodyMarkdown: string;
+  createdAt: string;
+  editedAt?: string | null;
+};
+
 export type TournamentEvent = {
   id: string;
   tournamentId: string;

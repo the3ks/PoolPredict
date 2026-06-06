@@ -10,12 +10,8 @@ public sealed class PoolPredictDbContextFactory : IDesignTimeDbContextFactory<Po
 {
     public PoolPredictDbContext CreateDbContext(string[] args)
     {
-        var environment =
-            Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")
-            ?? Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT")
-            ?? "Production";
-
         var basePath = ResolveConfigurationBasePath();
+        var environment = ResolveEnvironment(basePath);
         var configuration = new ConfigurationBuilder()
             .SetBasePath(basePath)
             .AddJsonFile("appsettings.json", optional: true)
@@ -59,6 +55,30 @@ public sealed class PoolPredictDbContextFactory : IDesignTimeDbContextFactory<Po
         }
 
         return currentDirectory;
+    }
+
+    private static string ResolveEnvironment(string basePath)
+    {
+        var configuredEnvironment =
+            Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")
+            ?? Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT");
+
+        if (!string.IsNullOrWhiteSpace(configuredEnvironment))
+        {
+            return configuredEnvironment;
+        }
+
+        if (File.Exists(Path.Combine(basePath, "appsettings.Production.json")))
+        {
+            return "Production";
+        }
+
+        if (File.Exists(Path.Combine(basePath, "appsettings.Development.json")))
+        {
+            return "Development";
+        }
+
+        return "Production";
     }
 
     private static bool HasAppSettings(string directory) =>

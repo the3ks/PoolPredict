@@ -28,6 +28,8 @@ public sealed class PoolPredictDbContext(DbContextOptions<PoolPredictDbContext> 
 
     public DbSet<PersistedPoolJoinRequest> PoolJoinRequests => Set<PersistedPoolJoinRequest>();
 
+    public DbSet<PersistedPoolMessage> PoolMessages => Set<PersistedPoolMessage>();
+
     public DbSet<PersistedMarket> Markets => Set<PersistedMarket>();
 
     public DbSet<PersistedPrediction> Predictions => Set<PersistedPrediction>();
@@ -225,6 +227,24 @@ public sealed class PoolPredictDbContext(DbContextOptions<PoolPredictDbContext> 
             entity.Property(request => request.UserId).HasColumnName("user_id");
             entity.Property(request => request.RequestedAt).HasColumnName("requested_at");
             entity.Property(request => request.Status).HasColumnName("status").HasMaxLength(40);
+        });
+
+        modelBuilder.Entity<PersistedPoolMessage>(entity =>
+        {
+            entity.ToTable("pool_messages");
+            entity.HasKey(message => message.Id);
+            entity.HasIndex(message => new { message.PoolId, message.CreatedAt });
+            entity.HasIndex(message => new { message.PoolId, message.Kind, message.AnnouncementSlot }).IsUnique();
+            entity.HasIndex(message => message.AuthorMemberId);
+            entity.Property(message => message.Id).HasColumnName("id");
+            entity.Property(message => message.PoolId).HasColumnName("pool_id");
+            entity.Property(message => message.AuthorMemberId).HasColumnName("author_member_id");
+            entity.Property(message => message.Kind).HasColumnName("kind").HasConversion<string>().HasMaxLength(40);
+            entity.Property(message => message.AnnouncementSlot).HasColumnName("announcement_slot");
+            entity.Property(message => message.Title).HasColumnName("title").HasMaxLength(200);
+            entity.Property(message => message.BodyMarkdown).HasColumnName("body_markdown").HasMaxLength(4000);
+            entity.Property(message => message.CreatedAt).HasColumnName("created_at");
+            entity.Property(message => message.EditedAt).HasColumnName("edited_at");
         });
 
         modelBuilder.Entity<PersistedMarket>(entity =>

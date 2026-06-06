@@ -1,4 +1,5 @@
 - [done] Profile page: allow user to change his/her display name and avatar
+-- AvatarStorage Configuration 
 - [done] Pool background cover from pool owner's uploaded image
 - [done] Pool stake settings: pool owner can set default stake, min and max stake per prediction, max total per event. Then user must follow these rules when making predictions with proper hints & constraints on prediction form.
 - Pools announcements and chat

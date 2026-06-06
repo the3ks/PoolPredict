@@ -6,7 +6,7 @@ See `docs/ImplementationStatus.md` for the latest implementation handoff notes.
 
 Current status:
 
-* Sprint 0 through Sprint 13 are implemented for the current MVP scope
+* Sprint 0 through Sprint 14 are implemented for the current MVP scope
 * API and web apps have working auth, identity security flows, pool management, pool discovery/join requests, tournament browsing and admin provider sync
 * MariaDB persistence uses EF Core migrations when configured
 * The web app has prediction entry, enhanced market displays and PlatformAdmin manual settlement flows
@@ -689,6 +689,103 @@ Known limitations to fix later:
 
 ## Goal
 
+Pool Detail UX & Deployment Polish
+
+## Deliverables
+
+Pool detail UX:
+
+* Show the current signed-in member balance in the pool summary instead of only the pool starting balance.
+* Show leaderboard identity with rank, avatar and display name in a compact single-line layout.
+* Format displayed balances, stakes and pool limits with number separators across pool list, pool detail and prediction history pages.
+* Restore collapse/expand for the Summary & Leaderboard row on the pool detail page.
+* Default the Summary & Leaderboard row to expanded on desktop and collapsed on mobile.
+
+Prediction and profile read model polish:
+
+* Surface user avatar URLs into leaderboard responses so leaderboard rows can show member avatars consistently.
+
+Deployment documentation:
+
+* Document a production-safe option to generate EF migration SQL locally, review it, and apply it manually on production.
+* Document the `FROM_MIGRATION` parameter pattern in both Windows PowerShell and shell-based deployment flows.
+
+Acceptance:
+
+Pool members can see their current balance and a compact leaderboard identity on the pool page without losing the summary/leaderboard collapse behavior.
+
+Operators can choose either direct EF migration execution or locally generated SQL script deployment for production schema changes.
+
+## Current Implementation Notes
+
+Implemented:
+
+* Pool summary now shows current member balance derived from the live leaderboard read model.
+* Pool leaderboard and prediction-history leaderboard show avatar-backed identity rows with compact rank/avatar/name display.
+* Pool-area numeric displays now use localized separators for balance, stake and limit values.
+* Summary & Leaderboard collapse/expand was restored on `/pools/[poolId]`.
+* Summary & Leaderboard now defaults to expanded on desktop and collapsed on mobile.
+* Deployment guide now includes local SQL generation and manual production-apply workflows, including Windows `FROM_MIGRATION` input.
+
+Known limitations to fix later:
+
+* Leaderboard identity layout is still purely CSS-driven and does not yet have automated UI coverage.
+* Avatar and cover images remain URL-based only; direct file upload/storage is not implemented.
+
+---
+
+# Sprint 15
+
+## Goal
+
+Production Readiness
+
+## Deliverables
+
+Audit logs:
+
+* Persist audit logs for sensitive admin and auth actions.
+
+Rate limiting:
+
+* Add throttling/rate limiting for public auth endpoints.
+
+Error handling:
+
+* Harden production error handling and problem responses.
+
+Monitoring and health:
+
+* Add production-ready health and monitoring coverage for API and database connectivity.
+
+Backup and restore verification:
+
+* Verify backup and restore operational steps and make them part of the release workflow.
+
+Localization fallback verification:
+
+* Verify translation fallback behavior for the explicitly supported UI scope.
+
+Acceptance:
+
+Sensitive admin/auth actions are persisted in audit logs.
+
+Public auth endpoints are throttled.
+
+Production error responses are sanitized while logs remain diagnosable.
+
+API health coverage includes application and database connectivity.
+
+Backup and restore procedure is documented and verified.
+
+Supported translated UI scope falls back to English correctly when a term is missing.
+
+---
+
+# Sprint 16
+
+## Goal
+
 AI Recap
 
 ## Deliverables
@@ -706,34 +803,6 @@ UI:
 Acceptance:
 
 One recap generated per pool per week.
-
----
-
-# Sprint 15
-
-## Goal
-
-Production Readiness
-
-## Deliverables
-
-Audit Logs
-
-Rate Limiting
-
-Error Handling
-
-Monitoring
-
-Database Backup
-
-Localization admin screens
-
-Translation fallback checks
-
-Acceptance:
-
-Production deployment ready.
 
 ---
 

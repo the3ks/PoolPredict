@@ -1551,8 +1551,21 @@ dd {
 
 .predictionGrid {
   display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(300px, 0.75fr);
+  grid-template-columns: minmax(300px, 0.75fr) minmax(0, 1.25fr);
   gap: 18px;
+}
+
+.marketsPanel {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.predictionSideColumn {
+  align-self: start;
+  display: grid;
+  gap: 18px;
+  grid-column: 1;
+  grid-row: 1;
 }
 
 .predictionHistoryPanel {
@@ -1560,15 +1573,109 @@ dd {
 }
 
 .predictionSubmitPanel {
-  position: sticky;
-  top: 88px;
   align-self: start;
-  max-height: calc(100vh - 112px);
-  overflow: auto;
+  max-height: none;
+  overflow: visible;
 }
 
-.mobilePredictionSlipToggle {
+.poolAnnouncementsPanel,
+.poolMessagesPanel {
+  display: grid;
+  gap: 14px;
+}
+
+.poolAnnouncementsPanel {
+  grid-column: 1 / -1;
+}
+
+.poolAnnouncementsPanel > h2 {
   display: none;
+}
+
+.announcementRowToggle {
+  align-items: center;
+  background: var(--tile-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  font-weight: 800;
+  justify-content: space-between;
+  min-height: 46px;
+  padding: 10px 12px;
+  text-align: left;
+  width: 100%;
+}
+
+.announcementRowToggle:hover {
+  border-color: var(--accent);
+}
+
+.announcementSlotGrid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.announcementSlotEditor,
+.announcementSlotView {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--tile-bg);
+  padding: 12px;
+}
+
+.announcementSlotEditor textarea {
+  min-height: 104px;
+  resize: vertical;
+}
+
+.announcementSlotView strong {
+  color: var(--text);
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+.predictionSlipToggle {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 0;
+  text-align: left;
+  width: 100%;
+}
+
+.predictionSlipToggle span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.predictionSlipToggle strong,
+.predictionSlipToggle small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.predictionSlipToggle small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.poolMessagesPanel > h2 {
+  font-size: 16px;
+  line-height: 1.2;
 }
 
 .marketList,
@@ -1576,6 +1683,10 @@ dd {
 .leaderboardList {
   display: grid;
   gap: 14px;
+}
+
+.mobileMarketMatchSelect {
+  display: none;
 }
 
 .marketGroup {
@@ -1894,6 +2005,7 @@ dd {
 }
 
 .predictionPanelTitle {
+  display: none;
   margin-top: 0;
 }
 
@@ -1935,6 +2047,42 @@ dd {
   background:
     linear-gradient(180deg, rgba(245, 158, 11, 0.12), transparent),
     var(--surface);
+}
+
+@media (min-width: 761px) {
+  .predictionSubmitPanel:not(.predictionSubmitPanelExpanded) {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .predictionSubmitPanel:not(.predictionSubmitPanelExpanded) .predictionForm {
+    align-items: center;
+    display: grid;
+    gap: 10px;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .predictionSubmitPanel:not(.predictionSubmitPanelExpanded) .predictionPanelTitle,
+  .predictionSubmitPanel:not(.predictionSubmitPanelExpanded) .predictionLockedNotice,
+  .predictionSubmitPanel:not(.predictionSubmitPanelExpanded) .predictionForm label,
+  .predictionSubmitPanel:not(.predictionSubmitPanelExpanded) .predictionForm > .button,
+  .predictionSubmitPanel:not(.predictionSubmitPanelExpanded) .predictionForm .buttonSecondary,
+  .predictionSubmitPanel:not(.predictionSubmitPanelExpanded) .recentPredictionCard {
+    display: none;
+  }
+
+  .predictionSubmitPanel:not(.predictionSubmitPanelExpanded) .selectedMarket {
+    min-height: 58px;
+    padding: 10px;
+  }
+
+  .predictionSubmitPanel:not(.predictionSubmitPanelExpanded) .selectedMarket small,
+  .predictionSubmitPanel:not(.predictionSubmitPanelExpanded) .selectedMarket strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
 }
 
 .predictionLockedNotice {
@@ -1990,6 +2138,179 @@ dd {
   font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
+}
+
+.poolMessageList {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  height: 320px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.poolMessage {
+  display: grid;
+  gap: 5px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--tile-bg);
+  padding: 8px;
+}
+
+.poolMessage.announcement {
+  border-color: rgba(37, 99, 235, 0.38);
+  background:
+    linear-gradient(180deg, rgba(37, 99, 235, 0.09), transparent),
+    var(--tile-bg);
+}
+
+.poolMessageHeader,
+.markdownComposerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.poolMessageHeader {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: 26px minmax(0, 1fr) auto;
+}
+
+.poolMessageHeader strong,
+.markdownComposerHeader strong {
+  color: var(--text);
+  min-width: 0;
+}
+
+.poolMessageHeader strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.poolMessageHeader small {
+  color: var(--muted);
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.poolMessageAvatarWrap,
+.poolMessageAvatar,
+.poolMessageAvatarFallback {
+  block-size: 26px;
+  inline-size: 26px;
+}
+
+.poolMessageAvatarWrap {
+  border-radius: 999px;
+  display: inline-grid;
+  overflow: hidden;
+  place-items: center;
+}
+
+.poolMessageAvatar {
+  display: block;
+  object-fit: cover;
+}
+
+.poolMessageAvatarFallback {
+  align-items: center;
+  background: var(--accent-soft);
+  color: var(--accent);
+  display: flex;
+  font-size: 12px;
+  font-weight: 900;
+  justify-content: center;
+}
+
+.poolMessage .markdownBody {
+  gap: 3px;
+  font-size: 13px;
+  line-height: 1.35;
+  padding-left: 32px;
+}
+
+.markdownComposer {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--secondary-bg);
+  padding: 12px;
+}
+
+.markdownComposer textarea {
+  min-height: 104px;
+  resize: vertical;
+}
+
+.segmentedControl {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 2px;
+}
+
+.segmentedControl button {
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 900;
+  padding: 6px 8px;
+}
+
+.segmentedControl button.active {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.markdownPreviewBox {
+  min-height: 104px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--tile-bg);
+  padding: 10px;
+}
+
+.markdownBody {
+  display: grid;
+  gap: 8px;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.markdownBody h3,
+.markdownBody h4,
+.markdownBody p,
+.markdownBody ul {
+  margin: 0;
+}
+
+.markdownBody h3,
+.markdownBody h4 {
+  font-size: 14px;
+}
+
+.markdownBody ul {
+  padding-left: 18px;
+}
+
+.markdownBody a {
+  color: var(--accent);
+  font-weight: 800;
+  overflow-wrap: anywhere;
 }
 
 .stakeHintList {
@@ -2436,6 +2757,55 @@ dd {
     grid-template-columns: 1fr;
   }
 
+  .marketsPanel {
+    grid-column: 1;
+    order: 1;
+  }
+
+  .mobileMarketMatchSelect {
+    display: block;
+    margin-bottom: 14px;
+  }
+
+  .predictionSideColumn {
+    display: contents;
+    grid-column: 1;
+  }
+
+  .poolMessagesPanel {
+    grid-column: 1;
+    margin-bottom: 12px;
+    min-width: 0;
+    order: 2;
+    width: 100%;
+  }
+
+  .poolMessageList {
+    height: 280px;
+  }
+
+  .markdownComposer {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .markdownComposerHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .markdownComposer textarea {
+    width: 100%;
+  }
+
+  .markdownComposer > .button {
+    width: 100%;
+  }
+
+  .announcementSlotGrid {
+    grid-template-columns: 1fr;
+  }
+
   .pageStack:has(.predictionSubmitPanel) {
     padding-bottom: 190px;
   }
@@ -2456,13 +2826,14 @@ dd {
     right: 10px;
     top: auto;
     z-index: 40;
+    width: auto;
   }
 
   .predictionPanelTitle {
     display: none;
   }
 
-  .mobilePredictionSlipToggle {
+  .predictionSlipToggle {
     align-items: center;
     background: transparent;
     border: 0;
@@ -2476,20 +2847,20 @@ dd {
     width: 100%;
   }
 
-  .mobilePredictionSlipToggle span {
+  .predictionSlipToggle span {
     display: grid;
     gap: 2px;
     min-width: 0;
   }
 
-  .mobilePredictionSlipToggle strong,
-  .mobilePredictionSlipToggle small {
+  .predictionSlipToggle strong,
+  .predictionSlipToggle small {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .mobilePredictionSlipToggle small {
+  .predictionSlipToggle small {
     color: var(--muted);
     font-size: 12px;
     font-weight: 800;
@@ -2508,6 +2879,7 @@ dd {
 
   .predictionSubmitPanel:not(.predictionSubmitPanelExpanded) .predictionLockedNotice,
   .predictionSubmitPanel:not(.predictionSubmitPanelExpanded) .predictionForm label,
+  .predictionSubmitPanel:not(.predictionSubmitPanelExpanded) .predictionForm > .button,
   .predictionSubmitPanel:not(.predictionSubmitPanelExpanded) .predictionForm .buttonSecondary,
   .predictionSubmitPanel:not(.predictionSubmitPanelExpanded) .recentPredictionCard {
     display: none;
@@ -2523,11 +2895,6 @@ dd {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  .predictionSubmitPanel:not(.predictionSubmitPanelExpanded) .predictionForm > .button {
-    min-height: 54px;
-    padding-inline: 16px;
   }
 
   .topbar {

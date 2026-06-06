@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using PoolPredict.Api.Domain.Common;
 using PoolPredict.Api.Domain.Pools;
 using PoolPredict.Api.Infrastructure.Persistence;
+using PoolPredict.Api.Modules.Email;
 using PoolPredict.Api.Modules.Predictions;
 using PoolPredict.Api.Modules.Tournaments;
 using System.Security.Claims;
@@ -165,6 +166,250 @@ public static class PoolEndpoints
             return pool is null ? Results.NotFound() : Results.Ok(pool);
         }).RequireAuthorization();
 
+        group.MapGet("/{poolId:guid}/messages", async (
+            Guid poolId,
+            ClaimsPrincipal principal,
+            PoolStore pools,
+            IDbContextFactory<PoolPredictDbContext> dbContextFactory,
+            CancellationToken cancellationToken) =>
+        {
+            if (!TryGetUserId(principal, out var userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            if (pools.GetPool(poolId) is null)
+            {
+                return Results.NotFound();
+            }
+
+            if (pools.GetMember(poolId, userId) is null)
+            {
+                return Results.Forbid();
+            }
+
+            await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+            var announcements = await (
+                from message in db.PoolMessages.AsNoTracking()
+                join member in db.PoolMembers.AsNoTracking()
+                    on message.AuthorMemberId equals member.Id
+                join user in db.Users.AsNoTracking()
+                    on member.UserId equals user.Id
+                where message.PoolId == poolId
+                    && message.Kind == PoolMessageKind.Announcement
+                    && message.AnnouncementSlot != null
+                orderby message.AnnouncementSlot
+                select new PoolMessageResponse(
+                    message.Id,
+                    message.PoolId,
+                    message.AuthorMemberId,
+                    user.DisplayName,
+                    user.AvatarUrl,
+                    member.Role,
+                    message.Kind,
+                    message.AnnouncementSlot,
+                    message.Title,
+                    message.BodyMarkdown,
+                    message.CreatedAt,
+                    message.EditedAt))
+                .ToArrayAsync(cancellationToken);
+
+            var chatRows = await (
+                from message in db.PoolMessages.AsNoTracking()
+                join member in db.PoolMembers.AsNoTracking()
+                    on message.AuthorMemberId equals member.Id
+                join user in db.Users.AsNoTracking()
+                    on member.UserId equals user.Id
+                where message.PoolId == poolId
+                    && message.Kind == PoolMessageKind.Chat
+                orderby message.CreatedAt descending
+                select new PoolMessageResponse(
+                    message.Id,
+                    message.PoolId,
+                    message.AuthorMemberId,
+                    user.DisplayName,
+                    user.AvatarUrl,
+                    member.Role,
+                    message.Kind,
+                    message.AnnouncementSlot,
+                    message.Title,
+                    message.BodyMarkdown,
+                    message.CreatedAt,
+                    message.EditedAt))
+                .Take(100)
+                .ToArrayAsync(cancellationToken);
+
+            return Results.Ok(announcements.Concat(chatRows.Reverse()));
+        }).RequireAuthorization();
+
+        group.MapPost("/{poolId:guid}/messages", async (
+            Guid poolId,
+            ClaimsPrincipal principal,
+            CreatePoolMessageRequest request,
+            PoolStore pools,
+            IDbContextFactory<PoolPredictDbContext> dbContextFactory,
+            CancellationToken cancellationToken) =>
+        {
+            if (!TryGetUserId(principal, out var userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            if (pools.GetPool(poolId) is null)
+            {
+                return Results.NotFound();
+            }
+
+            var member = pools.GetMember(poolId, userId);
+            if (member is null)
+            {
+                return Results.Forbid();
+            }
+
+            if (request.Kind == PoolMessageKind.Announcement)
+            {
+                return Results.BadRequest(new { error = "Use an announcement slot update endpoint." });
+            }
+
+            var body = request.BodyMarkdown?.Trim() ?? "";
+            if (string.IsNullOrWhiteSpace(body))
+            {
+                return Results.BadRequest(new { error = "Message body is required." });
+            }
+
+            if (body.Length > 4000)
+            {
+                return Results.BadRequest(new { error = "Message body must be 4,000 characters or fewer." });
+            }
+
+            await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+            var message = new PersistedPoolMessage
+            {
+                Id = Ids.NewId(),
+                PoolId = poolId,
+                AuthorMemberId = member.Id,
+                Kind = request.Kind,
+                Title = "",
+                BodyMarkdown = body,
+                CreatedAt = DateTimeOffset.UtcNow
+            };
+
+            db.PoolMessages.Add(message);
+            await db.SaveChangesAsync(cancellationToken);
+
+            var author = await db.Users
+                .AsNoTracking()
+                .SingleOrDefaultAsync(user => user.Id == userId, cancellationToken);
+            var response = new PoolMessageResponse(
+                message.Id,
+                message.PoolId,
+                message.AuthorMemberId,
+                author?.DisplayName ?? "Pool member",
+                author?.AvatarUrl,
+                member.Role,
+                message.Kind,
+                message.AnnouncementSlot,
+                message.Title,
+                message.BodyMarkdown,
+                message.CreatedAt,
+                message.EditedAt);
+
+            return Results.Created($"/api/pools/{poolId}/messages/{message.Id}", response);
+        }).RequireAuthorization();
+
+        group.MapPut("/{poolId:guid}/announcements/{slot:int}", async (
+            Guid poolId,
+            int slot,
+            ClaimsPrincipal principal,
+            UpdatePoolAnnouncementRequest request,
+            PoolStore pools,
+            IDbContextFactory<PoolPredictDbContext> dbContextFactory,
+            CancellationToken cancellationToken) =>
+        {
+            if (!TryGetUserId(principal, out var userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            if (slot is not (1 or 2))
+            {
+                return Results.BadRequest(new { error = "Announcement slot must be 1 or 2." });
+            }
+
+            if (pools.GetPool(poolId) is null)
+            {
+                return Results.NotFound();
+            }
+
+            var member = pools.GetMember(poolId, userId);
+            if (member is null)
+            {
+                return Results.Forbid();
+            }
+
+            if (member.Role is not PoolMemberRole.Owner)
+            {
+                return Results.Forbid();
+            }
+
+            var title = request.Title?.Trim() ?? "";
+            var body = request.BodyMarkdown?.Trim() ?? "";
+            if (title.Length > 200)
+            {
+                return Results.BadRequest(new { error = "Announcement title must be 200 characters or fewer." });
+            }
+
+            if (body.Length > 4000)
+            {
+                return Results.BadRequest(new { error = "Announcement content must be 4,000 characters or fewer." });
+            }
+
+            await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+            var announcement = await db.PoolMessages.SingleOrDefaultAsync(
+                message => message.PoolId == poolId
+                    && message.Kind == PoolMessageKind.Announcement
+                    && message.AnnouncementSlot == slot,
+                cancellationToken);
+
+            var now = DateTimeOffset.UtcNow;
+            if (announcement is null)
+            {
+                announcement = new PersistedPoolMessage
+                {
+                    Id = Ids.NewId(),
+                    PoolId = poolId,
+                    AuthorMemberId = member.Id,
+                    Kind = PoolMessageKind.Announcement,
+                    AnnouncementSlot = slot,
+                    CreatedAt = now
+                };
+                db.PoolMessages.Add(announcement);
+            }
+
+            announcement.AuthorMemberId = member.Id;
+            announcement.Title = title;
+            announcement.BodyMarkdown = body;
+            announcement.EditedAt = now;
+            await db.SaveChangesAsync(cancellationToken);
+
+            var author = await db.Users
+                .AsNoTracking()
+                .SingleOrDefaultAsync(user => user.Id == userId, cancellationToken);
+            return Results.Ok(new PoolMessageResponse(
+                announcement.Id,
+                announcement.PoolId,
+                announcement.AuthorMemberId,
+                author?.DisplayName ?? "Pool owner",
+                author?.AvatarUrl,
+                member.Role,
+                announcement.Kind,
+                announcement.AnnouncementSlot,
+                announcement.Title,
+                announcement.BodyMarkdown,
+                announcement.CreatedAt,
+                announcement.EditedAt));
+        }).RequireAuthorization();
+
         group.MapPut("/{poolId:guid}", (Guid poolId, ClaimsPrincipal principal, UpdatePoolRequest request, PoolStore pools, PredictionStore predictions) =>
         {
             if (!TryGetUserId(principal, out var userId))
@@ -266,6 +511,8 @@ public static class PoolEndpoints
         group.MapPost("/{poolId:guid}/join-requests", async (
             Guid poolId,
             ClaimsPrincipal principal,
+            SmtpEmailSender emailSender,
+            IConfiguration configuration,
             IDbContextFactory<PoolPredictDbContext> dbContextFactory,
             CancellationToken cancellationToken) =>
         {
@@ -275,7 +522,23 @@ public static class PoolEndpoints
             }
 
             await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-            if (!await db.Pools.AnyAsync(pool => pool.Id == poolId, cancellationToken))
+            var notification = await (
+                from pool in db.Pools.AsNoTracking()
+                join owner in db.Users.AsNoTracking()
+                    on pool.OwnerUserId equals owner.Id
+                join requester in db.Users.AsNoTracking()
+                    on userId equals requester.Id
+                where pool.Id == poolId
+                select new JoinRequestNotification(
+                    pool.Id,
+                    pool.Name,
+                    owner.Email,
+                    owner.DisplayName,
+                    requester.Email,
+                    requester.DisplayName))
+                .SingleOrDefaultAsync(cancellationToken);
+
+            if (notification is null)
             {
                 return Results.NotFound();
             }
@@ -296,6 +559,7 @@ public static class PoolEndpoints
                     existing.Status = "Pending";
                     existing.RequestedAt = DateTimeOffset.UtcNow;
                     await db.SaveChangesAsync(cancellationToken);
+                    await SendJoinRequestNotificationAsync(emailSender, configuration, notification, cancellationToken);
                 }
 
                 return Results.Ok(new JoinRequestResponse(existing.Id, existing.PoolId, existing.Status, existing.RequestedAt));
@@ -312,6 +576,7 @@ public static class PoolEndpoints
 
             db.PoolJoinRequests.Add(joinRequest);
             await db.SaveChangesAsync(cancellationToken);
+            await SendJoinRequestNotificationAsync(emailSender, configuration, notification, cancellationToken);
             return Results.Created($"/api/pools/{poolId}/join-requests/{joinRequest.Id}", new JoinRequestResponse(joinRequest.Id, joinRequest.PoolId, joinRequest.Status, joinRequest.RequestedAt));
         }).RequireAuthorization();
 
@@ -435,6 +700,42 @@ public static class PoolEndpoints
         var subject = principal.FindFirstValue(ClaimTypes.NameIdentifier);
         return Guid.TryParse(subject, out userId);
     }
+
+    private static Task<EmailSendResult> SendJoinRequestNotificationAsync(
+        SmtpEmailSender emailSender,
+        IConfiguration configuration,
+        JoinRequestNotification notification,
+        CancellationToken cancellationToken)
+    {
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return Task.FromCanceled<EmailSendResult>(cancellationToken);
+        }
+
+        var requesterName = string.IsNullOrWhiteSpace(notification.RequesterDisplayName)
+            ? notification.RequesterEmail
+            : notification.RequesterDisplayName;
+        var ownerName = string.IsNullOrWhiteSpace(notification.OwnerDisplayName)
+            ? "Pool owner"
+            : notification.OwnerDisplayName;
+        var poolLink = BuildPoolLink(configuration, notification.PoolId);
+        var body =
+            $"Hi {ownerName},\n\n" +
+            $"{requesterName} ({notification.RequesterEmail}) requested to join your pool \"{notification.PoolName}\".\n\n" +
+            $"Review the request here: {poolLink}\n\n" +
+            "PoolPredict";
+
+        return emailSender.SendAsync(
+            notification.OwnerEmail,
+            $"New join request for {notification.PoolName}",
+            body);
+    }
+
+    private static string BuildPoolLink(IConfiguration configuration, Guid poolId)
+    {
+        var baseUrl = (configuration["WebApp:BaseUrl"] ?? "http://localhost:3000").TrimEnd('/');
+        return $"{baseUrl}/pools/{poolId}";
+    }
 }
 
 public sealed record DiscoverPoolResponse(
@@ -457,3 +758,33 @@ public sealed record JoinRequestResponse(
     Guid PoolId,
     string Status,
     DateTimeOffset RequestedAt);
+
+public sealed record JoinRequestNotification(
+    Guid PoolId,
+    string PoolName,
+    string OwnerEmail,
+    string OwnerDisplayName,
+    string RequesterEmail,
+    string RequesterDisplayName);
+
+public sealed record CreatePoolMessageRequest(
+    PoolMessageKind Kind,
+    string BodyMarkdown);
+
+public sealed record UpdatePoolAnnouncementRequest(
+    string? Title,
+    string? BodyMarkdown);
+
+public sealed record PoolMessageResponse(
+    Guid Id,
+    Guid PoolId,
+    Guid AuthorMemberId,
+    string AuthorDisplayName,
+    string? AuthorAvatarUrl,
+    PoolMemberRole AuthorRole,
+    PoolMessageKind Kind,
+    int? AnnouncementSlot,
+    string Title,
+    string BodyMarkdown,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? EditedAt);

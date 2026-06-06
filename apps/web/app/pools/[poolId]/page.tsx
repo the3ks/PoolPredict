@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   Dispatch,
   FormEvent,
+  ReactNode,
   SetStateAction,
   useEffect,
   useState,
@@ -13,10 +14,13 @@ import {
   CalendarClock,
   ChevronDown,
   ChevronRight,
+  Edit3,
+  Eye,
   Goal,
   History,
   KeyRound,
   Lock,
+  MessageSquare,
   RefreshCw,
   Save,
   Send,
@@ -45,6 +49,8 @@ import {
   Market,
   Prediction,
   PoolJoinRequest,
+  PoolMessage,
+  PoolMessageKind,
   PoolSummary,
   TournamentEvent,
 } from "../../lib/types";
@@ -76,6 +82,7 @@ export default function PoolOverviewPage() {
   >([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [joinRequests, setJoinRequests] = useState<PoolJoinRequest[]>([]);
+  const [poolMessages, setPoolMessages] = useState<PoolMessage[]>([]);
   const [predictionHistory, setPredictionHistory] = useState<Prediction[]>([]);
   const [selectedMarketId, setSelectedMarketId] = useState("");
   const [selectedOption, setSelectedOption] = useState("");
@@ -92,6 +99,15 @@ export default function PoolOverviewPage() {
   const [isSavingPool, setIsSavingPool] = useState(false);
   const [joinRequestStatus, setJoinRequestStatus] = useState("");
   const [isLoadingJoinRequests, setIsLoadingJoinRequests] = useState(false);
+  const [chatBody, setChatBody] = useState("");
+  const [announcementDrafts, setAnnouncementDrafts] = useState<
+    Record<number, { title: string; bodyMarkdown: string }>
+  >({
+    1: { title: "", bodyMarkdown: "" },
+    2: { title: "", bodyMarkdown: "" },
+  });
+  const [chatEditorMode, setChatEditorMode] = useState<"write" | "preview">("write");
+  const [isPostingMessage, setIsPostingMessage] = useState(false);
   const [showOverviewRow, setShowOverviewRow] = useState(() =>
     typeof window === "undefined"
       ? true
@@ -100,12 +116,36 @@ export default function PoolOverviewPage() {
   const [showManagementRow, setShowManagementRow] = useState(false);
   const [showRecentClosedMarkets, setShowRecentClosedMarkets] = useState(true);
   const [isPredictionSlipExpanded, setIsPredictionSlipExpanded] = useState(false);
+  const [isAnnouncementsExpanded, setIsAnnouncementsExpanded] = useState(false);
+  const [isMobileMarketsView, setIsMobileMarketsView] = useState(false);
+  const [mobileSelectedMarketEventId, setMobileSelectedMarketEventId] =
+    useState("");
   const [recentPrediction, setRecentPrediction] =
     useState<RecentPrediction | null>(null);
 
   useEffect(() => {
     loadPool();
   }, [poolId]);
+
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 760px)");
+    const updateMobileMarketsView = () => setIsMobileMarketsView(query.matches);
+    updateMobileMarketsView();
+    query.addEventListener("change", updateMobileMarketsView);
+    return () => query.removeEventListener("change", updateMobileMarketsView);
+  }, []);
+
+  useEffect(() => {
+    if (!pool?.id) {
+      return;
+    }
+
+    const refreshMessages = () => {
+      void loadPoolMessages(pool.id, { syncDrafts: false });
+    };
+    const intervalId = window.setInterval(refreshMessages, 5000);
+    return () => window.clearInterval(intervalId);
+  }, [pool?.id]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(max-width: 760px)");
@@ -150,6 +190,7 @@ export default function PoolOverviewPage() {
     await Promise.all([
       loadEvents(result.tournamentId),
       loadMarkets(result.id),
+      loadPoolMessages(result.id),
       loadMarketPredictionSummaries(result.id),
       loadPredictionHistory(result.id),
       loadLeaderboard(result.id),
@@ -183,6 +224,34 @@ export default function PoolOverviewPage() {
     const result = (await response.json()) as Market[];
     setMarkets(result);
     setSelectedMarketId((current) => current || result[0]?.id || "");
+  }
+
+  async function loadPoolMessages(
+    targetPoolId: string,
+    options: { syncDrafts?: boolean } = {},
+  ) {
+    const token = getStoredToken();
+    if (!token) {
+      return;
+    }
+
+    const response = await fetch(apiUrl(`/api/pools/${targetPoolId}/messages`), {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (response.ok) {
+      const messages = (await response.json()) as PoolMessage[];
+      setPoolMessages(messages);
+      if (options.syncDrafts !== false) {
+        syncAnnouncementDrafts(messages);
+      }
+    }
+  }
+
+  function syncAnnouncementDrafts(messages: PoolMessage[]) {
+    setAnnouncementDrafts({
+      1: getAnnouncementDraft(messages, 1),
+      2: getAnnouncementDraft(messages, 2),
+    });
   }
 
   async function loadMarketPredictionSummaries(targetPoolId: string) {
@@ -386,6 +455,94 @@ export default function PoolOverviewPage() {
     ]);
   }
 
+  async function submitPoolMessage(kind: PoolMessageKind) {
+    const token = getStoredToken();
+    if (!token || !pool) {
+      return;
+    }
+
+    const body = chatBody;
+    if (!body.trim()) {
+      setStatus("Message body is required.");
+      return;
+    }
+
+    setIsPostingMessage(true);
+    setStatus(kind === "Announcement" ? "Posting announcement..." : "Posting chat...");
+    try {
+      const response = await fetch(apiUrl(`/api/pools/${pool.id}/messages`), {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          kind,
+          bodyMarkdown: body,
+        }),
+      });
+
+      if (!response.ok) {
+        setStatus(await readApiError(response, "Could not post message."));
+        return;
+      }
+
+      const message = (await response.json()) as PoolMessage;
+      setPoolMessages((current) => [...current, message]);
+      setChatBody("");
+      setChatEditorMode("write");
+      setStatus(kind === "Announcement" ? "Announcement posted." : "Chat posted.");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Could not post message.");
+    } finally {
+      setIsPostingMessage(false);
+    }
+  }
+
+  async function submitPoolAnnouncement(slot: number) {
+    const token = getStoredToken();
+    if (!token || !pool) {
+      return;
+    }
+
+    const draft = announcementDrafts[slot] ?? { title: "", bodyMarkdown: "" };
+    setIsPostingMessage(true);
+    setStatus("Saving announcement...");
+    try {
+      const response = await fetch(
+        apiUrl(`/api/pools/${pool.id}/announcements/${slot}`),
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(draft),
+        },
+      );
+
+      if (!response.ok) {
+        setStatus(await readApiError(response, "Could not save announcement."));
+        return;
+      }
+
+      const announcement = (await response.json()) as PoolMessage;
+      setPoolMessages((current) => [
+        ...current.filter(
+          (message) =>
+            message.kind !== "Announcement" ||
+            message.announcementSlot !== announcement.announcementSlot,
+        ),
+        announcement,
+      ]);
+      setStatus("Announcement saved.");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Could not save announcement.");
+    } finally {
+      setIsPostingMessage(false);
+    }
+  }
+
   async function decideJoinRequest(
     requestId: string,
     decision: "approve" | "deny",
@@ -462,6 +619,24 @@ export default function PoolOverviewPage() {
   const recentClosedMarketGroups = marketGroups.filter((group) =>
     shouldShowRecentClosedMarketGroup(group.event),
   );
+  const upcomingMarketGroupIds = upcomingMarketGroups
+    .map((group) => group.event.id)
+    .join("|");
+
+  useEffect(() => {
+    setMobileSelectedMarketEventId((current) =>
+      current && upcomingMarketGroups.some((group) => group.event.id === current)
+        ? current
+        : upcomingMarketGroups[0]?.event.id ?? "",
+    );
+  }, [upcomingMarketGroupIds]);
+
+  const displayedUpcomingMarketGroups =
+    isMobileMarketsView && mobileSelectedMarketEventId
+      ? upcomingMarketGroups.filter(
+          (group) => group.event.id === mobileSelectedMarketEventId,
+        )
+      : upcomingMarketGroups;
 
   return (
     <UserShell>
@@ -754,10 +929,36 @@ export default function PoolOverviewPage() {
           </section>
         ) : null}
         {pool ? (
+          <PoolAnnouncementsPanel
+            drafts={announcementDrafts}
+            isExpanded={isAnnouncementsExpanded}
+            isOwner={canManageInvites(pool)}
+            isPostingMessage={isPostingMessage}
+            messages={poolMessages}
+            onDraftChange={setAnnouncementDrafts}
+            onSubmit={submitPoolAnnouncement}
+            onToggle={() => setIsAnnouncementsExpanded((current) => !current)}
+          />
+        ) : null}
+        {pool ? (
           <div className="predictionGrid">
-            <Panel title="Markets">
-              <div className="marketList">
+            <Panel className="marketsPanel" title="Markets">
+              <select
+                aria-label="Select match"
+                className="mobileMarketMatchSelect"
+                value={mobileSelectedMarketEventId}
+                onChange={(event) =>
+                  setMobileSelectedMarketEventId(event.target.value)
+                }
+              >
                 {upcomingMarketGroups.map((group) => (
+                  <option key={group.event.id} value={group.event.id}>
+                    {formatMatchName(group.event)}
+                  </option>
+                ))}
+              </select>
+              <div className="marketList">
+                {displayedUpcomingMarketGroups.map((group) => (
                   <section className="marketGroup" key={group.event.id}>
                     <div className="marketGroupHeader">
                       <strong>{formatMatchName(group.event)}</strong>
@@ -862,38 +1063,39 @@ export default function PoolOverviewPage() {
                 ) : null}
               </div>
             </Panel>
-            <Panel
-              className={[
-                "predictionSubmitPanel",
-                pool.predictionsLocked ? "predictionSubmitPanelLocked" : "",
-                isPredictionSlipExpanded ? "predictionSubmitPanelExpanded" : "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-            >
-              <button
-                className="mobilePredictionSlipToggle"
-                type="button"
-                onClick={() =>
-                  setIsPredictionSlipExpanded((current) => !current)
-                }
+            <div className="predictionSideColumn">
+              <Panel
+                className={[
+                  "predictionSubmitPanel",
+                  pool.predictionsLocked ? "predictionSubmitPanelLocked" : "",
+                  isPredictionSlipExpanded ? "predictionSubmitPanelExpanded" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
               >
-                <span>
-                  <strong>Chốt kèo đê</strong>
-                  <small>
-                    {selectedMarket
-                      ? selectedOption || formatMarketTypeLabel(selectedMarket.type)
-                      : "Chọn kèo"}
-                  </small>
-                </span>
-                {isPredictionSlipExpanded ? (
-                  <ChevronDown aria-hidden="true" size={18} />
-                ) : (
-                  <ChevronRight aria-hidden="true" size={18} />
-                )}
-              </button>
-              <h2 className="predictionPanelTitle">Chốt kèo đê</h2>
-              <form className="form predictionForm" onSubmit={submitPrediction}>
+                <button
+                  className="predictionSlipToggle"
+                  type="button"
+                  onClick={() =>
+                    setIsPredictionSlipExpanded((current) => !current)
+                  }
+                >
+                  <span>
+                    <strong>Chốt kèo đê</strong>
+                    <small>
+                      {selectedMarket
+                        ? selectedOption || formatMarketTypeLabel(selectedMarket.type)
+                        : "Chọn kèo"}
+                    </small>
+                  </span>
+                  {isPredictionSlipExpanded ? (
+                    <ChevronDown aria-hidden="true" size={18} />
+                  ) : (
+                    <ChevronRight aria-hidden="true" size={18} />
+                  )}
+                </button>
+                <h2 className="predictionPanelTitle">Chốt kèo đê</h2>
+                <form className="form predictionForm" onSubmit={submitPrediction}>
                 {pool.predictionsLocked ? (
                   <div className="predictionLockedNotice">
                     <Lock aria-hidden="true" size={18} />
@@ -969,13 +1171,6 @@ export default function PoolOverviewPage() {
                     onChange={(event) => setStake(Number(event.target.value))}
                   />
                 </label>
-                <div className="stakeHintList">
-                  {selectedEvent ? (
-                    <small>
-                      Remaining on this match {formatNumberDisplay(selectedEventStakeRemaining)}
-                    </small>
-                  ) : null}
-                </div>
                 {isStakeBelowMin ? (
                   <p className="stakeValidationText">
                     Stake must be at least {formatNumberDisplay(pool.minStake)}.
@@ -1030,13 +1225,394 @@ export default function PoolOverviewPage() {
                     </small>
                   </div>
                 ) : null}
-              </form>
-            </Panel>
+                </form>
+              </Panel>
+              <PoolMessagesPanel
+                chatBody={chatBody}
+                chatEditorMode={chatEditorMode}
+                isPostingMessage={isPostingMessage}
+                messages={poolMessages}
+                onChatBodyChange={setChatBody}
+                onChatModeChange={setChatEditorMode}
+                onSubmit={submitPoolMessage}
+              />
+            </div>
           </div>
         ) : null}
       </section>
     </UserShell>
   );
+}
+
+type PoolAnnouncementsPanelProps = {
+  drafts: Record<number, { title: string; bodyMarkdown: string }>;
+  isExpanded: boolean;
+  isOwner: boolean;
+  isPostingMessage: boolean;
+  messages: PoolMessage[];
+  onDraftChange: Dispatch<
+    SetStateAction<Record<number, { title: string; bodyMarkdown: string }>>
+  >;
+  onSubmit: (slot: number) => Promise<void>;
+  onToggle: () => void;
+};
+
+function PoolAnnouncementsPanel({
+  drafts,
+  isExpanded,
+  isOwner,
+  isPostingMessage,
+  messages,
+  onDraftChange,
+  onSubmit,
+  onToggle,
+}: PoolAnnouncementsPanelProps) {
+  const announcements = getAnnouncementSlots(messages);
+  return (
+    <Panel className="poolAnnouncementsPanel">
+      <button
+        className="announcementRowToggle"
+        type="button"
+        onClick={onToggle}
+      >
+        <IconLabel icon={isExpanded ? ChevronDown : ChevronRight}>
+          Announcements
+        </IconLabel>
+      </button>
+      {isExpanded ? (
+        <div className="announcementSlotGrid">
+        {[1, 2].map((slot) => {
+          const draft = drafts[slot] ?? { title: "", bodyMarkdown: "" };
+          const announcement = announcements[slot];
+          return isOwner ? (
+            <form
+              className="announcementSlotEditor"
+              key={slot}
+              onSubmit={(event) => {
+                event.preventDefault();
+                onSubmit(slot);
+              }}
+            >
+              <input
+                maxLength={200}
+                placeholder="Title"
+                value={draft.title}
+                onChange={(event) =>
+                  onDraftChange((current) => ({
+                    ...current,
+                    [slot]: {
+                      ...(current[slot] ?? { title: "", bodyMarkdown: "" }),
+                      title: event.target.value,
+                    },
+                  }))
+                }
+              />
+              <textarea
+                maxLength={4000}
+                placeholder="Content"
+                rows={4}
+                value={draft.bodyMarkdown}
+                onChange={(event) =>
+                  onDraftChange((current) => ({
+                    ...current,
+                    [slot]: {
+                      ...(current[slot] ?? { title: "", bodyMarkdown: "" }),
+                      bodyMarkdown: event.target.value,
+                    },
+                  }))
+                }
+              />
+              <button
+                className="button compactButton"
+                disabled={isPostingMessage}
+                type="submit"
+              >
+                <IconLabel icon={Save}>Save</IconLabel>
+              </button>
+            </form>
+          ) : (
+            <article className="announcementSlotView" key={slot}>
+              {announcement?.title ? (
+                <strong>{announcement.title}</strong>
+              ) : (
+                <strong>No announcement</strong>
+              )}
+              {announcement?.bodyMarkdown ? (
+                <MarkdownPreview body={announcement.bodyMarkdown} />
+              ) : (
+                <p className="mutedText">No content yet.</p>
+              )}
+            </article>
+          );
+        })}
+        </div>
+      ) : null}
+    </Panel>
+  );
+}
+
+type PoolMessagesPanelProps = {
+  chatBody: string;
+  chatEditorMode: "write" | "preview";
+  isPostingMessage: boolean;
+  messages: PoolMessage[];
+  onChatBodyChange: Dispatch<SetStateAction<string>>;
+  onChatModeChange: Dispatch<SetStateAction<"write" | "preview">>;
+  onSubmit: (kind: PoolMessageKind) => Promise<void>;
+};
+
+function PoolMessagesPanel({
+  chatBody,
+  chatEditorMode,
+  isPostingMessage,
+  messages,
+  onChatBodyChange,
+  onChatModeChange,
+  onSubmit,
+}: PoolMessagesPanelProps) {
+  const chatMessages = messages.filter((message) => message.kind === "Chat");
+  return (
+    <Panel className="poolMessagesPanel" title="Hội bà 8">
+      <div className="poolMessageList">
+        {chatMessages.length === 0 ? (
+          <p className="mutedText">No pool messages yet.</p>
+        ) : (
+          chatMessages.map((message) => (
+            <PoolMessageCard key={message.id} message={message} />
+          ))
+        )}
+      </div>
+      <MarkdownComposer
+        body={chatBody}
+        icon={MessageSquare}
+        mode={chatEditorMode}
+        placeholder="Chat with the pool..."
+        submitLabel="Send"
+        title="Chat"
+        onBodyChange={onChatBodyChange}
+        onModeChange={onChatModeChange}
+        onSubmit={() => onSubmit("Chat")}
+        disabled={isPostingMessage}
+      />
+    </Panel>
+  );
+}
+
+function PoolMessageCard({ message }: { message: PoolMessage }) {
+  return (
+    <article
+      className={[
+        "poolMessage",
+        message.kind === "Announcement" ? "announcement" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      <div className="poolMessageHeader">
+        <AuthorAvatar message={message} />
+        <strong>
+          {message.authorDisplayName}
+        </strong>
+        <small>{new Date(message.createdAt).toLocaleString()}</small>
+      </div>
+      <MarkdownPreview body={message.bodyMarkdown} />
+    </article>
+  );
+}
+
+function AuthorAvatar({ message }: { message: PoolMessage }) {
+  return (
+    <span className="poolMessageAvatarWrap">
+      {message.authorAvatarUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          alt=""
+          className="poolMessageAvatar"
+          src={message.authorAvatarUrl}
+        />
+      ) : (
+        <span className="poolMessageAvatarFallback">
+          {message.authorDisplayName.slice(0, 1).toUpperCase()}
+        </span>
+      )}
+    </span>
+  );
+}
+
+type MarkdownComposerProps = {
+  body: string;
+  disabled: boolean;
+  icon: typeof MessageSquare;
+  mode: "write" | "preview";
+  placeholder: string;
+  submitLabel: string;
+  title: string;
+  onBodyChange: Dispatch<SetStateAction<string>>;
+  onModeChange: Dispatch<SetStateAction<"write" | "preview">>;
+  onSubmit: () => void;
+};
+
+function MarkdownComposer({
+  body,
+  disabled,
+  icon,
+  mode,
+  placeholder,
+  submitLabel,
+  title,
+  onBodyChange,
+  onModeChange,
+  onSubmit,
+}: MarkdownComposerProps) {
+  return (
+    <form
+      className="markdownComposer"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit();
+      }}
+    >
+      <div className="markdownComposerHeader">
+        <strong>
+          <IconLabel icon={icon}>{title}</IconLabel>
+        </strong>
+        <div className="segmentedControl">
+          <button
+            className={mode === "write" ? "active" : ""}
+            type="button"
+            onClick={() => onModeChange("write")}
+          >
+            <IconLabel icon={Edit3}>Write</IconLabel>
+          </button>
+          <button
+            className={mode === "preview" ? "active" : ""}
+            type="button"
+            onClick={() => onModeChange("preview")}
+          >
+            <IconLabel icon={Eye}>Preview</IconLabel>
+          </button>
+        </div>
+      </div>
+      {mode === "preview" ? (
+        <div className="markdownPreviewBox">
+          {body.trim() ? (
+            <MarkdownPreview body={body} />
+          ) : (
+            <p className="mutedText">Nothing to preview.</p>
+          )}
+        </div>
+      ) : (
+        <textarea
+          maxLength={4000}
+          placeholder={placeholder}
+          rows={4}
+          value={body}
+          onChange={(event) => onBodyChange(event.target.value)}
+        />
+      )}
+      <button
+        className="button compactButton"
+        disabled={disabled || !body.trim()}
+        type="submit"
+      >
+        <IconLabel icon={Send}>{submitLabel}</IconLabel>
+      </button>
+    </form>
+  );
+}
+
+function MarkdownPreview({ body }: { body: string }) {
+  const lines = body.replace(/\r\n/g, "\n").split("\n");
+  const nodes: ReactNode[] = [];
+  let listItems: ReactNode[] = [];
+
+  const flushList = () => {
+    if (listItems.length === 0) {
+      return;
+    }
+
+    nodes.push(<ul key={`list-${nodes.length}`}>{listItems}</ul>);
+    listItems = [];
+  };
+
+  lines.forEach((line, index) => {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      flushList();
+      return;
+    }
+
+    if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
+      listItems.push(
+        <li key={`item-${index}`}>{renderInlineMarkdown(trimmed.slice(2))}</li>,
+      );
+      return;
+    }
+
+    flushList();
+    if (trimmed.startsWith("### ")) {
+      nodes.push(<h4 key={index}>{renderInlineMarkdown(trimmed.slice(4))}</h4>);
+      return;
+    }
+
+    if (trimmed.startsWith("## ")) {
+      nodes.push(<h3 key={index}>{renderInlineMarkdown(trimmed.slice(3))}</h3>);
+      return;
+    }
+
+    if (trimmed.startsWith("# ")) {
+      nodes.push(<h3 key={index}>{renderInlineMarkdown(trimmed.slice(2))}</h3>);
+      return;
+    }
+
+    nodes.push(<p key={index}>{renderInlineMarkdown(trimmed)}</p>);
+  });
+
+  flushList();
+  return <div className="markdownBody">{nodes}</div>;
+}
+
+function renderInlineMarkdown(text: string): ReactNode[] {
+  const nodes: ReactNode[] = [];
+  const pattern = /(\[([^\]]+)\]\(([^)]+)\)|\*\*([^*]+)\*\*|\*([^*]+)\*)/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      nodes.push(text.slice(lastIndex, match.index));
+    }
+
+    if (match[2] && match[3]) {
+      const href = normalizeMarkdownHref(match[3]);
+      nodes.push(
+        href ? (
+          <a href={href} key={match.index} rel="noreferrer" target="_blank">
+            {match[2]}
+          </a>
+        ) : (
+          match[2]
+        ),
+      );
+    } else if (match[4]) {
+      nodes.push(<strong key={match.index}>{match[4]}</strong>);
+    } else if (match[5]) {
+      nodes.push(<em key={match.index}>{match[5]}</em>);
+    }
+
+    lastIndex = pattern.lastIndex;
+  }
+
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex));
+  }
+
+  return nodes;
+}
+
+function normalizeMarkdownHref(value: string) {
+  const trimmed = value.trim();
+  return /^(https?:\/\/|mailto:)/i.test(trimmed) ? trimmed : "";
 }
 
 type MarketGroupButtonsProps = {
@@ -1599,6 +2175,29 @@ function getPredictionUsers(
 
 function formatPredictionUsers(users: string[]) {
   return users.length === 0 ? "" : users.join(", ");
+}
+
+function getAnnouncementSlots(messages: PoolMessage[]) {
+  return messages
+    .filter((message) => message.kind === "Announcement")
+    .reduce<Record<number, PoolMessage | undefined>>((slots, message) => {
+      if (message.announcementSlot === 1 || message.announcementSlot === 2) {
+        slots[message.announcementSlot] = message;
+      }
+
+      return slots;
+    }, {});
+}
+
+function getAnnouncementDraft(messages: PoolMessage[], slot: number) {
+  const announcement = messages.find(
+    (message) =>
+      message.kind === "Announcement" && message.announcementSlot === slot,
+  );
+  return {
+    title: announcement?.title ?? "",
+    bodyMarkdown: announcement?.bodyMarkdown ?? "",
+  };
 }
 
 function formatMarketPredictionUsers(

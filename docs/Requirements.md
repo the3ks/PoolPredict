@@ -131,6 +131,8 @@ Pool route behavior:
 * Denying a join request should keep the requester outside the pool.
 * Pool owner/admin can configure a pool background cover image.
 * Pool detail summary should show compact pool settings, including stake-rule values.
+* Pool detail summary should show the signed-in member's current balance.
+* The Summary & Leaderboard row on the pool detail page should be collapsible, expanded by default on desktop and collapsed by default on mobile.
 * Normal users must not be able to create Expert profile pools.
 * Expert profile pool creation is restricted to Platform Admin users.
 * The web app should not expose `/app` as a product route family; `apps/web/app` is only the Next.js App Router source directory.
@@ -291,6 +293,8 @@ First Half:
 * Pool ranking
 * Pool detail pages should show the leaderboard beside the summary on larger screens.
 * Prediction history pages should show the member's prediction history before the leaderboard.
+* Leaderboard rows should support member avatar display with a compact rank/avatar/name identity layout.
+* Pool-related balance, stake and limit values should use readable numeric separators in the UI.
 
 ### AI
 

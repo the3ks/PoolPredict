@@ -8,7 +8,7 @@ The project has an initial MVP foundation using a DDD-lite structure.
 
 The web app now includes Sprint 1 authentication and Sprint 2 pool management screens backed by authenticated API endpoints. Authentication and pool management are separated into dedicated routes under the planned app structure.
 
-Sprint 3 tournament infrastructure is implemented with participant records, an event provider abstraction and a mock World Cup provider. Sprint 4 external integration is implemented with configurable provider selection, a FootballData provider adapter and an admin-triggered tournament sync path. Sprint 5 market and settlement foundation is implemented with DB-backed payout defaults, profile-based market generation and settlement run/log tables. Sprint 6 prediction submission is implemented with authenticated prediction entry, member balances and prediction history. Sprint 7 settlement is implemented for manual admin settlement, event result storage, re-settlement correction entries and provider/manual event management modes. Sprint 8 settlement hardening is implemented with calculator-level and service-level automated tests, selected-option validation, cancelled-event settlement and quarter-line handicap support. Sprint 9 admin event management is implemented with event browse/filter, manual event editing and selected-event settlement from the admin UI. Sprint 10 leaderboards and settled prediction display are implemented from persisted prediction, market and point-ledger read models. Sprint 11 user/admin route reorganization, pool discovery and identity/admin security is implemented with root-route normal user flows, a dedicated `/admin` panel, pool discovery, join-request approval, email verification, password recovery, admin user management and SMTP settings. Sprint 12 market profile, 1X2, pool-detail UX and admin event-list polish is implemented with 1X2 settlement, option-level market prediction summaries, wider 1X2/Handicap market rows, mobile prediction slip, Standard/Casual profile refinements, PlatformAdmin-only Expert pool creation and closed-event admin list cleanup. Sprint 13 profile personalization and pool stake controls is implemented with editable display name/avatar, pool cover images and server-enforced stake rules. MariaDB-backed EF Core persistence is now required for the API.
+Sprint 3 tournament infrastructure is implemented with participant records, an event provider abstraction and a mock World Cup provider. Sprint 4 external integration is implemented with configurable provider selection, a FootballData provider adapter and an admin-triggered tournament sync path. Sprint 5 market and settlement foundation is implemented with DB-backed payout defaults, profile-based market generation and settlement run/log tables. Sprint 6 prediction submission is implemented with authenticated prediction entry, member balances and prediction history. Sprint 7 settlement is implemented for manual admin settlement, event result storage, re-settlement correction entries and provider/manual event management modes. Sprint 8 settlement hardening is implemented with calculator-level and service-level automated tests, selected-option validation, cancelled-event settlement and quarter-line handicap support. Sprint 9 admin event management is implemented with event browse/filter, manual event editing and selected-event settlement from the admin UI. Sprint 10 leaderboards and settled prediction display are implemented from persisted prediction, market and point-ledger read models. Sprint 11 user/admin route reorganization, pool discovery and identity/admin security is implemented with root-route normal user flows, a dedicated `/admin` panel, pool discovery, join-request approval, email verification, password recovery, admin user management and SMTP settings. Sprint 12 market profile, 1X2, pool-detail UX and admin event-list polish is implemented with 1X2 settlement, option-level market prediction summaries, wider 1X2/Handicap market rows, mobile prediction slip, Standard/Casual profile refinements, PlatformAdmin-only Expert pool creation and closed-event admin list cleanup. Sprint 13 profile personalization and pool stake controls is implemented with editable display name/avatar, pool cover images and server-enforced stake rules. Sprint 14 pool-detail UX and deployment polish is implemented with current-balance summary display, compact avatar-backed leaderboard identity, numeric formatting across pool pages, restored overview collapse defaults and documented SQL-script deployment workflow. MariaDB-backed EF Core persistence is now required for the API.
 
 ## Completed
 
@@ -305,6 +305,8 @@ Current web behavior:
 * Prefills pool default stake and shows per-pool stake limits in the prediction form
 * Shows current member balance and enriched prediction history with settlement outcome and net points on the pool page
 * Shows pool leaderboard rows with balance, win rate, ROI and prediction counts on the pool page
+* Shows avatar-backed leaderboard identity rows and localized numeric formatting across pool list, pool detail and prediction history pages
+* Restores Summary & Leaderboard collapse/expand on `/pools/[poolId]` with desktop-expanded and mobile-collapsed defaults
 * Links to API health
 * Supports persisted dark/light theme switching across public, auth and signed-in app routes
 * Uses local UI primitives for page headers, panels, status pills, stat tiles and icon labels
@@ -429,10 +431,11 @@ Manual smoke tests verified:
 
 ## Next Recommended Step
 
-Proceed to Sprint 14 AI recap:
+Proceed to Sprint 15 production readiness:
 
-1. Add weekly recap generation model and persistence
-2. Add recap page UI
-3. Decide initial deterministic recap format before AI integration
-4. Add tests for recap source data aggregation
-5. Add startup health checks for MariaDB connectivity
+1. Add audit logging for sensitive admin and auth actions
+2. Add request throttling/rate limiting for public auth endpoints
+3. Harden production error handling and monitoring coverage
+4. Verify backup/restore operational steps as part of release readiness
+5. Verify localization fallback behavior for the supported UI scope
+6. Leave AI recap as later optional enhancement in Sprint 16

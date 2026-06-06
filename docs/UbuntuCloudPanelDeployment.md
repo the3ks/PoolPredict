@@ -353,6 +353,59 @@ https://www.wc2026.beer
 https://www.wc2026.beer/api/health
 ```
 
+## 9.1 Configure Avatar Upload Storage
+
+The API stores uploaded user avatars as WebP files named by user ID. If `AvatarStorage:StorageDirectory` is not configured, the production API service falls back from its publish directory:
+
+```text
+/home/poolpredict/api-publish/../web/public/avatars
+```
+
+which resolves to:
+
+```text
+/home/poolpredict/web/public/avatars
+```
+
+Create that directory and give the API user write access:
+
+```bash
+sudo mkdir -p /home/poolpredict/web/public/avatars
+sudo chown -R poolpredict:poolpredict /home/poolpredict/web
+sudo chmod 755 /home/poolpredict /home/poolpredict/web /home/poolpredict/web/public /home/poolpredict/web/public/avatars
+```
+
+After an avatar is uploaded, nginx must also be able to serve `/avatars/...` from that folder. In CloudPanel:
+
+1. Open **Sites > www.wc2026.beer**.
+2. Open **Vhost**.
+3. Add this `location` block before the generic `location /` block:
+
+```nginx
+location /avatars/ {
+    alias /home/poolpredict/web/public/avatars/;
+    try_files $uri =404;
+    access_log off;
+    expires 30d;
+    add_header Cache-Control "public, max-age=2592000";
+}
+```
+
+The trailing slashes on both `location /avatars/` and `alias /home/poolpredict/web/public/avatars/;` are important.
+
+Save through CloudPanel so nginx validates and reloads the vhost. Verify after uploading an avatar:
+
+```bash
+sudo find /home/poolpredict/web/public/avatars -type f -ls
+curl -I https://www.wc2026.beer/avatars/REPLACE_WITH_USER_ID.webp
+```
+
+If uploaded files exist but the browser returns `404`, the vhost alias is missing or points at the wrong directory. If upload fails, inspect the API logs:
+
+```bash
+sudo journalctl -u poolpredict-api -n 80 --no-pager
+```
+
 ## 10. Incremental Update Deployment
 
 Most releases should be deployed incrementally. Do not recreate the CloudPanel site, database, vhost, PM2 startup service, or API systemd service unless those settings actually changed.

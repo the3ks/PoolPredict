@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using PoolPredict.Api.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using PoolPredict.Api.Infrastructure.Persistence;
 namespace PoolPredict.Api.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(PoolPredictDbContext))]
-    partial class PoolPredictDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260606082016_PoolMessages")]
+    partial class PoolMessages
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -653,10 +656,6 @@ namespace PoolPredict.Api.Infrastructure.Persistence.Migrations
                         .HasColumnType("char(36)")
                         .HasColumnName("id");
 
-                    b.Property<int?>("AnnouncementSlot")
-                        .HasColumnType("int")
-                        .HasColumnName("announcement_slot");
-
                     b.Property<Guid>("AuthorMemberId")
                         .HasColumnType("char(36)")
                         .HasColumnName("author_member_id");
@@ -685,20 +684,11 @@ namespace PoolPredict.Api.Infrastructure.Persistence.Migrations
                         .HasColumnType("char(36)")
                         .HasColumnName("pool_id");
 
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("varchar(200)")
-                        .HasColumnName("title");
-
                     b.HasKey("Id");
 
                     b.HasIndex("AuthorMemberId");
 
                     b.HasIndex("PoolId", "CreatedAt");
-
-                    b.HasIndex("PoolId", "Kind", "AnnouncementSlot")
-                        .IsUnique();
 
                     b.ToTable("pool_messages", (string)null);
                 });
