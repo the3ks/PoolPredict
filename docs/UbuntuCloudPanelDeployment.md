@@ -195,7 +195,7 @@ EF design-time commands now read `ConnectionStrings__MariaDb`, `apps/api/appsett
 
 ```bash
 cd /home/poolpredict/htdocs/www.wc2026.beer
-export ConnectionStrings__MariaDb='Server=127.0.0.1;Port=3306;Database=poolpredict;User=poolpredict;Password=REPLACE_WITH_STRONG_PASSWORD;'
+
 dotnet ef dbcontext info --project apps/api/PoolPredict.Api.csproj --startup-project apps/api/PoolPredict.Api.csproj
 ```
 
@@ -228,7 +228,7 @@ Run EF migrations on the server as the `poolpredict` site user:
 ```bash
 cd /home/poolpredict/htdocs/www.wc2026.beer
 dotnet tool restore
-export ConnectionStrings__MariaDb='Server=127.0.0.1;Port=3306;Database=poolpredict;User=poolpredict;Password=REPLACE_WITH_STRONG_PASSWORD;'
+
 dotnet ef database update \
   --project apps/api/PoolPredict.Api.csproj \
   --startup-project apps/api/PoolPredict.Api.csproj \
@@ -465,7 +465,6 @@ As the `poolpredict` site user:
 cd /home/poolpredict/htdocs/www.wc2026.beer
 git pull --ff-only
 
-export ConnectionStrings__MariaDb='Server=127.0.0.1;Port=3306;Database=poolpredict;User=poolpredict;Password=REPLACE_WITH_STRONG_PASSWORD;'
 dotnet ef dbcontext info --project apps/api/PoolPredict.Api.csproj --startup-project apps/api/PoolPredict.Api.csproj
 dotnet ef database update \
   --project apps/api/PoolPredict.Api.csproj \
@@ -500,7 +499,6 @@ As the `poolpredict` site user:
 cd /home/poolpredict/htdocs/www.wc2026.beer
 git pull --ff-only
 
-export ConnectionStrings__MariaDb='Server=127.0.0.1;Port=3306;Database=poolpredict;User=poolpredict;Password=REPLACE_WITH_STRONG_PASSWORD;'
 dotnet ef database update \
   --project apps/api/PoolPredict.Api.csproj \
   --startup-project apps/api/PoolPredict.Api.csproj \

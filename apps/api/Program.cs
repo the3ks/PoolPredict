@@ -51,6 +51,7 @@ builder.Services.AddSingleton<TournamentSyncJob>();
 builder.Services.AddSingleton<EmailSettingsStore>();
 builder.Services.AddSingleton<SmtpEmailSender>();
 builder.Services.AddSingleton<IdentityStore>();
+builder.Services.AddSingleton<AvatarService>();
 builder.Services.AddSingleton<JwtTokenService>();
 builder.Services.AddSingleton<PayoutConfigurationStore>();
 builder.Services.AddSingleton<PoolStore>();

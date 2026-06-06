@@ -11,32 +11,48 @@ import { apiUrl } from "../lib/api";
 
 export function UserShell({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [isSignedIn, setIsSignedIn] = useState(false);
+  const [sessionState, setSessionState] = useState<"checking" | "signedIn" | "signedOut">("checking");
 
   useEffect(() => {
     const token = getStoredToken();
-    setIsSignedIn(Boolean(token));
 
     if (!token) {
+      setSessionState("signedOut");
       return;
     }
 
-    fetch(apiUrl("/api/auth/me"), {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(async (response) => {
-        if (response.ok) {
-          setProfile(await response.json());
-        }
+    try {
+      fetch(apiUrl("/api/auth/me"), {
+        headers: { Authorization: `Bearer ${token}` },
       })
-      .catch(() => {
-        setProfile(null);
-      });
+        .then(async (response) => {
+          if (!response.ok) {
+            clearToken();
+            setProfile(null);
+            setSessionState("signedOut");
+            return;
+          }
+
+          setProfile(await response.json());
+          setSessionState("signedIn");
+        })
+        .catch(() => {
+          clearToken();
+          setProfile(null);
+          setSessionState("signedOut");
+        });
+    } catch {
+      clearToken();
+      setProfile(null);
+      setSessionState("signedOut");
+    }
   }, []);
+
+  const isSignedIn = sessionState === "signedIn";
 
   function signOut() {
     clearToken();
-    setIsSignedIn(false);
+    setSessionState("signedOut");
     setProfile(null);
   }
 
@@ -51,11 +67,9 @@ export function UserShell({ children }: { children: ReactNode }) {
           <Link href="/">
             <IconLabel icon={Home}>Home</IconLabel>
           </Link>
-          {isSignedIn ? (
-            <Link href="/pools">
-              <IconLabel icon={Waves}>Pools</IconLabel>
-            </Link>
-          ) : null}
+          <Link href="/pools">
+            <IconLabel icon={Waves}>Pools</IconLabel>
+          </Link>
           {profile?.role === "PlatformAdmin" ? (
             <Link href="/admin">
               <IconLabel icon={Shield}>Admin</IconLabel>
@@ -64,7 +78,7 @@ export function UserShell({ children }: { children: ReactNode }) {
         </nav>
         <div className="buttonRow">
           <ThemeToggle />
-          {isSignedIn ? (
+          {sessionState === "checking" ? null : isSignedIn ? (
             <>
               <Link className="appProfileLink" href="/profile">
                 <span className="appProfileIdentity">

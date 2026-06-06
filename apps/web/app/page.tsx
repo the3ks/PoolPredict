@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { IconLabel, PageHeader, Panel, StatusPill } from "./components/ui";
 import { apiUrl } from "./lib/api";
-import { getStoredToken } from "./lib/auth";
+import { getStoredToken, subscribeToAuthChanges } from "./lib/auth";
 import { UserShell } from "./components/user-shell";
 import { appName } from "./lib/config";
 import { DiscoverPool, PoolSummary, Tournament } from "./lib/types";
@@ -27,11 +27,8 @@ export default function Home() {
   const [isSignedIn, setIsSignedIn] = useState(false);
 
   useEffect(() => {
-    const token = getStoredToken();
-    setIsSignedIn(Boolean(token));
-    if (token) {
-      void loadPoolPreviews(token);
-    }
+    syncAuthState();
+    const unsubscribe = subscribeToAuthChanges(syncAuthState);
 
     fetch(apiUrl("/api/tournaments"))
       .then(async (response) => {
@@ -55,7 +52,21 @@ export default function Home() {
             : "Could not load tournaments.",
         ),
       );
+
+    return unsubscribe;
   }, []);
+
+  function syncAuthState() {
+    const token = getStoredToken();
+    setIsSignedIn(Boolean(token));
+    if (token) {
+      void loadPoolPreviews(token);
+      return;
+    }
+
+    setMyPools([]);
+    setCommunityPools([]);
+  }
 
   async function loadPoolPreviews(token: string) {
     try {

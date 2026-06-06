@@ -13,4 +13,5 @@ coverage/
 .env.*
 !.env.example
 apps/api/appsettings.Development.json
+apps/web/public/avatars/
 [.]logs/

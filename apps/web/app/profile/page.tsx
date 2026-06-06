@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, LogOut, Save, UserRound } from "lucide-react";
+import { Eye, EyeOff, LogOut, Save, Upload, UserRound } from "lucide-react";
 import { UserShell } from "../components/user-shell";
 import { IconLabel, PageHeader, Panel } from "../components/ui";
 import { apiUrl, readApiError } from "../lib/api";
@@ -14,7 +14,10 @@ export default function ProfilePage() {
   const [status, setStatus] = useState("Loading profile...");
   const [displayName, setDisplayName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
-  const [profileStatus, setProfileStatus] = useState("Update your display name and avatar.");
+  const [avatarVersion, setAvatarVersion] = useState(0);
+  const [avatarStatus, setAvatarStatus] = useState("Upload a JPG, PNG, or WebP up to 256 KB.");
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [profileStatus, setProfileStatus] = useState("Update your display name.");
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -92,6 +95,46 @@ export default function ProfilePage() {
     }
   }
 
+  async function uploadAvatar(file: File | null) {
+    const token = getStoredToken();
+    if (!token || !file) {
+      return;
+    }
+
+    if (file.size > 256 * 1024) {
+      setAvatarStatus("Avatar image must be 256 KB or smaller.");
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+    setAvatarStatus("Uploading avatar...");
+    try {
+      const body = new FormData();
+      body.append("avatar", file);
+      const response = await fetch(apiUrl("/api/auth/me/avatar"), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body,
+      });
+
+      if (!response.ok) {
+        setAvatarStatus(await readApiError(response, "Could not upload avatar."));
+        return;
+      }
+
+      const result = (await response.json()) as UserProfile;
+      setProfile(result);
+      setDisplayName(result.displayName);
+      setAvatarUrl(result.avatarUrl ?? "");
+      setAvatarVersion(Date.now());
+      setAvatarStatus("Avatar uploaded.");
+    } catch (error) {
+      setAvatarStatus(error instanceof Error ? error.message : "Could not upload avatar.");
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  }
+
   async function changePassword(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const token = getStoredToken();
@@ -141,7 +184,7 @@ export default function ProfilePage() {
                   <div className="profileAvatarPreview">
                     {avatarUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img alt={displayName || profile.displayName || "Profile avatar"} src={avatarUrl} />
+                      <img alt={displayName || profile.displayName || "Profile avatar"} src={avatarVersion ? `${avatarUrl}${avatarUrl.includes("?") ? "&" : "?"}v=${avatarVersion}` : avatarUrl} />
                     ) : (
                       <span>{(displayName || profile.displayName || "P").slice(0, 1).toUpperCase()}</span>
                     )}
@@ -169,12 +212,18 @@ export default function ProfilePage() {
                   Display name
                   <input maxLength={200} required type="text" value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
                 </label>
-                <label>
-                  Avatar URL
-                  <input placeholder="https://..." type="url" value={avatarUrl} onChange={(event) => setAvatarUrl(event.target.value)} />
-                </label>
                 <button className="button compactButton" disabled={isSavingProfile} type="submit"><IconLabel icon={Save}>Save profile</IconLabel></button>
               </form>
+            </Panel>
+            <Panel className="profileCompactPanel" title="Avatar">
+              <div className="avatarLibrary">
+                <p className="statusText">{avatarStatus}</p>
+                <label className="avatarUploadButton">
+                  <Upload size={18} />
+                  <span>{isUploadingAvatar ? "Uploading..." : "Upload avatar"}</span>
+                  <input accept="image/jpeg,image/png,image/webp" disabled={isUploadingAvatar} type="file" onChange={(event) => void uploadAvatar(event.target.files?.[0] ?? null)} />
+                </label>
+              </div>
             </Panel>
             <Panel className="profileCompactPanel" title="Password">
               <form className="form profileCompactForm" onSubmit={changePassword}>

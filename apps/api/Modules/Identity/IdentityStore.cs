@@ -211,6 +211,21 @@ public sealed class IdentityStore
         }
     }
 
+    public User UpdateAvatarUrl(Guid userId, string? avatarUrl)
+    {
+        var normalizedAvatarUrl = NormalizeOptionalUrl(avatarUrl, "Avatar URL");
+
+        lock (_gate)
+        {
+            var user = _users.SingleOrDefault(candidate => candidate.Id == userId)
+                ?? throw new UnauthorizedAccessException("User was not found.");
+
+            user.UpdateProfile(user.DisplayName, normalizedAvatarUrl);
+            UpdateUser(user);
+            return user;
+        }
+    }
+
     public string CreateEmailVerificationToken(Guid userId)
     {
         return CreateToken(userId, EmailVerificationPurpose, DateTimeOffset.UtcNow.AddHours(24));

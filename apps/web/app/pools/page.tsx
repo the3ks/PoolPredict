@@ -16,7 +16,7 @@ import {
 import { UserShell } from "../components/user-shell";
 import { IconLabel, PageHeader, Panel, StatusPill } from "../components/ui";
 import { apiUrl, readApiError } from "../lib/api";
-import { getStoredToken } from "../lib/auth";
+import { getStoredToken, subscribeToAuthChanges } from "../lib/auth";
 import { DiscoverPool, PoolSummary } from "../lib/types";
 
 export default function PoolsPage() {
@@ -28,12 +28,17 @@ export default function PoolsPage() {
 
   useEffect(() => {
     loadPools();
+    return subscribeToAuthChanges(() => {
+      void loadPools();
+    });
   }, []);
 
   async function loadPools() {
     const token = getStoredToken();
     if (!token) {
       setIsSignedIn(false);
+      setPools([]);
+      setRequestStatus("");
       try {
         const response = await fetch(apiUrl("/api/pools/latest"));
         if (!response.ok) {

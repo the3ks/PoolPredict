@@ -171,6 +171,29 @@ public static class IdentityEndpoints
             }
         }).RequireAuthorization();
 
+        group.MapPost("/me/avatar", async (IFormFile avatar, ClaimsPrincipal principal, IdentityStore users, AvatarService avatars, CancellationToken cancellationToken) =>
+        {
+            var subject = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!Guid.TryParse(subject, out var userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            try
+            {
+                var avatarUrl = await avatars.SaveAvatarAsync(userId, avatar, cancellationToken);
+                return Results.Ok(users.UpdateAvatarUrl(userId, avatarUrl).ToProfileResponse());
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Unauthorized();
+            }
+        }).RequireAuthorization().DisableAntiforgery();
+
         group.MapPost("/google", (GoogleLoginRequest request, IdentityStore users, JwtTokenService tokens) =>
         {
             try
