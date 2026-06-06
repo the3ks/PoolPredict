@@ -191,18 +191,26 @@ NEXT_PUBLIC_API_BASE_URL=https://www.wc2026.beer/api
 
 The API does not run migrations at startup. Apply migrations manually before first launch and before each release with schema changes.
 
-You have two supported options:
+EF design-time commands now read `ConnectionStrings__MariaDb`, `apps/api/appsettings.Production.json`, or command-line configuration. Before running `database update`, verify the database name EF sees:
 
-- Option A: run `dotnet ef database update` on the server.
-- Option B: generate the SQL locally, review it, copy it to production, then run it against MariaDB manually.
+```bash
+cd /home/poolpredict/htdocs/www.wc2026.beer
+export ConnectionStrings__MariaDb='Server=127.0.0.1;Port=3306;Database=poolpredict;User=poolpredict;Password=REPLACE_WITH_STRONG_PASSWORD;'
+dotnet ef dbcontext info --project apps/api/PoolPredict.Api.csproj --startup-project apps/api/PoolPredict.Api.csproj
+```
 
-### Option A: Run EF Migrations On The Server
+The output must show:
 
-As the `poolpredict` site user:
+```text
+Database name: poolpredict
+```
+
+Run EF migrations on the server as the `poolpredict` site user:
 
 ```bash
 cd /home/poolpredict/htdocs/www.wc2026.beer
 dotnet tool restore
+export ConnectionStrings__MariaDb='Server=127.0.0.1;Port=3306;Database=poolpredict;User=poolpredict;Password=REPLACE_WITH_STRONG_PASSWORD;'
 dotnet ef database update \
   --project apps/api/PoolPredict.Api.csproj \
   --startup-project apps/api/PoolPredict.Api.csproj \
@@ -216,58 +224,6 @@ dotnet tool install --global dotnet-ef
 echo 'export PATH="$PATH:$HOME/.dotnet/tools"' >> ~/.bashrc
 source ~/.bashrc
 ```
-
-### Option B: Generate SQL Locally, Then Apply It On Production
-
-This is a good fit when you want a reviewable migration artifact or stricter control over production schema changes.
-
-Input parameter:
-
-```text
-FROM_MIGRATION=0
-```
-
-Use `0` for a brand new empty production database. For later updates, set `FROM_MIGRATION` to the migration already applied in production.
-
-Windows PowerShell:
-
-```powershell
-$fromMigration = "0"
-New-Item -ItemType Directory -Force -Path artifacts/sql
-dotnet ef migrations script $fromMigration `
-  --idempotent `
-  --output "artifacts/sql/poolpredict-$fromMigration-to-latest.sql" `
-  --project apps/api/PoolPredict.Api.csproj `
-  --startup-project apps/api/PoolPredict.Api.csproj `
-  --configuration Release
-```
-
-Linux/macOS shell:
-
-```bash
-FROM_MIGRATION=0
-mkdir -p artifacts/sql
-dotnet ef migrations script "$FROM_MIGRATION" \
-  --idempotent \
-  --output "artifacts/sql/poolpredict-${FROM_MIGRATION}-to-latest.sql" \
-  --project apps/api/PoolPredict.Api.csproj \
-  --startup-project apps/api/PoolPredict.Api.csproj \
-  --configuration Release
-```
-
-Review the script locally, then copy it to the server:
-
-```bash
-scp "artifacts/sql/poolpredict-${FROM_MIGRATION}-to-latest.sql" poolpredict@www.wc2026.beer:/home/poolpredict/
-```
-
-Apply it on production:
-
-```bash
-mariadb -h 127.0.0.1 -P 3306 -u poolpredict -p poolpredict < "/home/poolpredict/poolpredict-${FROM_MIGRATION}-to-latest.sql"
-```
-
-For later production updates, you can use the same pattern with an incremental script from the migration already applied in production to the latest migration. See **10.4 API Update With Database Migration** below for that workflow.
 
 ## 7. Publish And Run The .NET API
 
@@ -470,19 +426,14 @@ sudo journalctl -u poolpredict-api -n 60 --no-pager
 
 Use this when the release includes EF migrations or persistence model changes.
 
-There are two safe deployment options:
-
-- Direct production migration: run `dotnet ef database update` on the server.
-- Pre-generated SQL script: generate the migration SQL locally from a known production migration name, review it, copy it to the server, then apply it with MariaDB tooling.
-
-#### Option A: Run EF Migration On Production
-
 As the `poolpredict` site user:
 
 ```bash
 cd /home/poolpredict/htdocs/www.wc2026.beer
 git pull --ff-only
 
+export ConnectionStrings__MariaDb='Server=127.0.0.1;Port=3306;Database=poolpredict;User=poolpredict;Password=REPLACE_WITH_STRONG_PASSWORD;'
+dotnet ef dbcontext info --project apps/api/PoolPredict.Api.csproj --startup-project apps/api/PoolPredict.Api.csproj
 dotnet ef database update \
   --project apps/api/PoolPredict.Api.csproj \
   --startup-project apps/api/PoolPredict.Api.csproj \
@@ -504,95 +455,6 @@ curl https://www.wc2026.beer/api/health
 sudo journalctl -u poolpredict-api -n 80 --no-pager
 ```
 
-#### Option B: Generate Migration SQL Locally
-
-Use this option when you want to review the SQL before production runs it.
-
-Input parameter:
-
-```text
-FROM_MIGRATION=NameOfMigrationCurrentlyAppliedInProduction
-```
-
-Examples:
-
-```text
-FROM_MIGRATION=20260603121500_AddMarkets
-FROM_MIGRATION=0
-```
-
-Use `0` only when generating a full schema script for an empty database. For an incremental production update, use the last migration already applied in production.
-
-Generate the SQL locally from the repo root.
-
-Windows PowerShell:
-
-```powershell
-$fromMigration = "NameOfMigrationCurrentlyAppliedInProduction"
-New-Item -ItemType Directory -Force -Path artifacts/sql
-dotnet ef migrations script $fromMigration `
-  --idempotent `
-  --output "artifacts/sql/poolpredict-$fromMigration-to-latest.sql" `
-  --project apps/api/PoolPredict.Api.csproj `
-  --startup-project apps/api/PoolPredict.Api.csproj `
-  --configuration Release
-```
-
-Linux/macOS shell:
-
-```bash
-FROM_MIGRATION=NameOfMigrationCurrentlyAppliedInProduction
-mkdir -p artifacts/sql
-dotnet ef migrations script "$FROM_MIGRATION" \
-  --idempotent \
-  --output "artifacts/sql/poolpredict-${FROM_MIGRATION}-to-latest.sql" \
-  --project apps/api/PoolPredict.Api.csproj \
-  --startup-project apps/api/PoolPredict.Api.csproj \
-  --configuration Release
-```
-
-Review the generated SQL before applying it:
-
-```bash
-less "artifacts/sql/poolpredict-${FROM_MIGRATION}-to-latest.sql"
-```
-
-For the copy/apply commands below, either keep `FROM_MIGRATION` set in your shell or replace `${FROM_MIGRATION}` with the actual migration name.
-
-Copy the reviewed script to production:
-
-```bash
-scp "artifacts/sql/poolpredict-${FROM_MIGRATION}-to-latest.sql" poolpredict@www.wc2026.beer:/home/poolpredict/
-```
-
-Apply it on production after taking a database backup:
-
-```bash
-mariadb -h 127.0.0.1 -P 3306 -u poolpredict -p poolpredict < "/home/poolpredict/poolpredict-${FROM_MIGRATION}-to-latest.sql"
-```
-
-Then publish the API as the `poolpredict` site user:
-
-```bash
-cd /home/poolpredict/htdocs/www.wc2026.beer
-dotnet publish apps/api/PoolPredict.Api.csproj -c Release -o /home/poolpredict/api-publish
-```
-
-Restart and verify as root:
-
-```bash
-sudo systemctl restart poolpredict-api
-curl https://www.wc2026.beer/api/health
-```
-
-To find the current production migration, inspect the EF migrations history table:
-
-```sql
-SELECT MigrationId, ProductVersion
-FROM __EFMigrationsHistory
-ORDER BY MigrationId;
-```
-
 ### 10.5 Full App Update
 
 Use this when both API and web changed.
@@ -603,6 +465,7 @@ As the `poolpredict` site user:
 cd /home/poolpredict/htdocs/www.wc2026.beer
 git pull --ff-only
 
+export ConnectionStrings__MariaDb='Server=127.0.0.1;Port=3306;Database=poolpredict;User=poolpredict;Password=REPLACE_WITH_STRONG_PASSWORD;'
 dotnet ef database update \
   --project apps/api/PoolPredict.Api.csproj \
   --startup-project apps/api/PoolPredict.Api.csproj \
