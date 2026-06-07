@@ -449,6 +449,10 @@ select {
   gap: 20px;
 }
 
+.pageStack:has(.poolBackdropSection) {
+  overflow-x: clip;
+}
+
 .pageHeader {
   display: flex;
   align-items: center;
@@ -929,6 +933,57 @@ dd {
 .poolOverviewSection {
   display: grid;
   gap: 12px;
+}
+
+.poolBackdropSection {
+  position: relative;
+  isolation: isolate;
+}
+
+.poolBackdropSection::before,
+.poolBackdropSection::after {
+  content: none;
+}
+
+.poolBackdropSection.hasImage::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 100vw;
+  transform: translateX(-50%);
+  background:
+    linear-gradient(180deg, var(--bg) 0%, rgba(7, 17, 15, 0.82) 26px, rgba(7, 17, 15, 0.28) 72px, transparent 132px),
+    linear-gradient(90deg, var(--bg) 0%, rgba(7, 17, 15, 0.76) 24px, rgba(7, 17, 15, 0.18) 72px, transparent 124px, transparent calc(100% - 124px), rgba(7, 17, 15, 0.18) calc(100% - 72px), rgba(7, 17, 15, 0.76) calc(100% - 24px), var(--bg) 100%),
+    var(--pool-backdrop-image),
+    var(--surface);
+  background-position: center top;
+  background-repeat: no-repeat;
+  background-size: cover;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.poolBackdropSection.hasImage::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 100vw;
+  height: 180px;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, rgba(7, 17, 15, 0), var(--bg));
+  pointer-events: none;
+  z-index: 0;
+}
+
+.poolBackdropContent {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 14px;
+  padding: 18px 0 56px;
 }
 
 .overviewRowToggle {
@@ -1614,6 +1669,7 @@ dd {
 }
 
 .announcementSlotGrid {
+  align-items: start;
   display: grid;
   gap: 14px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1621,6 +1677,8 @@ dd {
 
 .announcementSlotEditor,
 .announcementSlotView {
+  align-content: start;
+  align-self: start;
   display: grid;
   gap: 10px;
   border: 1px solid var(--border);
@@ -1828,6 +1886,19 @@ dd {
     linear-gradient(180deg, rgba(244, 201, 93, 0.13), rgba(70, 212, 140, 0.04)),
     var(--surface-raised);
   padding: 10px;
+}
+
+.oneXTwoMarketTitle {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: center;
+  overflow-wrap: anywhere;
 }
 
 .handicapMarketRow {
@@ -2741,6 +2812,11 @@ dd {
 
   .appMain {
     padding: 20px;
+  }
+
+  .poolBackdropContent {
+    padding-left: 20px;
+    padding-right: 20px;
   }
 
   .adminPoolRow {

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { ArrowLeft, History, Trophy } from "lucide-react";
+import { ArrowLeft, History } from "lucide-react";
 import { UserShell } from "../../../components/user-shell";
 import { IconLabel, PageHeader, Panel, StatusPill } from "../../../components/ui";
 import { apiUrl, readApiError } from "../../../lib/api";
@@ -91,7 +91,7 @@ export default function PoolPredictionsPage() {
               {predictions.map((prediction) => (
                 <article className="historyRow" key={prediction.id}>
                   <span>
-                    <strong><IconLabel icon={Trophy}>{formatMarketTypeLabel(prediction.marketType)}</IconLabel></strong>
+                    <strong>{formatMarketTypeLabel(prediction.marketType)}</strong>
                     <small>{formatEventName(prediction.eventName) ?? prediction.marketPeriod}</small>
                   </span>
                   <span>

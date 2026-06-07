@@ -109,7 +109,7 @@ public sealed class PayoutConfigurationStore
     {
         foreach (var period in new[] { MarketPeriod.FullTime })
         {
-            yield return Rule(MarketProfile.Casual, MarketType.OneXTwo, period, null, 2.0m);
+            yield return Rule(MarketProfile.Casual, MarketType.OneXTwo, period, null, 4.0m);
             yield return Rule(MarketProfile.Casual, MarketType.OverUnder, period, 2.5m, 2.0m);
             yield return Rule(MarketProfile.Casual, MarketType.OddEven, period, null, 2.0m);
             yield return Rule(MarketProfile.Casual, MarketType.CorrectScore, period, null, 5.0m);
@@ -121,7 +121,7 @@ public sealed class PayoutConfigurationStore
             {
                 if (period == MarketPeriod.FullTime)
                 {
-                    yield return Rule(profile, MarketType.OneXTwo, period, null, 2.0m);
+                    yield return Rule(profile, MarketType.OneXTwo, period, null, 4.0m);
                 }
 
                 yield return Rule(profile, MarketType.Handicap, period, 0.5m, 2.0m);
@@ -148,12 +148,15 @@ public sealed class PayoutConfigurationStore
             return;
         }
 
+        var defaultRules = CreateDefaultRules().ToArray();
         var existingRules = db.PayoutMarketRules
             .Where(rule => rule.PayoutConfigurationId == activeConfiguration.Id)
-            .Select(rule => new { rule.Profile, rule.MarketType, rule.Period })
-            .ToHashSet();
-        var missingRules = CreateDefaultRules()
-            .Where(rule => !existingRules.Contains(new { rule.Profile, rule.MarketType, rule.Period }))
+            .ToArray();
+        var existingRuleLookup = existingRules.ToDictionary(
+            rule => (rule.Profile, rule.MarketType, rule.Period));
+
+        var missingRules = defaultRules
+            .Where(rule => !existingRuleLookup.ContainsKey((rule.Profile, rule.MarketType, rule.Period)))
             .Select(rule => new PersistedPayoutMarketRule
             {
                 Id = rule.Id,
@@ -167,12 +170,42 @@ public sealed class PayoutConfigurationStore
             })
             .ToArray();
 
-        if (missingRules.Length == 0)
+        var hasUpdates = false;
+        foreach (var defaultRule in defaultRules)
         {
-            return;
+            if (!existingRuleLookup.TryGetValue((defaultRule.Profile, defaultRule.MarketType, defaultRule.Period), out var existingRule))
+            {
+                continue;
+            }
+
+            if (existingRule.LineValue != defaultRule.LineValue)
+            {
+                existingRule.LineValue = defaultRule.LineValue;
+                hasUpdates = true;
+            }
+
+            if (existingRule.PayoutMultiplier != defaultRule.PayoutMultiplier)
+            {
+                existingRule.PayoutMultiplier = defaultRule.PayoutMultiplier;
+                hasUpdates = true;
+            }
+
+            if (existingRule.IsEnabled != defaultRule.IsEnabled)
+            {
+                existingRule.IsEnabled = defaultRule.IsEnabled;
+                hasUpdates = true;
+            }
         }
 
-        db.PayoutMarketRules.AddRange(missingRules);
-        db.SaveChanges();
+        if (missingRules.Length > 0)
+        {
+            db.PayoutMarketRules.AddRange(missingRules);
+            hasUpdates = true;
+        }
+
+        if (hasUpdates)
+        {
+            db.SaveChanges();
+        }
     }
 }

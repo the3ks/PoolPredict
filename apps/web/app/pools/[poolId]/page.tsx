@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import {
+  CSSProperties,
   Dispatch,
   FormEvent,
   ReactNode,
   SetStateAction,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import { useParams } from "next/navigation";
@@ -656,109 +658,124 @@ export default function PoolOverviewPage() {
             ) : null
           }
         />
-        <StatusPill icon={ShieldCheck}>{status}</StatusPill>
         {pool ? (
-          <section className="poolOverviewSection">
-            <button
-              className="overviewRowToggle"
-              type="button"
-              onClick={() => setShowOverviewRow((current) => !current)}
-            >
-              <IconLabel icon={showOverviewRow ? ChevronDown : ChevronRight}>
-                Summary & Leaderboard
-              </IconLabel>
-            </button>
-            {showOverviewRow ? (
-              <div className="poolOverviewGrid">
-                <Panel className="poolSummaryPanel">
-                  <h2 className="poolSummaryTitle">
-                    Summary (<IconLabel icon={Users}>{pool.memberCount}</IconLabel>)
-                  </h2>
-                  <div className="poolSummaryCompactGrid">
-                    <div className="poolSummaryStatBox">
-                      <small><IconLabel icon={ShieldCheck}>Role</IconLabel></small>
-                      <strong>{pool.role}</strong>
-                    </div>
-                    <div className="poolSummaryStatBox">
-                      <small><IconLabel icon={Lock}>Prediction status</IconLabel></small>
-                      <strong>{pool.predictionsLocked ? "Locked" : "Open"}</strong>
-                    </div>
-                    <div className="poolSummaryStatBox">
-                      <small><IconLabel icon={Waves}>Profile</IconLabel></small>
-                      <strong>{pool.profile}</strong>
-                    </div>
-                    <div className="poolSummaryStatBox">
-                      <small>Your balance</small>
-                      <strong>
-                        {currentMemberLeaderboardEntry
-                          ? formatNumberDisplay(currentMemberLeaderboardEntry.balance)
-                          : "-"}
-                      </strong>
-                    </div>
-                    <div className="poolSummaryStatBox">
-                      <small>Stake range</small>
-                      <strong>
-                        {formatNumberDisplay(pool.minStake)}-{formatNumberDisplay(pool.maxStake)}
-                      </strong>
-                    </div>
-                    <div className="poolSummaryStatBox">
-                      <small>Event cap</small>
-                      <strong>{formatNumberDisplay(pool.maxTotalStakePerEvent)}</strong>
-                    </div>
-                  </div>
-                </Panel>
-                <Panel className="poolLeaderboardPanel" title="Leaderboard">
-                  <div className="poolLeaderboardList">
-                    {leaderboard.length === 0 ? (
-                      <p className="mutedText">No leaderboard entries yet.</p>
-                    ) : (
-                      leaderboard.map((entry, index) => (
-                        <article
-                          className={[
-                            "poolLeaderboardRow",
-                            entry.memberId === pool.memberId ? "active" : "",
-                          ]
-                            .filter(Boolean)
-                            .join(" ")}
-                          key={entry.memberId}
-                        >
-                          <span>
-                            <strong className="leaderboardIdentity">
-                              <span className="leaderboardName">
-                                <span className="leaderboardRank">#{index + 1}</span>
-                                <span className="leaderboardAvatarWrap">
-                                  {entry.avatarUrl ? (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img alt="" className="leaderboardAvatar" src={entry.avatarUrl} />
-                                  ) : (
-                                    <span className="leaderboardAvatarFallback">
-                                      {entry.displayName.slice(0, 1).toUpperCase()}
+          <section
+            className={[
+              "poolBackdropSection",
+              pool.coverImageUrl ? "hasImage" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            style={
+              pool.coverImageUrl
+                ? {
+                    ["--pool-backdrop-image" as "--pool-backdrop-image"]: `linear-gradient(180deg, rgba(3, 8, 18, 0.22) 0%, rgba(3, 8, 18, 0.58) 14%, rgba(3, 8, 18, 0.86) 40%, rgba(3, 8, 18, 0.97) 72%, var(--bg) 100%), url(${pool.coverImageUrl})`,
+                  } as CSSProperties
+                : undefined
+            }
+          >
+            <div className="poolBackdropContent">
+              <StatusPill icon={ShieldCheck}>{status}</StatusPill>
+              <section className="poolOverviewSection">
+                <button
+                  className="overviewRowToggle"
+                  type="button"
+                  onClick={() => setShowOverviewRow((current) => !current)}
+                >
+                  <IconLabel icon={showOverviewRow ? ChevronDown : ChevronRight}>
+                    Summary & Leaderboard
+                  </IconLabel>
+                </button>
+                {showOverviewRow ? (
+                  <div className="poolOverviewGrid">
+                    <Panel className="poolSummaryPanel">
+                      <h2 className="poolSummaryTitle">
+                        Summary (<IconLabel icon={Users}>{pool.memberCount}</IconLabel>)
+                      </h2>
+                      <div className="poolSummaryCompactGrid">
+                        <div className="poolSummaryStatBox">
+                          <small><IconLabel icon={ShieldCheck}>Role</IconLabel></small>
+                          <strong>{pool.role}</strong>
+                        </div>
+                        <div className="poolSummaryStatBox">
+                          <small><IconLabel icon={Lock}>Prediction status</IconLabel></small>
+                          <strong>{pool.predictionsLocked ? "Locked" : "Open"}</strong>
+                        </div>
+                        <div className="poolSummaryStatBox">
+                          <small><IconLabel icon={Waves}>Profile</IconLabel></small>
+                          <strong>{pool.profile}</strong>
+                        </div>
+                        <div className="poolSummaryStatBox">
+                          <small>Your balance</small>
+                          <strong>
+                            {currentMemberLeaderboardEntry
+                              ? formatNumberDisplay(currentMemberLeaderboardEntry.balance)
+                              : "-"}
+                          </strong>
+                        </div>
+                        <div className="poolSummaryStatBox">
+                          <small>Stake range</small>
+                          <strong>
+                            {formatNumberDisplay(pool.minStake)}-{formatNumberDisplay(pool.maxStake)}
+                          </strong>
+                        </div>
+                        <div className="poolSummaryStatBox">
+                          <small>Event cap</small>
+                          <strong>{formatNumberDisplay(pool.maxTotalStakePerEvent)}</strong>
+                        </div>
+                      </div>
+                    </Panel>
+                    <Panel className="poolLeaderboardPanel" title="Leaderboard">
+                      <div className="poolLeaderboardList">
+                        {leaderboard.length === 0 ? (
+                          <p className="mutedText">No leaderboard entries yet.</p>
+                        ) : (
+                          leaderboard.map((entry, index) => (
+                            <article
+                              className={[
+                                "poolLeaderboardRow",
+                                entry.memberId === pool.memberId ? "active" : "",
+                              ]
+                                .filter(Boolean)
+                                .join(" ")}
+                              key={entry.memberId}
+                            >
+                              <span>
+                                <strong className="leaderboardIdentity">
+                                  <span className="leaderboardName">
+                                    <span className="leaderboardRank">#{index + 1}</span>
+                                    <span className="leaderboardAvatarWrap">
+                                      {entry.avatarUrl ? (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img alt="" className="leaderboardAvatar" src={entry.avatarUrl} />
+                                      ) : (
+                                        <span className="leaderboardAvatarFallback">
+                                          {entry.displayName.slice(0, 1).toUpperCase()}
+                                        </span>
+                                      )}
                                     </span>
-                                  )}
-                                </span>
-                                <span className="leaderboardLabel">{entry.displayName}</span>
+                                    <span className="leaderboardLabel">{entry.displayName}</span>
+                                  </span>
+                                </strong>
                               </span>
-                            </strong>
-                          </span>
-                          <span>
-                            <strong>{formatNumberDisplay(entry.balance)}</strong>
-                            <small>Balance</small>
-                          </span>
-                          <span>
-                            <strong>{entry.winRate}%</strong>
-                            <small>Win rate</small>
-                          </span>
-                        </article>
-                      ))
-                    )}
+                              <span>
+                                <strong>{formatNumberDisplay(entry.balance)}</strong>
+                                <small>Balance</small>
+                              </span>
+                              <span>
+                                <strong>{entry.winRate}%</strong>
+                                <small>Win rate</small>
+                              </span>
+                            </article>
+                          ))
+                        )}
+                      </div>
+                    </Panel>
                   </div>
-                </Panel>
-              </div>
-            ) : null}
-          </section>
-        ) : null}
-        {pool && canManagePool(pool) ? (
-          <section className="poolManagementSection">
+                ) : null}
+              </section>
+              {canManagePool(pool) ? (
+                <section className="poolManagementSection">
             <button
               className="closedMarketToggle"
               type="button"
@@ -926,22 +943,19 @@ export default function PoolOverviewPage() {
                 </Panel>
               </div>
             ) : null}
-          </section>
-        ) : null}
-        {pool ? (
-          <PoolAnnouncementsPanel
-            drafts={announcementDrafts}
-            isExpanded={isAnnouncementsExpanded}
-            isOwner={canManageInvites(pool)}
-            isPostingMessage={isPostingMessage}
-            messages={poolMessages}
-            onDraftChange={setAnnouncementDrafts}
-            onSubmit={submitPoolAnnouncement}
-            onToggle={() => setIsAnnouncementsExpanded((current) => !current)}
-          />
-        ) : null}
-        {pool ? (
-          <div className="predictionGrid">
+                </section>
+              ) : null}
+              <PoolAnnouncementsPanel
+                drafts={announcementDrafts}
+                isExpanded={isAnnouncementsExpanded}
+                isOwner={canManageInvites(pool)}
+                isPostingMessage={isPostingMessage}
+                messages={poolMessages}
+                onDraftChange={setAnnouncementDrafts}
+                onSubmit={submitPoolAnnouncement}
+                onToggle={() => setIsAnnouncementsExpanded((current) => !current)}
+              />
+              <div className="predictionGrid">
             <Panel className="marketsPanel" title="Markets">
               <select
                 aria-label="Select match"
@@ -1237,7 +1251,9 @@ export default function PoolOverviewPage() {
                 onSubmit={submitPoolMessage}
               />
             </div>
-          </div>
+              </div>
+            </div>
+          </section>
         ) : null}
       </section>
     </UserShell>
@@ -1371,9 +1387,43 @@ function PoolMessagesPanel({
   onSubmit,
 }: PoolMessagesPanelProps) {
   const chatMessages = messages.filter((message) => message.kind === "Chat");
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const isPinnedToBottomRef = useRef(true);
+  const hasInitializedScrollRef = useRef(false);
+  const lastChatMessageId = chatMessages.at(-1)?.id ?? "";
+
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list) {
+      return;
+    }
+
+    if (!hasInitializedScrollRef.current || isPinnedToBottomRef.current) {
+      requestAnimationFrame(() => {
+        list.scrollTop = list.scrollHeight;
+        hasInitializedScrollRef.current = true;
+        isPinnedToBottomRef.current = true;
+      });
+    }
+  }, [chatMessages.length, lastChatMessageId]);
+
+  function updatePinnedToBottom() {
+    const list = listRef.current;
+    if (!list) {
+      return;
+    }
+
+    isPinnedToBottomRef.current =
+      list.scrollHeight - list.scrollTop - list.clientHeight < 12;
+  }
+
   return (
     <Panel className="poolMessagesPanel" title="Hội bà 8">
-      <div className="poolMessageList">
+      <div
+        className="poolMessageList"
+        ref={listRef}
+        onScroll={updatePinnedToBottom}
+      >
         {chatMessages.length === 0 ? (
           <p className="mutedText">No pool messages yet.</p>
         ) : (
@@ -1653,6 +1703,9 @@ function MarketGroupButtons({
           );
           return (
             <div className="oneXTwoMarketRow" key={market.id}>
+              <div className="oneXTwoMarketTitle">
+                {formatOneXTwoMarketTitle(market, shouldShowPeriodLabel)}
+              </div>
               {getMarketOptions(market, event).map((option) => (
                 <button
                   className={[
@@ -2007,6 +2060,13 @@ function formatMarketCardTitle(market: Market, includePeriodLabel = false) {
   }
 
   return `${marketName} (${formatMarketPeriodLabel(market.period)} @${payoutRate})`;
+}
+
+function formatOneXTwoMarketTitle(market: Market, includePeriodLabel = false) {
+  const marketName = includePeriodLabel
+    ? `1 X 2 ${formatMarketPeriodLabel(market.period)}`
+    : "1 X 2";
+  return `${marketName} (${formatPayoutRate(market.payoutMultiplier)})`;
 }
 
 function formatPayoutRate(payoutMultiplier: number) {
