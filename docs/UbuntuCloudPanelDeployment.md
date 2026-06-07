@@ -457,7 +457,7 @@ Back up MariaDB before any release that includes migrations. As root:
 clpctl db:export --databaseName=poolpredict --file=/home/poolpredict/poolpredict-before-update.sql.gz
 ```
 
-### 10.5 Full App Update
+### 10.2 Full App Update
 
 Use this when both API and web changed.
 
@@ -502,7 +502,7 @@ sudo journalctl -u poolpredict-api -n 80 --no-pager
 sudo -iu poolpredict pm2 logs poolpredict-web --lines 80
 ```
 
-### 10.6 Config Or Infrastructure Update
+### 10.3 Config Or Infrastructure Update
 
 Use this when production settings changed.
 
@@ -532,7 +532,7 @@ curl -I https://www.wc2026.beer
 curl https://www.wc2026.beer/api/health
 ```
 
-### 10.7 Rollback Notes
+### 10.4 Rollback Notes
 
 For a web-only rollback:
 

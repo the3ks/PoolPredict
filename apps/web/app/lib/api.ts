@@ -5,10 +5,6 @@ export function apiUrl(path: string) {
     throw new Error("NEXT_PUBLIC_API_BASE_URL is not configured.");
   }
 
-  if (apiBaseUrl.endsWith("/api") && path.startsWith("/api/")) {
-    return `${apiBaseUrl}${path.slice(4)}`;
-  }
-
   return `${apiBaseUrl}${path}`;
 }
 
