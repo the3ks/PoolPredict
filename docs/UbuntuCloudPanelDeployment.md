@@ -457,94 +457,15 @@ Back up MariaDB before any release that includes migrations. As root:
 clpctl db:export --databaseName=poolpredict --file=/home/poolpredict/poolpredict-before-update.sql.gz
 ```
 
-### 10.2 Web-Only Update
-
-Use this when only the Next.js app changed.
-
-As the `poolpredict` site user:
-
-```bash
-cd /home/poolpredict/htdocs/www.wc2026.beer
-git pull --ff-only
-
-cd apps/web
-npm ci
-npm run build
-pm2 restart poolpredict-web
-pm2 status
-```
-
-Verify:
-
-```bash
-curl -I https://www.wc2026.beer
-pm2 logs poolpredict-web --lines 40
-```
-
-### 10.3 API-Only Update Without Database Migration
-
-Use this when API code changed but no EF migration/schema change is included.
-
-As the `poolpredict` site user:
-
-```bash
-cd /home/poolpredict/htdocs/www.wc2026.beer
-git pull --ff-only
-
-dotnet publish apps/api/PoolPredict.Api.csproj -c Release -o /home/poolpredict/api-publish
-```
-
-As root:
-
-```bash
-sudo systemctl restart poolpredict-api
-sudo systemctl status poolpredict-api --no-pager
-```
-
-Verify:
-
-```bash
-curl https://www.wc2026.beer/api/health
-sudo journalctl -u poolpredict-api -n 60 --no-pager
-```
-
-### 10.4 API Update With Database Migration
-
-Use this when the release includes EF migrations or persistence model changes.
-
-As the `poolpredict` site user:
-
-```bash
-cd /home/poolpredict/htdocs/www.wc2026.beer
-git pull --ff-only
-
-dotnet ef dbcontext info --project apps/api/PoolPredict.Api.csproj --startup-project apps/api/PoolPredict.Api.csproj
-dotnet ef database update \
-  --project apps/api/PoolPredict.Api.csproj \
-  --startup-project apps/api/PoolPredict.Api.csproj \
-  --configuration Release
-
-dotnet publish apps/api/PoolPredict.Api.csproj -c Release -o /home/poolpredict/api-publish
-```
-
-As root:
-
-```bash
-sudo systemctl restart poolpredict-api
-```
-
-Verify:
-
-```bash
-curl https://www.wc2026.beer/api/health
-sudo journalctl -u poolpredict-api -n 80 --no-pager
-```
-
-If this command tries to recreate existing tables, inspect `__efmigrationshistory` in the `poolpredict` database. EF only applies the last missing migrations when that table accurately lists the migrations already applied to the schema.
-
 ### 10.5 Full App Update
 
 Use this when both API and web changed.
+
+As root:
+
+```bash
+sudo systemctl stop poolpredict-api
+```
 
 As the `poolpredict` site user:
 
@@ -570,7 +491,7 @@ pm2 restart poolpredict-web
 As root:
 
 ```bash
-sudo systemctl restart poolpredict-api
+sudo systemctl start poolpredict-api
 ```
 
 Verify:
