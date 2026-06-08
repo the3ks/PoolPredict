@@ -185,6 +185,8 @@ public sealed class PoolPredictDbContext(DbContextOptions<PoolPredictDbContext> 
             entity.Property(pool => pool.StartingBalance).HasColumnName("starting_balance");
             entity.Property(pool => pool.PredictionsLocked).HasColumnName("predictions_locked");
             entity.Property(pool => pool.CoverImageUrl).HasColumnName("cover_image_url").HasMaxLength(1000);
+            entity.Property(pool => pool.AnnouncementTitle).HasColumnName("announcement_title").HasMaxLength(200);
+            entity.Property(pool => pool.IsHidden).HasColumnName("is_hidden");
             entity.Property(pool => pool.DefaultStake).HasColumnName("default_stake");
             entity.Property(pool => pool.MinStake).HasColumnName("min_stake");
             entity.Property(pool => pool.MaxStake).HasColumnName("max_stake");

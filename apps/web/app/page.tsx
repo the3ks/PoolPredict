@@ -17,6 +17,7 @@ import { apiUrl } from "./lib/api";
 import { getStoredToken, subscribeToAuthChanges } from "./lib/auth";
 import { UserShell } from "./components/user-shell";
 import { appName } from "./lib/config";
+import { formatDisplayDate } from "./lib/datetime";
 import { DiscoverPool, PoolSummary, Tournament } from "./lib/types";
 
 export default function Home() {
@@ -203,11 +204,11 @@ export default function Home() {
               <dl className="detailList compactDetails">
                 <div>
                   <dt>Starts</dt>
-                  <dd>{formatDate(tournament.startsOn)}</dd>
+                  <dd>{formatDisplayDate(tournament.startsOn)}</dd>
                 </div>
                 <div>
                   <dt>Ends</dt>
-                  <dd>{formatDate(tournament.endsOn)}</dd>
+                  <dd>{formatDisplayDate(tournament.endsOn)}</dd>
                 </div>
                 <div>
                   <dt>Source</dt>
@@ -232,10 +233,6 @@ export default function Home() {
       </section>
     </UserShell>
   );
-}
-
-function formatDate(value: string) {
-  return new Date(`${value}T00:00:00`).toLocaleDateString();
 }
 
 function pickRandomPools<T>(items: T[], count: number) {

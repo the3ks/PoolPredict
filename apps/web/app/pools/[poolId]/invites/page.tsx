@@ -13,6 +13,7 @@ import {
 } from "../../../components/ui";
 import { apiUrl, readApiError } from "../../../lib/api";
 import { getStoredToken } from "../../../lib/auth";
+import { formatDisplayDateTime } from "../../../lib/datetime";
 import { PoolInvite, PoolSummary } from "../../../lib/types";
 
 export default function PoolInvitesPage() {
@@ -204,7 +205,7 @@ export default function PoolInvitesPage() {
                     <small>
                       Created{" "}
                       {invite.createdAt
-                        ? new Date(invite.createdAt).toLocaleString()
+                        ? formatDisplayDateTime(invite.createdAt)
                         : "unknown"}
                     </small>
                   </span>
@@ -212,7 +213,7 @@ export default function PoolInvitesPage() {
                     <strong>{invite.isRevoked ? "Revoked" : "Active"}</strong>
                     <small>
                       {invite.revokedAt
-                        ? new Date(invite.revokedAt).toLocaleString()
+                        ? formatDisplayDateTime(invite.revokedAt)
                         : "Can be used to join"}
                     </small>
                   </span>

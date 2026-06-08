@@ -16,7 +16,9 @@ public sealed class Pool : Entity
         int defaultStake = 100,
         int minStake = 10,
         int maxStake = 200,
-        int maxTotalStakePerEvent = 400)
+        int maxTotalStakePerEvent = 400,
+        string announcementTitle = "Announcements",
+        bool isHidden = false)
         : base(id)
     {
         OwnerUserId = ownerUserId;
@@ -30,6 +32,8 @@ public sealed class Pool : Entity
         MinStake = minStake;
         MaxStake = maxStake;
         MaxTotalStakePerEvent = maxTotalStakePerEvent;
+        AnnouncementTitle = announcementTitle;
+        IsHidden = isHidden;
     }
 
     public Guid OwnerUserId { get; }
@@ -54,6 +58,10 @@ public sealed class Pool : Entity
 
     public int MaxTotalStakePerEvent { get; private set; }
 
+    public string AnnouncementTitle { get; private set; }
+
+    public bool IsHidden { get; private set; }
+
     public void UpdateSettings(
         string name,
         int startingBalance,
@@ -62,7 +70,8 @@ public sealed class Pool : Entity
         int defaultStake,
         int minStake,
         int maxStake,
-        int maxTotalStakePerEvent)
+        int maxTotalStakePerEvent,
+        string announcementTitle)
     {
         Name = name;
         StartingBalance = startingBalance;
@@ -72,5 +81,11 @@ public sealed class Pool : Entity
         MinStake = minStake;
         MaxStake = maxStake;
         MaxTotalStakePerEvent = maxTotalStakePerEvent;
+        AnnouncementTitle = announcementTitle;
+    }
+
+    public void SetHidden(bool isHidden)
+    {
+        IsHidden = isHidden;
     }
 }

@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using PoolPredict.Api.Modules.Email;
 using PoolPredict.Api.Modules.Identity;
+using PoolPredict.Api.Modules.Pools;
 using PoolPredict.Api.Infrastructure.Persistence;
 
 namespace PoolPredict.Api.Modules.Admin;
@@ -52,6 +53,7 @@ public static class AdminEndpoints
                     tournament.IsTestData,
                     pool.Profile,
                     pool.StartingBalance,
+                    pool.IsHidden,
                     MemberCount = db.PoolMembers.Count(member => member.PoolId == pool.Id),
                     InviteCount = db.PoolInvites.Count(invite => invite.PoolId == pool.Id)
                 })
@@ -72,11 +74,30 @@ public static class AdminEndpoints
                     pool.IsTestData,
                     pool.Profile.ToString(),
                     pool.StartingBalance,
+                    pool.IsHidden,
                     pool.MemberCount,
                     pool.InviteCount))
                 .ToArray();
 
             return Results.Ok(pools);
+        });
+
+        group.MapPut("/pools/{poolId:guid}/visibility", (Guid poolId, UpdatePoolVisibilityRequest request, ClaimsPrincipal principal, PoolStore pools) =>
+        {
+            if (!IsPlatformAdmin(principal))
+            {
+                return Results.Forbid();
+            }
+
+            try
+            {
+                var pool = pools.SetPoolHidden(poolId, request.IsHidden);
+                return Results.Ok(new PoolVisibilityResponse(pool.Id, pool.IsHidden));
+            }
+            catch (KeyNotFoundException)
+            {
+                return Results.NotFound();
+            }
         });
 
         group.MapPost("/users/{userId:guid}/password-reset", (Guid userId, ClaimsPrincipal principal, IdentityStore users) =>
@@ -180,5 +201,10 @@ public sealed record AdminPoolResponse(
     bool IsTestData,
     string Profile,
     int StartingBalance,
+    bool IsHidden,
     int MemberCount,
     int InviteCount);
+
+public sealed record UpdatePoolVisibilityRequest(bool IsHidden);
+
+public sealed record PoolVisibilityResponse(Guid Id, bool IsHidden);

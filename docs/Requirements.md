@@ -232,6 +232,7 @@ First Half:
 * Do not use public betting odds
 * External providers do not provide payout values for MVP
 * 1X2 uses a fixed point payout multiplier instead of volatile outcome-specific public odds
+* 1X2 uses a `2.5x` point payout multiplier (`1:1.5` payout rate)
 * MVP markets use fixed point payout multipliers
 * Platform Admin manages global default point payout configuration
 * Global defaults define market line values, payout multipliers and supported line sets
@@ -259,6 +260,8 @@ First Half:
 * Prediction API must enforce all pool stake rules server-side.
 * Correct Score input must use `score_number-score_number` format.
 * Correct Score score numbers must be zero or positive integers.
+* Pool members can choose only one 1X2 option per event: home win, draw or away win.
+* Pool members can add more points to the same 1X2 option for the same event as long as normal stake and event-cap rules allow it.
 * Pool market displays should show current prediction users grouped by selected market option.
 * Market lists should show only scheduled matches that kick off inside the configured upcoming display window.
 * Recently closed matches should remain visible only inside the configured recent closed display window.

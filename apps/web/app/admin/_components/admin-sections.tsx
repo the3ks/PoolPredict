@@ -5,6 +5,7 @@ import { Activity, CalendarClock, CheckCircle2, KeyRound, ListChecks, RefreshCw,
 import { IconLabel, Panel, StatGrid } from "../../components/ui";
 import { apiUrl, readApiError } from "../../lib/api";
 import { getStoredToken } from "../../lib/auth";
+import { formatDisplayDateTime } from "../../lib/datetime";
 import { appName } from "../../lib/config";
 
 type ProviderSyncStatus = {
@@ -184,7 +185,7 @@ export function ProviderSection() {
             <div><dt>Last synced provider</dt><dd>{status.provider}</dd></div>
             <div><dt>Default provider</dt><dd>{providerList?.defaultProvider ?? "Unknown"}</dd></div>
             <div><dt>Last result</dt><dd>{status.lastResult}</dd></div>
-            <div><dt>Last synced</dt><dd>{status.lastSyncedAt ? new Date(status.lastSyncedAt).toLocaleString() : "Not synced"}</dd></div>
+            <div><dt>Last synced</dt><dd>{status.lastSyncedAt ? formatDisplayDateTime(status.lastSyncedAt) : "Not synced"}</dd></div>
           </dl>
         </>
       ) : null}
@@ -692,7 +693,7 @@ export function UserManagementSection() {
           <article className="adminUserRow" key={user.id}>
             <span><strong>{user.displayName}</strong><small>{user.email}</small></span>
             <span><strong>{user.role}</strong><small>{user.isEmailVerified ? "Verified" : "Unverified"}</small></span>
-            <span><strong>{user.mustChangePassword ? "Must change" : "Current"}</strong><small>{user.lastLoginAt ? `Last login ${new Date(user.lastLoginAt).toLocaleString()}` : "No login recorded"}</small></span>
+            <span><strong>{user.mustChangePassword ? "Must change" : "Current"}</strong><small>{user.lastLoginAt ? `Last login ${formatDisplayDateTime(user.lastLoginAt)}` : "No login recorded"}</small></span>
             <div className="adminUserActions">
               {!user.isEmailVerified ? (
                 <button className="button compactButton" type="button" onClick={() => verifyUserEmail(user.id)}><IconLabel icon={CheckCircle2}>Verify</IconLabel></button>
@@ -977,7 +978,7 @@ function EventList({ state }: { state: AdminEventState }) {
       {state.events.map((matchEvent) => (
         <button className={matchEvent.id === state.selectedEventId ? "adminEventRow active" : "adminEventRow"} key={matchEvent.id} type="button" onClick={() => state.setSelectedEventId(matchEvent.id)}>
           <span><strong>{matchEvent.homeParticipant} vs {matchEvent.awayParticipant}</strong><small>{matchEvent.tournamentName}</small></span>
-          <span><strong>{new Date(matchEvent.startsAt).toLocaleString()}</strong><small><IconLabel icon={CalendarClock}>{matchEvent.status}</IconLabel></small></span>
+          <span><strong>{formatDisplayDateTime(matchEvent.startsAt)}</strong><small><IconLabel icon={CalendarClock}>{matchEvent.status}</IconLabel></small></span>
           <span><strong>{matchEvent.provider}{matchEvent.isTestData ? " test" : ""}</strong><small>{matchEvent.managementMode}</small></span>
         </button>
       ))}

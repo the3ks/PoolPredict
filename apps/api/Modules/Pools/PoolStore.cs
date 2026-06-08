@@ -11,6 +11,7 @@ namespace PoolPredict.Api.Modules.Pools;
 
 public sealed class PoolStore
 {
+    private const decimal CurrentOneXTwoPayoutMultiplier = 2.5m;
     private readonly List<Pool> _pools = [];
     private readonly List<PoolMember> _members = [];
     private readonly List<PoolInvite> _invites = [];
@@ -23,6 +24,7 @@ public sealed class PoolStore
     {
         _payoutConfigurations = payoutConfigurations;
         _dbContextFactory = dbContextFactory;
+        EnsureCurrentOneXTwoMarketPayouts();
         LoadPersisted();
     }
 
@@ -90,7 +92,7 @@ public sealed class PoolStore
             return _members
                 .Where(member => member.UserId == userId)
                 .Join(
-                    _pools,
+                    _pools.Where(pool => !pool.IsHidden),
                     member => member.PoolId,
                     pool => pool.Id,
                     (member, pool) => ToSummary(pool, member.Role))
@@ -112,7 +114,7 @@ public sealed class PoolStore
         {
             var membership = _members.SingleOrDefault(member => member.PoolId == poolId && member.UserId == userId);
             var pool = _pools.SingleOrDefault(candidate => candidate.Id == poolId);
-            return pool is null || membership is null
+            return pool is null || pool.IsHidden || membership is null
                 ? null
                 : ToDetails(pool, membership);
         }
@@ -142,6 +144,7 @@ public sealed class PoolStore
             normalizedStakeSettings.maxStake,
             normalizedStakeSettings.maxTotalStakePerEvent);
         var coverImageUrl = NormalizeOptionalUrl(request.CoverImageUrl, "Cover image URL");
+        var announcementTitle = NormalizeAnnouncementTitle(request.AnnouncementTitle);
 
         lock (_gate)
         {
@@ -157,7 +160,21 @@ public sealed class PoolStore
                 normalizedStakeSettings.defaultStake,
                 normalizedStakeSettings.minStake,
                 normalizedStakeSettings.maxStake,
-                normalizedStakeSettings.maxTotalStakePerEvent);
+                normalizedStakeSettings.maxTotalStakePerEvent,
+                announcementTitle);
+            PersistPoolUpdate(pool);
+            return pool;
+        }
+    }
+
+    public Pool SetPoolHidden(Guid poolId, bool isHidden)
+    {
+        lock (_gate)
+        {
+            var pool = _pools.SingleOrDefault(candidate => candidate.Id == poolId)
+                ?? throw new KeyNotFoundException("Pool does not exist.");
+
+            pool.SetHidden(isHidden);
             PersistPoolUpdate(pool);
             return pool;
         }
@@ -331,6 +348,11 @@ public sealed class PoolStore
             }
 
             var pool = _pools.Single(candidate => candidate.Id == invite.PoolId);
+            if (pool.IsHidden)
+            {
+                return null;
+            }
+
             return new PoolInviteResponse(invite.Code, pool.Id, pool.Name, pool.Profile, pool.StartingBalance);
         }
     }
@@ -343,6 +365,11 @@ public sealed class PoolStore
                 ?? throw new KeyNotFoundException("Invite code does not exist.");
 
             var pool = _pools.Single(candidate => candidate.Id == invite.PoolId);
+            if (pool.IsHidden)
+            {
+                throw new KeyNotFoundException("Invite code does not exist.");
+            }
+
             var existing = _members.SingleOrDefault(member => member.PoolId == pool.Id && member.UserId == userId);
             if (existing is not null)
             {
@@ -368,6 +395,11 @@ public sealed class PoolStore
     {
         lock (_gate)
         {
+            if (IsPoolHidden(poolId))
+            {
+                return null;
+            }
+
             return _members.SingleOrDefault(member => member.PoolId == poolId && member.UserId == userId);
         }
     }
@@ -376,7 +408,7 @@ public sealed class PoolStore
     {
         lock (_gate)
         {
-            return _members.Any(member => member.PoolId == poolId && member.UserId == userId);
+            return !IsPoolHidden(poolId) && _members.Any(member => member.PoolId == poolId && member.UserId == userId);
         }
     }
 
@@ -499,6 +531,11 @@ public sealed class PoolStore
 
     private void EnsureCanManage(Guid poolId, Guid userId)
     {
+        if (IsPoolHidden(poolId))
+        {
+            throw new UnauthorizedAccessException("This pool is hidden.");
+        }
+
         var membership = _members.SingleOrDefault(member => member.PoolId == poolId && member.UserId == userId);
         if (membership?.Role is not (PoolMemberRole.Owner or PoolMemberRole.Admin))
         {
@@ -508,12 +545,19 @@ public sealed class PoolStore
 
     private void EnsureCanManageInvites(Guid poolId, Guid userId)
     {
+        if (IsPoolHidden(poolId))
+        {
+            throw new UnauthorizedAccessException("This pool is hidden.");
+        }
+
         var membership = _members.SingleOrDefault(member => member.PoolId == poolId && member.UserId == userId);
         if (membership?.Role is not PoolMemberRole.Owner)
         {
             throw new UnauthorizedAccessException("Only pool owners can manage invite codes.");
         }
     }
+
+    private bool IsPoolHidden(Guid poolId) => _pools.SingleOrDefault(pool => pool.Id == poolId)?.IsHidden == true;
 
     private PoolInvite? FindActiveInvite(string code)
     {
@@ -537,6 +581,7 @@ public sealed class PoolStore
             pool.StartingBalance,
             pool.PredictionsLocked,
             pool.CoverImageUrl,
+            pool.AnnouncementTitle,
             pool.DefaultStake,
             pool.MinStake,
             pool.MaxStake,
@@ -555,6 +600,7 @@ public sealed class PoolStore
             pool.StartingBalance,
             pool.PredictionsLocked,
             pool.CoverImageUrl,
+            pool.AnnouncementTitle,
             pool.DefaultStake,
             pool.MinStake,
             pool.MaxStake,
@@ -599,7 +645,9 @@ public sealed class PoolStore
                 normalizedStakeSettings.defaultStake,
                 normalizedStakeSettings.minStake,
                 normalizedStakeSettings.maxStake,
-                normalizedStakeSettings.maxTotalStakePerEvent);
+                normalizedStakeSettings.maxTotalStakePerEvent,
+                string.IsNullOrWhiteSpace(pool.AnnouncementTitle) ? "Announcements" : pool.AnnouncementTitle,
+                pool.IsHidden);
         }));
 
         _members.AddRange(db.PoolMembers.AsNoTracking().Select(member => new PoolMember(
@@ -647,6 +695,8 @@ public sealed class PoolStore
         persisted.StartingBalance = pool.StartingBalance;
         persisted.PredictionsLocked = pool.PredictionsLocked;
         persisted.CoverImageUrl = pool.CoverImageUrl;
+        persisted.AnnouncementTitle = pool.AnnouncementTitle;
+        persisted.IsHidden = pool.IsHidden;
         persisted.DefaultStake = pool.DefaultStake;
         persisted.MinStake = pool.MinStake;
         persisted.MaxStake = pool.MaxStake;
@@ -714,6 +764,8 @@ public sealed class PoolStore
         StartingBalance = pool.StartingBalance,
         PredictionsLocked = pool.PredictionsLocked,
         CoverImageUrl = pool.CoverImageUrl,
+        AnnouncementTitle = pool.AnnouncementTitle,
+        IsHidden = pool.IsHidden,
         DefaultStake = pool.DefaultStake,
         MinStake = pool.MinStake,
         MaxStake = pool.MaxStake,
@@ -782,6 +834,28 @@ public sealed class PoolStore
         }
     }
 
+    private void EnsureCurrentOneXTwoMarketPayouts()
+    {
+        using var db = _dbContextFactory.CreateDbContext();
+        var markets = db.Markets
+            .Where(market => market.Type == MarketType.OneXTwo
+                && market.Status == MarketStatus.Open
+                && market.PayoutMultiplier != CurrentOneXTwoPayoutMultiplier)
+            .ToArray();
+
+        if (markets.Length == 0)
+        {
+            return;
+        }
+
+        foreach (var market in markets)
+        {
+            market.PayoutMultiplier = CurrentOneXTwoPayoutMultiplier;
+        }
+
+        db.SaveChanges();
+    }
+
     private static string? NormalizeOptionalUrl(string? value, string fieldName)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -794,6 +868,17 @@ public sealed class PoolStore
             || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
         {
             throw new ArgumentException($"{fieldName} must be a valid HTTP or HTTPS URL.", fieldName);
+        }
+
+        return normalized;
+    }
+
+    private static string NormalizeAnnouncementTitle(string? value)
+    {
+        var normalized = string.IsNullOrWhiteSpace(value) ? "Announcements" : value.Trim();
+        if (normalized.Length > 200)
+        {
+            throw new ArgumentException("Announcement title must be 200 characters or fewer.", nameof(value));
         }
 
         return normalized;
@@ -844,6 +929,7 @@ public sealed record PoolSummaryResponse(
     int StartingBalance,
     bool PredictionsLocked,
     string? CoverImageUrl,
+    string AnnouncementTitle,
     int DefaultStake,
     int MinStake,
     int MaxStake,
@@ -861,6 +947,7 @@ public sealed record PoolDetailsResponse(
     int StartingBalance,
     bool PredictionsLocked,
     string? CoverImageUrl,
+    string AnnouncementTitle,
     int DefaultStake,
     int MinStake,
     int MaxStake,

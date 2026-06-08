@@ -8,6 +8,7 @@ import { UserShell } from "../../../components/user-shell";
 import { IconLabel, PageHeader, Panel, StatusPill } from "../../../components/ui";
 import { apiUrl, readApiError } from "../../../lib/api";
 import { getStoredToken } from "../../../lib/auth";
+import { formatDisplayDateTime } from "../../../lib/datetime";
 import { LeaderboardEntry, PoolSummary, Prediction } from "../../../lib/types";
 
 export default function PoolPredictionsPage() {
@@ -102,7 +103,7 @@ export default function PoolPredictionsPage() {
                   </span>
                   <span>
                     <strong>{prediction.payoutMultiplierSnapshot}x</strong>
-                    <small>{new Date(prediction.submittedAt).toLocaleString()}</small>
+                    <small>{formatDisplayDateTime(prediction.submittedAt)}</small>
                   </span>
                   <span>
                     <strong>{prediction.outcome ?? "Unsettled"}</strong>

@@ -1334,7 +1334,7 @@ dd {
 
 .adminPoolRow {
   display: grid;
-  grid-template-columns: minmax(170px, 1.2fr) minmax(180px, 1fr) minmax(180px, 1fr) minmax(120px, 0.7fr) minmax(120px, 0.7fr);
+  grid-template-columns: minmax(170px, 1.2fr) minmax(180px, 1fr) minmax(180px, 1fr) minmax(120px, 0.7fr) minmax(120px, 0.7fr) auto;
   gap: 14px;
   align-items: center;
   border: 1px solid var(--border);
@@ -1360,6 +1360,26 @@ dd {
   font-weight: 800;
   line-height: 1.4;
   text-transform: uppercase;
+}
+
+.adminPoolVisibilityButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-bg);
+  color: var(--text);
+  font-weight: 900;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.adminPoolVisibilityButton:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .joinRequestList {
@@ -2411,6 +2431,14 @@ dd {
   font-weight: 800;
 }
 
+.predictionFeedback {
+  margin: -2px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
 .eventIdText {
   display: block;
   margin-top: 2px;
@@ -2821,6 +2849,10 @@ dd {
 
   .adminPoolRow {
     grid-template-columns: 1fr;
+  }
+
+  .adminPoolVisibilityButton {
+    width: 100%;
   }
 
   .topbar,

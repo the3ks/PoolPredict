@@ -5,6 +5,7 @@ public sealed record UpdatePoolRequest(
     int StartingBalance,
     bool PredictionsLocked,
     string? CoverImageUrl,
+    string? AnnouncementTitle,
     int DefaultStake,
     int MinStake,
     int MaxStake,

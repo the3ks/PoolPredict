@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BadgeDollarSign, ShieldCheck, Trophy, Users, Waves } from "lucide-react";
+import { BadgeDollarSign, Eye, EyeOff, ShieldCheck, Trophy, Users, Waves } from "lucide-react";
 import { IconLabel, PageHeader, Panel, StatGrid, StatusPill } from "../../components/ui";
 import { apiUrl, readApiError } from "../../lib/api";
 import { getStoredToken } from "../../lib/auth";
@@ -18,6 +18,7 @@ type AdminPool = {
   isTestData: boolean;
   profile: string;
   startingBalance: number;
+  isHidden: boolean;
   memberCount: number;
   inviteCount: number;
 };
@@ -55,6 +56,37 @@ export default function AdminPoolsPage() {
     }
   }
 
+  async function setPoolVisibility(pool: AdminPool, isHidden: boolean) {
+    const token = getStoredToken();
+    if (!token) {
+      setStatus("Session is missing.");
+      return;
+    }
+
+    setStatus(`${isHidden ? "Hiding" : "Showing"} ${pool.name}...`);
+
+    try {
+      const response = await fetch(apiUrl(`/api/admin/pools/${pool.id}/visibility`), {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ isHidden }),
+      });
+
+      if (!response.ok) {
+        setStatus(await readApiError(response, "Could not update pool visibility."));
+        return;
+      }
+
+      setPools((current) => current.map((item) => (item.id === pool.id ? { ...item, isHidden } : item)));
+      setStatus(`${pool.name} is now ${isHidden ? "hidden" : "visible"}.`);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Could not update pool visibility.");
+    }
+  }
+
   return (
     <section className="pageStack">
       <PageHeader eyebrow="Admin" title="Pools" icon={Waves} />
@@ -65,6 +97,7 @@ export default function AdminPoolsPage() {
           { label: "Members", value: pools.reduce((sum, pool) => sum + pool.memberCount, 0), icon: Users },
           { label: "Invites", value: pools.reduce((sum, pool) => sum + pool.inviteCount, 0), icon: ShieldCheck },
           { label: "Test pools", value: pools.filter((pool) => pool.isTestData).length, icon: Trophy },
+          { label: "Hidden", value: pools.filter((pool) => pool.isHidden).length, icon: EyeOff },
         ]}
       />
       <Panel title="All pools">
@@ -73,7 +106,7 @@ export default function AdminPoolsPage() {
             <article className="adminPoolRow" key={pool.id}>
               <span>
                 <strong>{pool.name}</strong>
-                <small>{pool.profile} profile</small>
+                <small>{pool.profile} profile{pool.isHidden ? " hidden" : ""}</small>
               </span>
               <span>
                 <strong>{pool.ownerDisplayName}</strong>
@@ -91,6 +124,15 @@ export default function AdminPoolsPage() {
                 <strong><IconLabel icon={BadgeDollarSign}>{pool.startingBalance}</IconLabel></strong>
                 <small>Starting balance</small>
               </span>
+              <button
+                className="adminPoolVisibilityButton"
+                type="button"
+                onClick={() => setPoolVisibility(pool, !pool.isHidden)}
+                title={pool.isHidden ? "Show pool" : "Hide pool"}
+              >
+                {pool.isHidden ? <Eye size={16} /> : <EyeOff size={16} />}
+                {pool.isHidden ? "Show" : "Hide"}
+              </button>
             </article>
           ))}
         </div>

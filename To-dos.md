@@ -3,4 +3,4 @@
 - [done] Pool background cover from pool owner's uploaded image
 - [done] Pool stake  settings: pool owner can set default stake, min and max stake per prediction, max total per event. Then user must follow these rules when making predictions with proper hints & constraints on prediction form.
 - [done] Pools announcements and chat
-- Pool: pool owner receive notifications when new a join request is made
+- [done] Pool: pool owner receive notifications when new a join request is made

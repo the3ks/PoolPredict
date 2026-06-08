@@ -16,7 +16,7 @@ First-half, extra-time, penalty and aggregate-result variants are out of scope.
 
 ## Payout
 
-All `1X2` selections use a fixed `2x` point payout multiplier.
+All `1X2` selections use a fixed `2.5x` point payout multiplier (`1:1.5` payout rate).
 
 The platform must not use public betting odds for this market.
 
@@ -27,6 +27,12 @@ Users can submit a prediction by selecting exactly one of:
 * The home participant name
 * `Draw`
 * The away participant name
+
+For each pool member and event, only one `1X2` option choice is allowed.
+
+After a member places a `1X2` prediction for an event, the member can place additional predictions on the same selected option as long as normal stake and event-cap rules allow it.
+
+The member cannot place another `1X2` prediction for the same event on a different option.
 
 Prediction submission must follow the standard pool and market locking rules:
 
@@ -64,7 +70,25 @@ Settlement uses full-time scores only.
 
 The Casual profile should generate full-time markets only:
 
-* `1X2` at `2x`
+* `1X2` at `2.5x`
 * Over/Under at `2x`
 * Odd/Even at `2x`
 * Correct Score at `5x`
+
+Notes:
+SQL Script to update payout multiplier of existing `1X2` markets:
+```sql
+START TRANSACTION;
+
+UPDATE markets
+SET payout_multiplier = 2.5
+WHERE type = 'OneXTwo'
+  AND status = 'Open';
+
+UPDATE payout_configuration_market_rules
+SET payout_multiplier = 2.5
+WHERE market_type = 'OneXTwo'
+  AND is_enabled = 1;
+
+COMMIT;
+```

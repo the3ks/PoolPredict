@@ -39,7 +39,8 @@ public static class PoolEndpoints
                     on pool.OwnerUserId equals owner.Id
                 join tournament in db.Tournaments.AsNoTracking()
                     on pool.TournamentId equals tournament.Id
-                where !db.PoolMembers.Any(member => member.PoolId == pool.Id && member.UserId == userId)
+                where !pool.IsHidden &&
+                    !db.PoolMembers.Any(member => member.PoolId == pool.Id && member.UserId == userId)
                 select new
                 {
                     pool.Id,
@@ -92,6 +93,7 @@ public static class PoolEndpoints
                     on pool.TournamentId equals tournament.Id
                 join ownerMember in db.PoolMembers.AsNoTracking()
                     on new { PoolId = pool.Id, UserId = pool.OwnerUserId } equals new { ownerMember.PoolId, ownerMember.UserId }
+                where !pool.IsHidden
                 select new
                 {
                     pool.Id,
@@ -528,7 +530,7 @@ public static class PoolEndpoints
                     on pool.OwnerUserId equals owner.Id
                 join requester in db.Users.AsNoTracking()
                     on userId equals requester.Id
-                where pool.Id == poolId
+                where pool.Id == poolId && !pool.IsHidden
                 select new JoinRequestNotification(
                     pool.Id,
                     pool.Name,

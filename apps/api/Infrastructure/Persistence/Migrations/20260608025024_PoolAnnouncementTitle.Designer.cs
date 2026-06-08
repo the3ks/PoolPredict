@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using PoolPredict.Api.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using PoolPredict.Api.Infrastructure.Persistence;
 namespace PoolPredict.Api.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(PoolPredictDbContext))]
-    partial class PoolPredictDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260608025024_PoolAnnouncementTitle")]
+    partial class PoolAnnouncementTitle
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -497,10 +500,6 @@ namespace PoolPredict.Api.Infrastructure.Persistence.Migrations
                     b.Property<int>("DefaultStake")
                         .HasColumnType("int")
                         .HasColumnName("default_stake");
-
-                    b.Property<bool>("IsHidden")
-                        .HasColumnType("tinyint(1)")
-                        .HasColumnName("is_hidden");
 
                     b.Property<int>("MaxStake")
                         .HasColumnType("int")

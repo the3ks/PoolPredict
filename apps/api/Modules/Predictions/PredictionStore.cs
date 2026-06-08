@@ -98,6 +98,11 @@ public sealed class PredictionStore
                 throw new InvalidOperationException("Member balance is negative. New predictions are blocked.");
             }
 
+            if (market.Type == MarketType.OneXTwo && HasConflictingOneXTwoPredictionForEventUnsafe(pool.Id, member.Id, market.EventId, request.SelectedOption))
+            {
+                throw new InvalidOperationException("For 1X2, you can only choose one option per event. You can add more points to the same option, but cannot switch to another option.");
+            }
+
             var totalStakeForEvent = GetTotalStakeForEventUnsafe(pool.Id, member.Id, market.EventId);
             if (totalStakeForEvent + request.Stake > pool.MaxTotalStakePerEvent)
             {
@@ -434,6 +439,23 @@ public sealed class PredictionStore
                 market => market.Id,
                 (prediction, _) => prediction.Stake)
             .Sum();
+    }
+
+    private bool HasConflictingOneXTwoPredictionForEventUnsafe(Guid poolId, Guid memberId, Guid eventId, string selectedOption)
+    {
+        var normalizedOption = selectedOption.Trim();
+        using var db = _dbContextFactory.CreateDbContext();
+        var existingOptions = db.Predictions
+            .AsNoTracking()
+            .Where(prediction => prediction.PoolId == poolId && prediction.MemberId == memberId)
+            .Join(
+                db.Markets.AsNoTracking().Where(market => market.EventId == eventId && market.Type == MarketType.OneXTwo),
+                prediction => prediction.MarketId,
+                market => market.Id,
+                (prediction, _) => prediction.SelectedOption)
+            .ToArray();
+
+        return existingOptions.Any(existingOption => !string.Equals(existingOption, normalizedOption, StringComparison.OrdinalIgnoreCase));
     }
 
     private void LoadPersisted()

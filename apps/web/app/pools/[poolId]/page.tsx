@@ -42,6 +42,7 @@ import {
 } from "../../components/ui";
 import { apiUrl, readApiError } from "../../lib/api";
 import { getStoredToken } from "../../lib/auth";
+import { formatDisplayDateTime } from "../../lib/datetime";
 import {
   ParticipantName,
   formatParticipantName,
@@ -93,11 +94,13 @@ export default function PoolOverviewPage() {
   const [startingBalance, setStartingBalance] = useState(1000);
   const [predictionsLocked, setPredictionsLocked] = useState(false);
   const [coverImageUrl, setCoverImageUrl] = useState("");
+  const [announcementTitle, setAnnouncementTitle] = useState("Announcements");
   const [defaultStake, setDefaultStake] = useState(100);
   const [minStake, setMinStake] = useState(10);
   const [maxStake, setMaxStake] = useState(200);
   const [maxTotalStakePerEvent, setMaxTotalStakePerEvent] = useState(400);
   const [status, setStatus] = useState("Loading pool...");
+  const [predictionFeedback, setPredictionFeedback] = useState("");
   const [isSavingPool, setIsSavingPool] = useState(false);
   const [joinRequestStatus, setJoinRequestStatus] = useState("");
   const [isLoadingJoinRequests, setIsLoadingJoinRequests] = useState(false);
@@ -183,6 +186,7 @@ export default function PoolOverviewPage() {
     setStartingBalance(result.startingBalance);
     setPredictionsLocked(result.predictionsLocked);
     setCoverImageUrl(result.coverImageUrl ?? "");
+    setAnnouncementTitle(result.announcementTitle || "Announcements");
     setDefaultStake(result.defaultStake);
     setMinStake(result.minStake);
     setMaxStake(result.maxStake);
@@ -375,6 +379,7 @@ export default function PoolOverviewPage() {
           startingBalance,
           predictionsLocked,
           coverImageUrl: coverImageUrl.trim() || null,
+          announcementTitle,
           defaultStake,
           minStake,
           maxStake,
@@ -407,11 +412,15 @@ export default function PoolOverviewPage() {
     const option =
       market?.type === "CorrectScore" ? selectedOption.trim() : selectedOption;
     if (!option) {
-      setStatus("Select a prediction option.");
+      const message = "Select a prediction option.";
+      setStatus(message);
+      setPredictionFeedback(message);
       return;
     }
     if (market?.type === "CorrectScore" && !isCorrectScoreOption(option)) {
-      setStatus("Correct score must use format score_number-score_number, for example 2-1.");
+      const message = "Correct score must use format score_number-score_number, for example 2-1.";
+      setStatus(message);
+      setPredictionFeedback(message);
       return;
     }
     const matchEvent = market
@@ -433,11 +442,14 @@ export default function PoolOverviewPage() {
     });
 
     if (!response.ok) {
-      setStatus(await readApiError(response, "Prediction submission failed."));
+      const message = await readApiError(response, "Prediction submission failed.");
+      setStatus(message);
+      setPredictionFeedback(message);
       return;
     }
 
     setStatus("Prediction submitted.");
+    setPredictionFeedback("Prediction submitted.");
     if (market) {
       setRecentPrediction({
         eventName: matchEvent ? formatMatchName(matchEvent) : "Selected event",
@@ -825,6 +837,16 @@ export default function PoolOverviewPage() {
                       onChange={(event) => setCoverImageUrl(event.target.value)}
                     />
                   </label>
+                  <label className="poolSettingsWideField">
+                    Announcement title
+                    <input
+                      maxLength={200}
+                      required
+                      type="text"
+                      value={announcementTitle}
+                      onChange={(event) => setAnnouncementTitle(event.target.value)}
+                    />
+                  </label>
                   <label>
                     Default stake
                     <input
@@ -913,7 +935,7 @@ export default function PoolOverviewPage() {
                           </span>
                           <span>
                             <small>
-                              {new Date(request.requestedAt).toLocaleString()}
+                              {formatDisplayDateTime(request.requestedAt)}
                             </small>
                           </span>
                           <span className="joinRequestActions">
@@ -946,6 +968,7 @@ export default function PoolOverviewPage() {
                 </section>
               ) : null}
               <PoolAnnouncementsPanel
+                announcementTitle={pool.announcementTitle || "Announcements"}
                 drafts={announcementDrafts}
                 isExpanded={isAnnouncementsExpanded}
                 isOwner={canManageInvites(pool)}
@@ -978,7 +1001,7 @@ export default function PoolOverviewPage() {
                       <strong>{formatMatchName(group.event)}</strong>
                       <small>
                         <IconLabel icon={CalendarClock}>
-                          {new Date(group.event.startsAt).toLocaleString()}
+                          {formatDisplayDateTime(group.event.startsAt)}
                         </IconLabel>
                       </small>
                     </div>
@@ -1035,9 +1058,7 @@ export default function PoolOverviewPage() {
                               <small>
                                 <IconLabel icon={CalendarClock}>
                                   {group.event.status} |{" "}
-                                  {new Date(
-                                    group.event.startsAt,
-                                  ).toLocaleString()}
+                                  {formatDisplayDateTime(group.event.startsAt)}
                                 </IconLabel>
                               </small>
                             </div>
@@ -1223,6 +1244,9 @@ export default function PoolOverviewPage() {
                 >
                   <IconLabel icon={History}>Xem lịch sử dự đoán</IconLabel>
                 </Link>
+                {predictionFeedback ? (
+                  <p className="predictionFeedback">{predictionFeedback}</p>
+                ) : null}
                 {recentPrediction ? (
                   <div className="recentPredictionCard">
                     <strong>Prediction submitted</strong>
@@ -1235,7 +1259,7 @@ export default function PoolOverviewPage() {
                       {recentPrediction.payoutMultiplier}x
                     </small>
                     <small>
-                      {new Date(recentPrediction.submittedAt).toLocaleString()}
+                      {formatDisplayDateTime(recentPrediction.submittedAt)}
                     </small>
                   </div>
                 ) : null}
@@ -1261,6 +1285,7 @@ export default function PoolOverviewPage() {
 }
 
 type PoolAnnouncementsPanelProps = {
+  announcementTitle: string;
   drafts: Record<number, { title: string; bodyMarkdown: string }>;
   isExpanded: boolean;
   isOwner: boolean;
@@ -1274,6 +1299,7 @@ type PoolAnnouncementsPanelProps = {
 };
 
 function PoolAnnouncementsPanel({
+  announcementTitle,
   drafts,
   isExpanded,
   isOwner,
@@ -1292,7 +1318,7 @@ function PoolAnnouncementsPanel({
         onClick={onToggle}
       >
         <IconLabel icon={isExpanded ? ChevronDown : ChevronRight}>
-          Announcements
+          {announcementTitle}
         </IconLabel>
       </button>
       {isExpanded ? (
@@ -1463,7 +1489,7 @@ function PoolMessageCard({ message }: { message: PoolMessage }) {
         <strong>
           {message.authorDisplayName}
         </strong>
-        <small>{new Date(message.createdAt).toLocaleString()}</small>
+        <small>{formatDisplayDateTime(message.createdAt)}</small>
       </div>
       <MarkdownPreview body={message.bodyMarkdown} />
     </article>

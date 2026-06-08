@@ -19,6 +19,7 @@ export type PoolSummary = {
   startingBalance: number;
   predictionsLocked: boolean;
   coverImageUrl?: string | null;
+  announcementTitle: string;
   defaultStake: number;
   minStake: number;
   maxStake: number;
