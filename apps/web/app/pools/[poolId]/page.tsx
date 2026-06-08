@@ -28,6 +28,7 @@ import {
   Send,
   Settings,
   ShieldCheck,
+  Smile,
   UserCheck,
   UserX,
   Users,
@@ -73,6 +74,25 @@ type MarketPredictionSummary = {
   selectedOption: string;
   users: string[];
 };
+
+const supportedChatEmojis = [
+  "😀",
+  "😂",
+  "😍",
+  "😎",
+  "🤔",
+  "👏",
+  "🙌",
+  "💪",
+  "🔥",
+  "⚽",
+  "🏆",
+  "🍻",
+  "✅",
+  "❌",
+  "👀",
+  "💸",
+];
 
 export default function PoolOverviewPage() {
   const params = useParams<{ poolId: string }>();
@@ -1463,6 +1483,8 @@ function PoolMessagesPanel({
         icon={MessageSquare}
         mode={chatEditorMode}
         placeholder="Chat with the pool..."
+        rows={3}
+        showEmojiPicker
         submitLabel="Send"
         title="Chat"
         onBodyChange={onChatBodyChange}
@@ -1521,6 +1543,8 @@ type MarkdownComposerProps = {
   icon: typeof MessageSquare;
   mode: "write" | "preview";
   placeholder: string;
+  rows?: number;
+  showEmojiPicker?: boolean;
   submitLabel: string;
   title: string;
   onBodyChange: Dispatch<SetStateAction<string>>;
@@ -1534,12 +1558,22 @@ function MarkdownComposer({
   icon,
   mode,
   placeholder,
+  rows = 4,
+  showEmojiPicker = false,
   submitLabel,
   title,
   onBodyChange,
   onModeChange,
   onSubmit,
 }: MarkdownComposerProps) {
+  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+
+  function insertEmoji(emoji: string) {
+    onModeChange("write");
+    onBodyChange((current) => (current ? `${current}${emoji}` : emoji));
+    setIsEmojiPickerOpen(false);
+  }
+
   return (
     <form
       className="markdownComposer"
@@ -1581,11 +1615,38 @@ function MarkdownComposer({
         <textarea
           maxLength={4000}
           placeholder={placeholder}
-          rows={4}
+          rows={rows}
           value={body}
           onChange={(event) => onBodyChange(event.target.value)}
         />
       )}
+      {showEmojiPicker ? (
+        <div className="emojiPicker">
+          <button
+            aria-expanded={isEmojiPickerOpen}
+            aria-label="Select emoji"
+            className="emojiPickerToggle"
+            type="button"
+            onClick={() => setIsEmojiPickerOpen((current) => !current)}
+          >
+            <Smile aria-hidden="true" size={16} />
+          </button>
+          {isEmojiPickerOpen ? (
+            <div className="emojiPickerGrid" aria-label="Supported emoji">
+              {supportedChatEmojis.map((emoji) => (
+                <button
+                  aria-label={`Add ${emoji}`}
+                  key={emoji}
+                  type="button"
+                  onClick={() => insertEmoji(emoji)}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       <button
         className="button compactButton"
         disabled={disabled || !body.trim()}
