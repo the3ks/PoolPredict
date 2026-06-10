@@ -1764,6 +1764,110 @@ dd {
   gap: 14px;
 }
 
+.autoPickForm {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.autoPickHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.autoPickToggle {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-soft);
+  padding: 0 2px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.autoPickToggle:hover {
+  color: var(--text);
+}
+
+.autoPickHeader strong,
+.autoPickHeader small {
+  display: block;
+}
+
+.autoPickHeader small {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.autoPickSummary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.autoPickSummary span,
+.autoPickSkippedRow {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--tile-bg);
+  padding: 10px 12px;
+}
+
+.autoPickSummary small,
+.autoPickSkippedRow small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.autoPickSkippedList {
+  display: grid;
+  gap: 10px;
+}
+
+.listToolbar {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.listPageSizeField {
+  display: grid;
+  gap: 5px;
+  font-size: 12px;
+}
+
+.listPageSizeField select {
+  min-width: 88px;
+}
+
+.listPagination {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.listPagination span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .mobileMarketMatchSelect {
   display: none;
 }
@@ -3202,6 +3306,14 @@ dd {
 
   .poolSettingsForm {
     grid-template-columns: 1fr;
+  }
+
+  .autoPickHeader {
+    flex-direction: column;
+  }
+
+  .autoPickSummary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .pageTitleGroup {

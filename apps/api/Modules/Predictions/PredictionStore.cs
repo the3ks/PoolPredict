@@ -9,6 +9,7 @@ using PoolPredict.Api.Modules.Markets;
 using PoolPredict.Api.Modules.Pools;
 using PoolPredict.Api.Modules.Tournaments;
 using Microsoft.Extensions.Options;
+using PoolPredict.Api.Domain.Tournaments;
 
 namespace PoolPredict.Api.Modules.Predictions;
 
@@ -137,6 +138,103 @@ public sealed class PredictionStore
             PersistPredictionSlice(prediction, stakeLedgerEntry);
 
             return prediction;
+        }
+    }
+
+    public AutoPickPreviewResponse PreviewAutoPick(Guid poolId, AutoPickPredictionsRequest request, Guid userId, PoolStore pools, TournamentCatalog catalog)
+    {
+        if (request.Stake <= 0)
+        {
+            throw new ArgumentException("Stake must be greater than zero.", nameof(request));
+        }
+
+        var pool = pools.GetPool(poolId) ?? throw new ArgumentException("Pool does not exist.", nameof(poolId));
+        var member = pools.GetMember(poolId, userId) ?? throw new UnauthorizedAccessException("You are not a member of this pool.");
+
+        lock (_gate)
+        {
+            var plan = BuildAutoPickPlanUnsafe(pool, member, request.Stake, pools, catalog);
+            return ToAutoPickPreviewResponse(plan);
+        }
+    }
+
+    public AutoPickSubmissionResponse SubmitAutoPick(Guid poolId, AutoPickPredictionsRequest request, Guid userId, PoolStore pools, TournamentCatalog catalog)
+    {
+        if (request.Stake <= 0)
+        {
+            throw new ArgumentException("Stake must be greater than zero.", nameof(request));
+        }
+
+        var pool = pools.GetPool(poolId) ?? throw new ArgumentException("Pool does not exist.", nameof(poolId));
+        var member = pools.GetMember(poolId, userId) ?? throw new UnauthorizedAccessException("You are not a member of this pool.");
+
+        lock (_gate)
+        {
+            var plan = BuildAutoPickPlanUnsafe(pool, member, request.Stake, pools, catalog);
+            if (!plan.HasEnoughBalance)
+            {
+                throw new InvalidOperationException(
+                    $"Auto pick needs {plan.TotalStake} total stake, but current balance is {plan.CurrentBalance}.");
+            }
+
+            if (plan.EligibleEvents.Count == 0)
+            {
+                throw new InvalidOperationException("No eligible events available for auto pick.");
+            }
+
+            var predictions = new List<Prediction>(plan.EligibleEvents.Count);
+            var ledgerEntries = new List<PointLedgerEntry>(plan.EligibleEvents.Count);
+            var eligibleEvents = plan.EligibleEvents.ToArray();
+
+            foreach (var eligibleEvent in eligibleEvents)
+            {
+                var option = PickRandomOption(eligibleEvent.Market, eligibleEvent.Event);
+                var prediction = new Prediction(
+                    Ids.NewId(),
+                    pool.Id,
+                    member.Id,
+                    eligibleEvent.Market.Id,
+                    option,
+                    plan.Stake,
+                    eligibleEvent.Market.Type,
+                    eligibleEvent.Market.Period,
+                    eligibleEvent.Market.LineValue,
+                    eligibleEvent.Market.PayoutMultiplier,
+                    eligibleEvent.Market.PayoutConfigurationVersion);
+                var stakeLedgerEntry = new PointLedgerEntry(
+                    Ids.NewId(),
+                    pool.Id,
+                    member.Id,
+                    -plan.Stake,
+                    PointLedgerReason.PredictionSubmitted,
+                    prediction.Id);
+
+                _predictions.Add(prediction);
+                _ledger.Add(stakeLedgerEntry);
+                predictions.Add(prediction);
+                ledgerEntries.Add(stakeLedgerEntry);
+            }
+
+            PersistPredictionBatch(predictions, ledgerEntries);
+
+            return new AutoPickSubmissionResponse(
+                plan.Stake,
+                plan.EligibleEvents.Count,
+                plan.SkippedEvents.Count,
+                plan.TotalStake,
+                plan.CurrentBalance,
+                plan.CurrentBalance - plan.TotalStake,
+                predictions.Select((prediction, index) => new AutoPickCreatedPredictionResponse(
+                    prediction.Id,
+                    eligibleEvents[index].Event.Id,
+                    FormatEventName(eligibleEvents[index].Event),
+                    prediction.MarketId,
+                    prediction.MarketType,
+                    prediction.MarketPeriod,
+                    prediction.SelectedOption,
+                    prediction.Stake,
+                    prediction.SubmittedAt)).ToArray(),
+                plan.SkippedEvents);
         }
     }
 
@@ -427,6 +525,22 @@ public sealed class PredictionStore
             .Where(entry => entry.PoolId == poolId && entry.MemberId == memberId)
             .Sum(entry => entry.Points);
 
+    private int GetTotalStakeForEventUnsafe(Guid poolId, Guid memberId, Guid eventId, IReadOnlyDictionary<Guid, Market> marketsById) =>
+        _predictions
+            .Where(prediction =>
+                prediction.PoolId == poolId
+                && prediction.MemberId == memberId
+                && marketsById.TryGetValue(prediction.MarketId, out var market)
+                && market.EventId == eventId)
+            .Sum(prediction => prediction.Stake);
+
+    private bool HasAnyPredictionForEventUnsafe(Guid poolId, Guid memberId, Guid eventId, IReadOnlyDictionary<Guid, Market> marketsById) =>
+        _predictions.Any(prediction =>
+            prediction.PoolId == poolId
+            && prediction.MemberId == memberId
+            && marketsById.TryGetValue(prediction.MarketId, out var market)
+            && market.EventId == eventId);
+
     private int GetTotalStakeForEventUnsafe(Guid poolId, Guid memberId, Guid eventId)
     {
         using var db = _dbContextFactory.CreateDbContext();
@@ -457,6 +571,193 @@ public sealed class PredictionStore
 
         return existingOptions.Any(existingOption => !string.Equals(existingOption, normalizedOption, StringComparison.OrdinalIgnoreCase));
     }
+
+    private AutoPickPlan BuildAutoPickPlanUnsafe(Pool pool, PoolMember member, int stake, PoolStore pools, TournamentCatalog catalog)
+    {
+        if (pool.PredictionsLocked)
+        {
+            throw new InvalidOperationException("Predictions are locked for this pool.");
+        }
+
+        if (stake < pool.MinStake)
+        {
+            throw new InvalidOperationException($"Stake must be at least {pool.MinStake}.");
+        }
+
+        if (stake > pool.MaxStake)
+        {
+            throw new InvalidOperationException($"Stake cannot exceed {pool.MaxStake}.");
+        }
+
+        EnsureMemberInitialized(pool.Id, member.Id, pool.StartingBalance);
+
+        var currentBalance = GetBalanceUnsafe(pool.Id, member.Id);
+        var now = DateTimeOffset.UtcNow;
+        var markets = pools.GetMarkets(pool.Id);
+        var marketsById = markets.ToDictionary(market => market.Id);
+        var marketsByEvent = markets
+            .GroupBy(market => market.EventId)
+            .ToDictionary(group => group.Key, group => (IReadOnlyCollection<Market>)group.ToArray());
+
+        var eligibleEvents = new List<AutoPickEligibleEvent>();
+        var skippedEvents = new List<AutoPickSkippedEventResponse>();
+
+        foreach (var matchEvent in catalog.GetEvents(pool.TournamentId).OrderBy(matchEvent => matchEvent.StartsAt))
+        {
+            var skipReason = GetAutoPickSkipReasonUnsafe(pool, member, matchEvent, stake, now, marketsById, marketsByEvent);
+            if (skipReason is not null)
+            {
+                skippedEvents.Add(new AutoPickSkippedEventResponse(
+                    matchEvent.Id,
+                    FormatEventName(matchEvent),
+                    skipReason));
+                continue;
+            }
+
+            var eligibleMarkets = marketsByEvent[matchEvent.Id]
+                .Where(market => IsMarketEligibleForAutoPick(market, matchEvent, now))
+                .ToArray();
+            var chosenMarket = eligibleMarkets[Random.Shared.Next(eligibleMarkets.Length)];
+            eligibleEvents.Add(new AutoPickEligibleEvent(matchEvent, chosenMarket));
+        }
+
+        var totalStake = eligibleEvents.Count * stake;
+        return new AutoPickPlan(
+            pool,
+            member,
+            stake,
+            currentBalance,
+            eligibleEvents,
+            skippedEvents,
+            totalStake,
+            totalStake <= currentBalance);
+    }
+
+    private string? GetAutoPickSkipReasonUnsafe(
+        Pool pool,
+        PoolMember member,
+        Event matchEvent,
+        int stake,
+        DateTimeOffset now,
+        IReadOnlyDictionary<Guid, Market> marketsById,
+        IReadOnlyDictionary<Guid, IReadOnlyCollection<Market>> marketsByEvent)
+    {
+        if (matchEvent.Status != EventStatus.Scheduled)
+        {
+            return "Event is not scheduled.";
+        }
+
+        if (matchEvent.StartsAt <= now)
+        {
+            return "Kickoff has passed.";
+        }
+
+        if (!marketsByEvent.TryGetValue(matchEvent.Id, out var eventMarkets))
+        {
+            return "No markets available.";
+        }
+
+        if (HasAnyPredictionForEventUnsafe(pool.Id, member.Id, matchEvent.Id, marketsById))
+        {
+            return "Already predicted.";
+        }
+
+        var eventStakeUsed = GetTotalStakeForEventUnsafe(pool.Id, member.Id, matchEvent.Id, marketsById);
+        if (eventStakeUsed + stake > pool.MaxTotalStakePerEvent)
+        {
+            return "Event cap too low.";
+        }
+
+        return eventMarkets.Any(market => IsMarketEligibleForAutoPick(market, matchEvent, now))
+            ? null
+            : "No open market.";
+    }
+
+    private bool IsMarketEligibleForAutoPick(Market market, Event matchEvent, DateTimeOffset now)
+    {
+        if (market.Status != MarketStatus.Open || matchEvent.StartsAt <= now)
+        {
+            return false;
+        }
+
+        if (market.Type == MarketType.Handicap)
+        {
+            return market.LineValue is not null && now >= matchEvent.StartsAt.Subtract(_handicapOpenWindow);
+        }
+
+        if (market.Type == MarketType.OverUnder)
+        {
+            return market.LineValue is not null;
+        }
+
+        return true;
+    }
+
+    private static AutoPickPreviewResponse ToAutoPickPreviewResponse(AutoPickPlan plan) =>
+        new(
+            plan.Stake,
+            plan.EligibleEvents.Count,
+            plan.SkippedEvents.Count,
+            plan.TotalStake,
+            plan.CurrentBalance,
+            plan.CurrentBalance - plan.TotalStake,
+            plan.HasEnoughBalance,
+            plan.EligibleEvents.Select(item => new AutoPickEligibleEventResponse(
+                item.Event.Id,
+                FormatEventName(item.Event),
+                item.Market.Id,
+                item.Market.Type,
+                item.Market.Period)).ToArray(),
+            plan.SkippedEvents);
+
+    private static string PickRandomOption(Market market, Event matchEvent)
+    {
+        var options = market.Type switch
+        {
+            MarketType.OneXTwo => new[]
+            {
+                matchEvent.HomeParticipant,
+                "Draw",
+                matchEvent.AwayParticipant
+            },
+            MarketType.OverUnder when market.LineValue is decimal line => new[]
+            {
+                $"Over {FormatNumber(line)}",
+                $"Under {FormatNumber(line)}"
+            },
+            MarketType.OddEven => new[] { "Odd", "Even" },
+            MarketType.Handicap when market.LineValue is decimal line => new[]
+            {
+                $"{matchEvent.HomeParticipant} {FormatSignedNumber(line)}",
+                $"{matchEvent.AwayParticipant} {FormatSignedNumber(-line)}"
+            },
+            MarketType.CorrectScore => new[]
+            {
+                "0-0",
+                "1-0",
+                "0-1",
+                "1-1",
+                "2-0",
+                "0-2",
+                "2-1",
+                "1-2",
+                "2-2",
+                "3-1",
+                "1-3"
+            },
+            _ => Array.Empty<string>()
+        };
+
+        if (options.Length == 0)
+        {
+            throw new InvalidOperationException("No valid option available for auto pick.");
+        }
+
+        return options[Random.Shared.Next(options.Length)];
+    }
+
+    private static string FormatEventName(Event matchEvent) =>
+        $"{matchEvent.HomeParticipant} vs {matchEvent.AwayParticipant}";
 
     private void LoadPersisted()
     {
@@ -508,6 +809,28 @@ public sealed class PredictionStore
             SubmittedAt = prediction.SubmittedAt
         });
         db.PointLedger.Add(ToPersistedLedgerEntry(ledgerEntry));
+        db.SaveChanges();
+    }
+
+    private void PersistPredictionBatch(IReadOnlyCollection<Prediction> predictions, IReadOnlyCollection<PointLedgerEntry> ledgerEntries)
+    {
+        using var db = _dbContextFactory.CreateDbContext();
+        db.Predictions.AddRange(predictions.Select(prediction => new PersistedPrediction
+        {
+            Id = prediction.Id,
+            PoolId = prediction.PoolId,
+            MemberId = prediction.MemberId,
+            MarketId = prediction.MarketId,
+            SelectedOption = prediction.SelectedOption,
+            Stake = prediction.Stake,
+            MarketType = prediction.MarketType,
+            MarketPeriod = prediction.MarketPeriod,
+            LineValueSnapshot = prediction.LineValueSnapshot,
+            PayoutMultiplierSnapshot = prediction.PayoutMultiplierSnapshot,
+            PayoutConfigurationVersionSnapshot = prediction.PayoutConfigurationVersionSnapshot,
+            SubmittedAt = prediction.SubmittedAt
+        }));
+        db.PointLedger.AddRange(ledgerEntries.Select(ToPersistedLedgerEntry));
         db.SaveChanges();
     }
 
@@ -658,3 +981,61 @@ public sealed record MarketPredictionSummaryResponse(
     Guid MarketId,
     string SelectedOption,
     IReadOnlyCollection<string> Users);
+
+public sealed record AutoPickPreviewResponse(
+    int Stake,
+    int EligibleEventCount,
+    int SkippedEventCount,
+    int TotalStake,
+    int CurrentBalance,
+    int BalanceAfterAutoPick,
+    bool HasEnoughBalance,
+    IReadOnlyCollection<AutoPickEligibleEventResponse> EligibleEvents,
+    IReadOnlyCollection<AutoPickSkippedEventResponse> SkippedEvents);
+
+public sealed record AutoPickSubmissionResponse(
+    int Stake,
+    int CreatedCount,
+    int SkippedCount,
+    int TotalStake,
+    int CurrentBalanceBefore,
+    int BalanceAfter,
+    IReadOnlyCollection<AutoPickCreatedPredictionResponse> CreatedPredictions,
+    IReadOnlyCollection<AutoPickSkippedEventResponse> SkippedEvents);
+
+public sealed record AutoPickEligibleEventResponse(
+    Guid EventId,
+    string EventName,
+    Guid MarketId,
+    MarketType MarketType,
+    MarketPeriod MarketPeriod);
+
+public sealed record AutoPickSkippedEventResponse(
+    Guid EventId,
+    string EventName,
+    string Reason);
+
+public sealed record AutoPickCreatedPredictionResponse(
+    Guid PredictionId,
+    Guid EventId,
+    string EventName,
+    Guid MarketId,
+    MarketType MarketType,
+    MarketPeriod MarketPeriod,
+    string SelectedOption,
+    int Stake,
+    DateTimeOffset SubmittedAt);
+
+sealed record AutoPickEligibleEvent(
+    Event Event,
+    Market Market);
+
+sealed record AutoPickPlan(
+    Pool Pool,
+    PoolMember Member,
+    int Stake,
+    int CurrentBalance,
+    IReadOnlyCollection<AutoPickEligibleEvent> EligibleEvents,
+    IReadOnlyCollection<AutoPickSkippedEventResponse> SkippedEvents,
+    int TotalStake,
+    bool HasEnoughBalance);

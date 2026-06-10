@@ -147,3 +147,50 @@ export type LeaderboardEntry = {
   winRate: number;
   roi: number;
 };
+
+export type AutoPickEligibleEvent = {
+  eventId: string;
+  eventName: string;
+  marketId: string;
+  marketType: string;
+  marketPeriod: string;
+};
+
+export type AutoPickSkippedEvent = {
+  eventId: string;
+  eventName: string;
+  reason: string;
+};
+
+export type AutoPickPreview = {
+  stake: number;
+  eligibleEventCount: number;
+  skippedEventCount: number;
+  totalStake: number;
+  currentBalance: number;
+  balanceAfterAutoPick: number;
+  hasEnoughBalance: boolean;
+  eligibleEvents: AutoPickEligibleEvent[];
+  skippedEvents: AutoPickSkippedEvent[];
+};
+
+export type AutoPickSubmission = {
+  stake: number;
+  createdCount: number;
+  skippedCount: number;
+  totalStake: number;
+  currentBalanceBefore: number;
+  balanceAfter: number;
+  createdPredictions: Array<{
+    predictionId: string;
+    eventId: string;
+    eventName: string;
+    marketId: string;
+    marketType: string;
+    marketPeriod: string;
+    selectedOption: string;
+    stake: number;
+    submittedAt: string;
+  }>;
+  skippedEvents: AutoPickSkippedEvent[];
+};

@@ -87,6 +87,56 @@ public static class PredictionEndpoints
                 : Results.Ok(predictions.GetMarketPredictionSummaries(poolId));
         }).RequireAuthorization();
 
+        group.MapPost("/pool/{poolId:guid}/auto-pick/preview", (Guid poolId, ClaimsPrincipal principal, AutoPickPredictionsRequest request, PredictionStore predictions, PoolStore pools, TournamentCatalog catalog) =>
+        {
+            if (!TryGetUserId(principal, out var userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            try
+            {
+                return Results.Ok(predictions.PreviewAutoPick(poolId, request, userId, pools, catalog));
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Forbid();
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.Conflict(new { error = ex.Message });
+            }
+        }).RequireAuthorization();
+
+        group.MapPost("/pool/{poolId:guid}/auto-pick", (Guid poolId, ClaimsPrincipal principal, AutoPickPredictionsRequest request, PredictionStore predictions, PoolStore pools, TournamentCatalog catalog) =>
+        {
+            if (!TryGetUserId(principal, out var userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            try
+            {
+                return Results.Ok(predictions.SubmitAutoPick(poolId, request, userId, pools, catalog));
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Forbid();
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.Conflict(new { error = ex.Message });
+            }
+        }).RequireAuthorization();
+
         return app;
     }
 

@@ -1,15 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { ArrowLeft, History } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, Dices, History, RefreshCw } from "lucide-react";
 import { UserShell } from "../../../components/user-shell";
 import { IconLabel, PageHeader, Panel, StatusPill } from "../../../components/ui";
 import { apiUrl, readApiError } from "../../../lib/api";
 import { getStoredToken } from "../../../lib/auth";
 import { formatDisplayDateTime } from "../../../lib/datetime";
-import { LeaderboardEntry, PoolSummary, Prediction } from "../../../lib/types";
+import {
+  AutoPickPreview,
+  AutoPickSubmission,
+  LeaderboardEntry,
+  PoolSummary,
+  Prediction,
+} from "../../../lib/types";
 
 export default function PoolPredictionsPage() {
   const params = useParams<{ poolId: string }>();
@@ -18,10 +24,41 @@ export default function PoolPredictionsPage() {
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [status, setStatus] = useState("Loading predictions...");
+  const [autoPickStake, setAutoPickStake] = useState(0);
+  const [autoPickPreview, setAutoPickPreview] = useState<AutoPickPreview | null>(null);
+  const [autoPickStatus, setAutoPickStatus] = useState("");
+  const [isLoadingAutoPickPreview, setIsLoadingAutoPickPreview] = useState(false);
+  const [isSubmittingAutoPick, setIsSubmittingAutoPick] = useState(false);
+  const [isAutoPickExpanded, setIsAutoPickExpanded] = useState(false);
+  const [predictionPageSize, setPredictionPageSize] = useState(20);
+  const [predictionPage, setPredictionPage] = useState(1);
 
   useEffect(() => {
     loadPage();
   }, [poolId]);
+
+  useEffect(() => {
+    if (!pool || autoPickStake <= 0) {
+      setAutoPickPreview(null);
+      return;
+    }
+
+    void loadAutoPickPreview(pool.id, autoPickStake);
+  }, [pool?.id, autoPickStake]);
+
+  useEffect(() => {
+    if (!pool) {
+      return;
+    }
+
+    if (autoPickStake < pool.minStake || autoPickStake > pool.maxStake) {
+      setAutoPickStake(pool.minStake);
+    }
+  }, [pool, autoPickStake]);
+
+  useEffect(() => {
+    setPredictionPage(1);
+  }, [predictionPageSize, predictions.length]);
 
   async function loadPage() {
     const token = getStoredToken();
@@ -40,6 +77,7 @@ export default function PoolPredictionsPage() {
 
     const poolResult = (await poolResponse.json()) as PoolSummary;
     setPool(poolResult);
+    setAutoPickStake(poolResult.minStake);
     await Promise.all([loadPredictions(poolResult.id), loadLeaderboard(poolResult.id)]);
     setStatus("Prediction history loaded.");
   }
@@ -73,6 +111,89 @@ export default function PoolPredictionsPage() {
     }
   }
 
+  async function loadAutoPickPreview(targetPoolId: string, stake: number) {
+    const token = getStoredToken();
+    if (!token) {
+      return;
+    }
+
+    setIsLoadingAutoPickPreview(true);
+    const response = await fetch(
+      apiUrl(`/api/predictions/pool/${targetPoolId}/auto-pick/preview`),
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ stake }),
+      },
+    );
+
+    if (response.ok) {
+      setAutoPickPreview((await response.json()) as AutoPickPreview);
+      setAutoPickStatus("");
+    } else {
+      setAutoPickPreview(null);
+      setAutoPickStatus(
+        await readApiError(response, "Could not preview auto pick."),
+      );
+    }
+
+    setIsLoadingAutoPickPreview(false);
+  }
+
+  async function submitAutoPick(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!pool || !autoPickPreview || !autoPickPreview.hasEnoughBalance) {
+      return;
+    }
+
+    const token = getStoredToken();
+    if (!token) {
+      setAutoPickStatus("Session is missing.");
+      return;
+    }
+
+    setIsSubmittingAutoPick(true);
+    const response = await fetch(apiUrl(`/api/predictions/pool/${pool.id}/auto-pick`), {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ stake: autoPickStake }),
+    });
+
+    if (!response.ok) {
+      setAutoPickStatus(await readApiError(response, "Auto pick failed."));
+      setIsSubmittingAutoPick(false);
+      return;
+    }
+
+    const result = (await response.json()) as AutoPickSubmission;
+    setAutoPickStatus(
+      `Auto pick created ${result.createdCount} prediction(s) and skipped ${result.skippedCount}.`,
+    );
+    await Promise.all([
+      loadPredictions(pool.id),
+      loadLeaderboard(pool.id),
+      loadAutoPickPreview(pool.id, autoPickStake),
+    ]);
+    setStatus("Prediction history loaded.");
+    setIsSubmittingAutoPick(false);
+  }
+
+  const totalPredictionPages = Math.max(
+    1,
+    Math.ceil(predictions.length / predictionPageSize),
+  );
+  const currentPredictionPage = Math.min(predictionPage, totalPredictionPages);
+  const pagedPredictions = predictions.slice(
+    (currentPredictionPage - 1) * predictionPageSize,
+    currentPredictionPage * predictionPageSize,
+  );
+
   return (
     <UserShell>
       <section className="pageStack">
@@ -85,33 +206,167 @@ export default function PoolPredictionsPage() {
         <StatusPill icon={History}>{status}</StatusPill>
 
         <Panel title="My predictions">
+          {pool ? (
+            <form className="autoPickForm" onSubmit={submitAutoPick}>
+              <div className="autoPickHeader">
+                <div>
+                  <strong>Auto pick all scheduled events - Gieo quẻ cầu duyên</strong>
+                  <small>
+                    One random market per eligible event. Events with any existing
+                    prediction are skipped.
+                  </small>
+                </div>
+                <button
+                  className="autoPickToggle"
+                  type="button"
+                  onClick={() => setIsAutoPickExpanded((current) => !current)}
+                >
+                  <IconLabel icon={isAutoPickExpanded ? ChevronDown : ChevronRight}>
+                    {isAutoPickExpanded ? "Hide auto pick" : "Show auto pick"}
+                  </IconLabel>
+                </button>
+              </div>
+              {isAutoPickExpanded ? (
+                <>
+                  <label>
+                    Stake per event
+                    <input
+                      max={pool.maxStake}
+                      min={pool.minStake}
+                      required
+                      type="number"
+                      value={autoPickStake}
+                      onChange={(previewEvent) =>
+                        setAutoPickStake(Number(previewEvent.target.value))
+                      }
+                    />
+                  </label>
+                  {autoPickPreview ? (
+                    <div className="autoPickSummary">
+                      <span>
+                        <strong>{autoPickPreview.eligibleEventCount}</strong>
+                        <small>Eligible events</small>
+                      </span>
+                      <span>
+                        <strong>{formatNumberDisplay(autoPickPreview.totalStake)}</strong>
+                        <small>Total deduction</small>
+                      </span>
+                      <span>
+                        <strong>{formatNumberDisplay(autoPickPreview.currentBalance)}</strong>
+                        <small>Current balance</small>
+                      </span>
+                      <span>
+                        <strong>{formatNumberDisplay(autoPickPreview.balanceAfterAutoPick)}</strong>
+                        <small>Balance after</small>
+                      </span>
+                    </div>
+                  ) : null}
+                  {autoPickStatus ? <p className="statusText">{autoPickStatus}</p> : null}
+                  {autoPickPreview && !autoPickPreview.hasEnoughBalance ? (
+                    <p className="statusText">
+                      Current balance is not enough for the full batch.
+                    </p>
+                  ) : null}
+                  <div className="buttonRow">
+                    <button
+                      className="button compactButton"
+                      disabled={
+                        isSubmittingAutoPick ||
+                        isLoadingAutoPickPreview ||
+                        !autoPickPreview ||
+                        !autoPickPreview.hasEnoughBalance ||
+                        autoPickPreview.eligibleEventCount === 0
+                      }
+                      type="submit"
+                    >
+                      <IconLabel icon={Dices}>
+                        {isSubmittingAutoPick ? "Submitting..." : "Auto pick all"}
+                      </IconLabel>
+                    </button>
+                    <button
+                      className="button buttonSecondary compactButton"
+                      disabled={isLoadingAutoPickPreview}
+                      type="button"
+                      onClick={() => void loadAutoPickPreview(pool.id, autoPickStake)}
+                    >
+                      <IconLabel icon={RefreshCw}>Refresh preview</IconLabel>
+                    </button>
+                  </div>
+                </>
+              ) : null}
+            </form>
+          ) : null}
           {predictions.length === 0 ? (
             <p className="mutedText">No predictions submitted yet.</p>
           ) : (
-            <div className="predictionHistory">
-              {predictions.map((prediction) => (
-                <article className="historyRow" key={prediction.id}>
+            <>
+              <div className="listToolbar">
+                <label className="listPageSizeField">
+                  Page size
+                  <select
+                    value={predictionPageSize}
+                    onChange={(event) =>
+                      setPredictionPageSize(Number(event.target.value))
+                    }
+                  >
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                </label>
+                <div className="listPagination">
+                  <button
+                    className="button buttonSecondary compactButton"
+                    disabled={currentPredictionPage <= 1}
+                    type="button"
+                    onClick={() =>
+                      setPredictionPage((current) => Math.max(1, current - 1))
+                    }
+                  >
+                    <IconLabel icon={ChevronLeft}>Prev</IconLabel>
+                  </button>
                   <span>
-                    <strong>{formatMarketTypeLabel(prediction.marketType)}</strong>
-                    <small>{formatEventName(prediction.eventName) ?? prediction.marketPeriod}</small>
+                    Page {currentPredictionPage} / {totalPredictionPages}
                   </span>
-                  <span>
-                    <strong>{formatMarketOptionLabel(prediction.selectedOption)}</strong>
-                    <small>
-                      {prediction.marketPeriod} | {formatNumberDisplay(prediction.stake)} Điểm
-                    </small>
-                  </span>
-                  <span>
-                    <strong>{prediction.payoutMultiplierSnapshot}x</strong>
-                    <small>{formatDisplayDateTime(prediction.submittedAt)}</small>
-                  </span>
-                  <span>
-                    <strong>{prediction.outcome ?? "Unsettled"}</strong>
-                    <small>{formatNetPoints(prediction.netPoints)}</small>
-                  </span>
-                </article>
-              ))}
-            </div>
+                  <button
+                    className="button buttonSecondary compactButton"
+                    disabled={currentPredictionPage >= totalPredictionPages}
+                    type="button"
+                    onClick={() =>
+                      setPredictionPage((current) =>
+                        Math.min(totalPredictionPages, current + 1),
+                      )
+                    }
+                  >
+                    <IconLabel icon={ChevronRight}>Next</IconLabel>
+                  </button>
+                </div>
+              </div>
+              <div className="predictionHistory">
+                {pagedPredictions.map((prediction) => (
+                  <article className="historyRow" key={prediction.id}>
+                    <span>
+                      <strong>{formatMarketTypeLabel(prediction.marketType)}</strong>
+                      <small>{formatEventName(prediction.eventName) ?? prediction.marketPeriod}</small>
+                    </span>
+                    <span>
+                      <strong>{formatMarketOptionLabel(prediction.selectedOption)}</strong>
+                      <small>
+                        {prediction.marketPeriod} | {formatNumberDisplay(prediction.stake)} Điểm
+                      </small>
+                    </span>
+                    <span>
+                      <strong>{prediction.payoutMultiplierSnapshot}x</strong>
+                      <small>{formatDisplayDateTime(prediction.submittedAt)}</small>
+                    </span>
+                    <span>
+                      <strong>{prediction.outcome ?? "Unsettled"}</strong>
+                      <small>{formatNetPoints(prediction.netPoints)}</small>
+                    </span>
+                  </article>
+                ))}
+              </div>
+            </>
           )}
         </Panel>
 
