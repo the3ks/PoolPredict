@@ -112,7 +112,7 @@ public sealed class PayoutConfigurationStore
             yield return Rule(MarketProfile.Casual, MarketType.OneXTwo, period, null, 2.5m);
             yield return Rule(MarketProfile.Casual, MarketType.OverUnder, period, 2.5m, 2.0m);
             yield return Rule(MarketProfile.Casual, MarketType.OddEven, period, null, 2.0m);
-            yield return Rule(MarketProfile.Casual, MarketType.CorrectScore, period, null, 5.0m);
+            yield return Rule(MarketProfile.Casual, MarketType.CorrectScore, period, null, 8.0m);
         }
 
         foreach (var profile in new[] { MarketProfile.Standard, MarketProfile.Expert })
@@ -127,7 +127,7 @@ public sealed class PayoutConfigurationStore
                 yield return Rule(profile, MarketType.Handicap, period, 0.5m, 2.0m);
                 yield return Rule(profile, MarketType.OverUnder, period, 2.5m, 2.0m);
                 yield return Rule(profile, MarketType.OddEven, period, null, 2.0m);
-                yield return Rule(profile, MarketType.CorrectScore, period, null, 5.0m);
+                yield return Rule(profile, MarketType.CorrectScore, period, null, 8.0m);
             }
         }
     }

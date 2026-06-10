@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Microsoft.Extensions.Options;
 using PoolPredict.Api.Modules.Pools;
 
 namespace PoolPredict.Api.Modules.Markets;
@@ -8,6 +9,12 @@ public static class MarketEndpoints
     public static IEndpointRouteBuilder MapMarketEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/markets");
+
+        group.MapGet("/options", (IOptions<MarketOptions> marketOptions) =>
+        {
+            return Results.Ok(new MarketDisplayOptionsResponse(
+                Math.Max(1, marketOptions.Value.ScheduledDisplayWindowHours)));
+        }).RequireAuthorization();
 
         group.MapGet("/payout-configurations", (ClaimsPrincipal principal, PayoutConfigurationStore configurations) =>
         {
@@ -57,3 +64,5 @@ public static class MarketEndpoints
         return app;
     }
 }
+
+public sealed record MarketDisplayOptionsResponse(int ScheduledDisplayWindowHours);

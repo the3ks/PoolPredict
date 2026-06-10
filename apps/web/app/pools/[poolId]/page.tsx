@@ -75,6 +75,10 @@ type MarketPredictionSummary = {
   users: string[];
 };
 
+type MarketDisplayOptionsResponse = {
+  scheduledDisplayWindowHours: number;
+};
+
 const supportedChatEmojis = [
   "😀",
   "😂",
@@ -100,6 +104,8 @@ export default function PoolOverviewPage() {
   const [pool, setPool] = useState<PoolSummary | null>(null);
   const [events, setEvents] = useState<TournamentEvent[]>([]);
   const [markets, setMarkets] = useState<Market[]>([]);
+  const [scheduledMarketWindowHours, setScheduledMarketWindowHours] =
+    useState(defaultScheduledMarketWindowHours);
   const [marketPredictionSummaries, setMarketPredictionSummaries] = useState<
     MarketPredictionSummary[]
   >([]);
@@ -215,6 +221,7 @@ export default function PoolOverviewPage() {
     setStatus("Pool loaded.");
     await Promise.all([
       loadEvents(result.tournamentId),
+      loadMarketDisplayOptions(),
       loadMarkets(result.id),
       loadPoolMessages(result.id),
       loadMarketPredictionSummaries(result.id),
@@ -231,6 +238,25 @@ export default function PoolOverviewPage() {
     if (response.ok) {
       setEvents((await response.json()) as TournamentEvent[]);
     }
+  }
+
+  async function loadMarketDisplayOptions() {
+    const token = getStoredToken();
+    if (!token) {
+      return;
+    }
+
+    const response = await fetch(apiUrl("/api/markets/options"), {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      return;
+    }
+
+    const result = (await response.json()) as MarketDisplayOptionsResponse;
+    setScheduledMarketWindowHours(
+      Math.max(1, result.scheduledDisplayWindowHours),
+    );
   }
 
   async function loadMarkets(targetPoolId: string) {
@@ -648,7 +674,7 @@ export default function PoolOverviewPage() {
     })
     .filter((group) => group.markets.length > 0);
   const upcomingMarketGroups = marketGroups.filter((group) =>
-    shouldShowUpcomingMarketGroup(group.event),
+    shouldShowUpcomingMarketGroup(group.event, scheduledMarketWindowHours),
   );
   const recentClosedMarketGroups = marketGroups.filter((group) =>
     shouldShowRecentClosedMarketGroup(group.event),
@@ -1949,12 +1975,17 @@ function formatMatchName(matchEvent: TournamentEvent) {
   return `${formatParticipantName(matchEvent.homeParticipant, matchEvent.homeParticipantCode)} -vs- ${formatParticipantName(matchEvent.awayParticipant, matchEvent.awayParticipantCode)}`;
 }
 
-const scheduledMarketWindowMs = 48 * 60 * 60 * 1000;
+const defaultScheduledMarketWindowHours = 48;
 const recentClosedMarketWindowMs = 24 * 60 * 60 * 1000;
 
-function shouldShowUpcomingMarketGroup(matchEvent: TournamentEvent) {
+function shouldShowUpcomingMarketGroup(
+  matchEvent: TournamentEvent,
+  scheduledMarketWindowHours: number,
+) {
   const now = Date.now();
   const startsAt = new Date(matchEvent.startsAt).getTime();
+  const scheduledMarketWindowMs =
+    scheduledMarketWindowHours * 60 * 60 * 1000;
   return (
     matchEvent.status === "Scheduled" &&
     startsAt > now &&

@@ -86,6 +86,7 @@
 html {
   min-height: 100%;
   background: var(--bg);
+  scroll-behavior: smooth;
 }
 
 body {
@@ -2820,6 +2821,131 @@ dd {
   min-height: 170px;
 }
 
+.wcCalendarMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.wcCalendarMeta h2 {
+  margin-bottom: 0;
+}
+
+.wcCalendarList {
+  display: grid;
+  gap: 18px;
+}
+
+.wcMatchDay {
+  display: grid;
+  gap: 12px;
+  scroll-margin-top: 96px;
+}
+
+.wcMatchDayHeader {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 10px;
+}
+
+.wcMatchDayHeader h2 {
+  margin-bottom: 0;
+  text-transform: capitalize;
+}
+
+.wcMatchRows {
+  display: grid;
+  gap: 8px;
+}
+
+.wcMatchRow {
+  display: grid;
+  grid-template-columns: minmax(112px, 0.35fr) minmax(0, 1fr) minmax(94px, auto);
+  align-items: center;
+  gap: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 12px 14px;
+}
+
+.wcMatchRow time,
+.wcStatus {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.wcTeams {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(48px, auto) minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.wcTeamName {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 800;
+}
+
+.wcTeamNameHome {
+  text-align: right;
+}
+
+.wcTeamNameHome .participantName {
+  justify-content: flex-end;
+}
+
+.wcScore {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  min-width: 54px;
+}
+
+.wcScore strong {
+  border: 1px solid var(--accent-border);
+  border-radius: 6px;
+  background: var(--accent-soft);
+  padding: 6px 10px;
+  color: var(--text);
+  text-align: center;
+}
+
+.wcScore small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.wcStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  justify-self: end;
+  color: var(--muted-strong);
+}
+
+.wcStatusLive {
+  color: var(--success);
+}
+
+.wcLiveDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--success);
+  box-shadow: 0 0 0 4px rgba(74, 222, 128, 0.14);
+}
+
 .invitePanel {
   flex-wrap: wrap;
 }
@@ -3097,8 +3223,41 @@ dd {
   .adminFilterBar,
   .adminEventGrid,
   .adminEventRow,
+  .wcCalendarMeta,
+  .wcMatchRow,
   .adminUserRow {
     grid-template-columns: 1fr;
+  }
+
+  .wcCalendarMeta,
+  .wcMatchDayHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .wcMatchRow {
+    gap: 10px;
+  }
+
+  .wcTeams {
+    grid-template-columns: 1fr;
+  }
+
+  .wcTeamName,
+  .wcTeamNameHome {
+    text-align: left;
+  }
+
+  .wcTeamNameHome .participantName {
+    justify-content: flex-start;
+  }
+
+  .wcScore {
+    justify-self: start;
+  }
+
+  .wcStatus {
+    justify-self: start;
   }
 
   .marketGroupHeader {

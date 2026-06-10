@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ReactNode, useEffect, useState } from "react";
-import { Home, LogIn, LogOut, Shield, UserPlus, Waves } from "lucide-react";
+import { CalendarDays, Home, LogIn, LogOut, Shield, UserPlus, Waves } from "lucide-react";
 import { clearToken, getStoredToken, UserProfile } from "../lib/auth";
 import { appName } from "../lib/config";
 import { IconLabel } from "./ui";
@@ -66,6 +66,9 @@ export function UserShell({ children }: { children: ReactNode }) {
         <nav className="userNav" aria-label="Primary">
           <Link href="/">
             <IconLabel icon={Home}>Home</IconLabel>
+          </Link>
+          <Link href="/wc2026">
+            <IconLabel icon={CalendarDays}>Lịch WC2026</IconLabel>
           </Link>
           <Link href="/pools">
             <IconLabel icon={Waves}>Pools</IconLabel>
