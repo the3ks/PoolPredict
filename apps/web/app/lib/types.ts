@@ -141,6 +141,7 @@ export type LeaderboardEntry = {
   avatarUrl?: string | null;
   role: string;
   balance: number;
+  winLoss: number;
   predictionCount: number;
   settledPredictionCount: number;
   winCount: number;

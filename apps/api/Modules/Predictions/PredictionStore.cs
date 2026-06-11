@@ -414,13 +414,14 @@ public sealed class PredictionStore
                     item.User.AvatarUrl,
                     item.Member.Role.ToString(),
                     balances.GetValueOrDefault(item.Member.Id, startingBalance),
+                    settledNet,
                     memberPredictions.Length,
                     settledPredictions.Length,
                     wonPredictions,
                     settledPredictions.Length == 0 ? 0m : Math.Round(wonPredictions / (decimal)settledPredictions.Length * 100m, 2),
                     roi);
             })
-            .OrderByDescending(entry => entry.Balance)
+            .OrderByDescending(entry => entry.WinLoss)
             .ThenByDescending(entry => entry.Roi)
             .ThenBy(entry => entry.DisplayName)
             .ToArray();
@@ -971,6 +972,7 @@ public sealed record LeaderboardEntryResponse(
     string? AvatarUrl,
     string Role,
     int Balance,
+    int WinLoss,
     int PredictionCount,
     int SettledPredictionCount,
     int WinCount,

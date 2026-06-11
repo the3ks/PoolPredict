@@ -394,8 +394,8 @@ export default function PoolPredictionsPage() {
                     </strong>
                   </span>
                   <span>
-                    <strong>{formatNumberDisplay(entry.balance)}</strong>
-                    <small>Balance</small>
+                    <strong>{formatNumberDisplay(entry.winLoss)}</strong>
+                    <small>WinLoss</small>
                   </span>
                   <span>
                     <strong>{entry.winRate}%</strong>
