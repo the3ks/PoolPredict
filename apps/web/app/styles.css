@@ -2061,6 +2061,7 @@ dd {
 
 .oneXTwoOption,
 .handicapOption {
+  position: relative;
   display: grid;
   gap: 7px;
   min-height: 104px;
@@ -2085,6 +2086,14 @@ dd {
 .oneXTwoOption.active,
 .handicapOption.active {
   box-shadow: inset 0 3px 0 var(--accent);
+}
+
+.oneXTwoOption.predicted,
+.handicapOption.predicted {
+  border-color: rgba(244, 201, 93, 0.68);
+  background:
+    linear-gradient(180deg, rgba(244, 201, 93, 0.16), rgba(244, 201, 93, 0.05)),
+    rgba(255, 255, 255, 0.035);
 }
 
 .oneXTwoOption:disabled,
@@ -2127,6 +2136,7 @@ dd {
 }
 
 .marketButton {
+  position: relative;
   display: grid;
   gap: 8px;
   min-height: 104px;
@@ -2148,6 +2158,13 @@ dd {
 
 .marketButton.active {
   box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.marketButton.predicted {
+  border-color: rgba(244, 201, 93, 0.58);
+  background:
+    linear-gradient(180deg, rgba(244, 201, 93, 0.13), rgba(244, 201, 93, 0.04)),
+    var(--tile-bg);
 }
 
 .marketButton.linePending {
@@ -2194,6 +2211,23 @@ dd {
   font-size: 12px;
   font-weight: 800;
   line-height: 1.35;
+}
+
+.marketPickedBadge {
+  display: inline-flex;
+  width: max-content;
+  min-height: 22px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(244, 201, 93, 0.5);
+  border-radius: 999px;
+  background: rgba(244, 201, 93, 0.16);
+  padding: 0 8px;
+  color: var(--accent) !important;
+  font-size: 10px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0;
+  text-transform: uppercase;
 }
 
 .predictionForm {

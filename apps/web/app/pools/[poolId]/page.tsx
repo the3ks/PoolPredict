@@ -697,6 +697,16 @@ export default function PoolOverviewPage() {
           (group) => group.event.id === mobileSelectedMarketEventId,
         )
       : upcomingMarketGroups;
+  const predictedOptionsByMarketId = predictionHistory.reduce<
+    Record<string, string[]>
+  >((accumulator, prediction) => {
+    const current = accumulator[prediction.marketId] ?? [];
+    if (!current.includes(prediction.selectedOption)) {
+      current.push(prediction.selectedOption);
+    }
+    accumulator[prediction.marketId] = current;
+    return accumulator;
+  }, {});
 
   return (
     <UserShell>
@@ -1070,6 +1080,7 @@ export default function PoolOverviewPage() {
                       onMarketPick={() => setIsPredictionSlipExpanded(true)}
                       poolPredictionsLocked={pool.predictionsLocked}
                       poolProfile={pool.profile}
+                      predictedOptionsByMarketId={predictedOptionsByMarketId}
                       selectedMarketId={selectedMarketId}
                       selectedOption={selectedOption}
                       setSelectedMarketId={setSelectedMarketId}
@@ -1131,6 +1142,9 @@ export default function PoolOverviewPage() {
                               }
                               poolPredictionsLocked={pool.predictionsLocked}
                               poolProfile={pool.profile}
+                              predictedOptionsByMarketId={
+                                predictedOptionsByMarketId
+                              }
                               selectedMarketId={selectedMarketId}
                               selectedOption={selectedOption}
                               setSelectedMarketId={setSelectedMarketId}
@@ -1785,6 +1799,7 @@ type MarketGroupButtonsProps = {
   onMarketPick: () => void;
   poolPredictionsLocked: boolean;
   poolProfile: string;
+  predictedOptionsByMarketId: Record<string, string[]>;
   selectedMarketId: string;
   selectedOption: string;
   setSelectedMarketId: Dispatch<SetStateAction<string>>;
@@ -1798,6 +1813,7 @@ function MarketGroupButtons({
   onMarketPick,
   poolPredictionsLocked,
   poolProfile,
+  predictedOptionsByMarketId,
   selectedMarketId,
   selectedOption,
   setSelectedMarketId,
@@ -1814,6 +1830,7 @@ function MarketGroupButtons({
             event,
             poolPredictionsLocked,
           );
+          const predictedOptions = predictedOptionsByMarketId[market.id] ?? [];
           return (
             <div className="oneXTwoMarketRow" key={market.id}>
               <div className="oneXTwoMarketTitle">
@@ -1823,6 +1840,7 @@ function MarketGroupButtons({
                 <button
                   className={[
                     "oneXTwoOption",
+                    predictedOptions.includes(option) ? "predicted" : "",
                     market.id === selectedMarketId && selectedOption === option
                       ? "active"
                       : "",
@@ -1840,6 +1858,9 @@ function MarketGroupButtons({
                   }}
                 >
                   <strong>{formatOneXTwoOptionLabel(option, event)}</strong>
+                  {predictedOptions.includes(option) ? (
+                    <small className="marketPickedBadge">✔</small>
+                  ) : null}
                   <span>{formatOneXTwoOptionScore(option, event)}</span>
                   <small>
                     {formatPredictionUsers(
@@ -1864,6 +1885,7 @@ function MarketGroupButtons({
             poolPredictionsLocked,
           );
           const isPendingHandicapLine = isHandicapLinePending(market);
+          const predictedOptions = predictedOptionsByMarketId[market.id] ?? [];
           return (
             <div
               className={[
@@ -1884,6 +1906,7 @@ function MarketGroupButtons({
                 <button
                   className={[
                     "handicapOption",
+                    predictedOptions.includes(option) ? "predicted" : "",
                     market.id === selectedMarketId && selectedOption === option
                       ? "active"
                       : "",
@@ -1901,6 +1924,9 @@ function MarketGroupButtons({
                   }}
                 >
                   <strong>{formatHandicapOptionLabel(option, event)}</strong>
+                  {predictedOptions.includes(option) ? (
+                    <small className="marketPickedBadge">✔</small>
+                  ) : null}
                   <span>{formatHandicapOptionScore(option, event, market)}</span>
                   <small>
                     {formatPredictionUsers(
@@ -1926,10 +1952,13 @@ function MarketGroupButtons({
               poolPredictionsLocked,
             );
             const isPendingHandicapLine = isHandicapLinePending(market);
+            const hasPrediction =
+              (predictedOptionsByMarketId[market.id]?.length ?? 0) > 0;
             return (
               <button
                 className={[
                   "marketButton",
+                  hasPrediction ? "predicted" : "",
                   market.id === selectedMarketId ? "active" : "",
                   availability.isAvailable ? "" : "disabled",
                   poolPredictionsLocked ? "poolLocked" : "",
@@ -1949,6 +1978,9 @@ function MarketGroupButtons({
                 <strong>
                   {formatMarketCardTitle(market, shouldShowPeriodLabel)}
                 </strong>
+                {hasPrediction ? (
+                  <small className="marketPickedBadge">✔</small>
+                ) : null}
                 <span>
                   {formatMarketPredictionUsers(
                     marketPredictionSummaries,
