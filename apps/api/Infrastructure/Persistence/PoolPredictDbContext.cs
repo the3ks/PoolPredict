@@ -287,6 +287,7 @@ public sealed class PoolPredictDbContext(DbContextOptions<PoolPredictDbContext> 
             entity.Property(prediction => prediction.LineValueSnapshot).HasColumnName("line_value_snapshot").HasPrecision(10, 2);
             entity.Property(prediction => prediction.PayoutMultiplierSnapshot).HasColumnName("payout_multiplier_snapshot").HasPrecision(10, 2);
             entity.Property(prediction => prediction.PayoutConfigurationVersionSnapshot).HasColumnName("payout_configuration_version_snapshot");
+            entity.Property(prediction => prediction.Status).HasColumnName("status").HasConversion<string>().HasMaxLength(40);
             entity.Property(prediction => prediction.SubmittedAt).HasColumnName("submitted_at");
         });
 

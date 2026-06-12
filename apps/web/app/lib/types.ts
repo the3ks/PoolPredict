@@ -129,9 +129,11 @@ export type Prediction = {
   payoutConfigurationVersionSnapshot: number;
   submittedAt: string;
   marketStatus?: string | null;
+  predictionStatus?: string;
   outcome?: string;
   settlementCredit?: number;
   netPoints?: number;
+  canCancel?: boolean;
 };
 
 export type LeaderboardEntry = {

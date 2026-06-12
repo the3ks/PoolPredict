@@ -1956,6 +1956,72 @@ dd {
   line-height: 1.2;
 }
 
+.poolChatDrawer {
+  bottom: 20px;
+  display: grid;
+  gap: 10px;
+  justify-items: end;
+  position: fixed;
+  right: 20px;
+  z-index: 80;
+}
+
+.poolChatDrawerToggle {
+  align-items: center;
+  background: var(--accent);
+  border: 1px solid var(--accent-border);
+  border-radius: 8px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
+  color: white;
+  cursor: pointer;
+  display: inline-flex;
+  font-weight: 900;
+  gap: 12px;
+  min-height: 44px;
+  padding: 10px 14px;
+}
+
+.poolChatDrawerToggle span:last-child {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 12px;
+  justify-content: center;
+  min-width: 24px;
+  padding: 3px 7px;
+}
+
+.poolChatDrawerPanel {
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.38);
+  max-height: min(78vh, 680px);
+  overflow: auto;
+  position: relative;
+  width: min(420px, calc(100vw - 40px));
+}
+
+.poolChatDrawerClose {
+  align-items: center;
+  background: var(--tile-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  cursor: pointer;
+  display: inline-flex;
+  height: 32px;
+  justify-content: center;
+  padding: 0;
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  width: 32px;
+}
+
+.poolChatDrawerClose:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .marketList,
 .predictionHistory,
 .leaderboardList {
@@ -2479,6 +2545,18 @@ dd {
 }
 
 @media (min-width: 761px) {
+  .predictionSideColumn {
+    position: sticky;
+    top: 14px;
+    z-index: 45;
+  }
+
+  .predictionSubmitPanel {
+    box-shadow: 0 20px 70px rgba(0, 0, 0, 0.34);
+    max-height: calc(100vh - 28px);
+    overflow: auto;
+  }
+
   .predictionSubmitPanel:not(.predictionSubmitPanelExpanded) {
     max-height: none;
     overflow: visible;
@@ -2841,7 +2919,7 @@ dd {
 
 .historyRow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(150px, 0.7fr) minmax(110px, 0.55fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(150px, 0.7fr) minmax(110px, 0.55fr) auto;
   gap: 12px;
   align-items: center;
   border: 1px solid var(--border);
@@ -2871,6 +2949,11 @@ dd {
   font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
+}
+
+.historyRowActions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .leaderboardList {
@@ -3433,11 +3516,26 @@ dd {
     grid-column: 1;
   }
 
-  .poolMessagesPanel {
-    grid-column: 1;
-    margin-bottom: 12px;
-    min-width: 0;
-    order: 2;
+  .poolChatDrawer {
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    left: auto;
+    right: 10px;
+    justify-items: end;
+  }
+
+  .poolChatDrawer.open {
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    left: 10px;
+    justify-items: stretch;
+  }
+
+  .poolChatDrawer.open .poolChatDrawerToggle {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .poolChatDrawerPanel {
+    max-height: min(78vh, 620px);
     width: 100%;
   }
 

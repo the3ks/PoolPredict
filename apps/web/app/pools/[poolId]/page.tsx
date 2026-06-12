@@ -34,6 +34,7 @@ import {
   UserX,
   Users,
   Waves,
+  X,
 } from "lucide-react";
 import { UserShell } from "../../components/user-shell";
 import {
@@ -749,6 +750,10 @@ export default function PoolOverviewPage() {
   const predictedOptionsByMarketId = predictionHistory.reduce<
     Record<string, string[]>
   >((accumulator, prediction) => {
+    if (prediction.predictionStatus === "Cancelled") {
+      return accumulator;
+    }
+
     const current = accumulator[prediction.marketId] ?? [];
     if (!current.includes(prediction.selectedOption)) {
       current.push(prediction.selectedOption);
@@ -1560,6 +1565,7 @@ function PoolMessagesPanel({
   onChatModeChange,
   onSubmit,
 }: PoolMessagesPanelProps) {
+  const [isOpen, setIsOpen] = useState(false);
   const chatMessages = messages.filter((message) => message.kind === "Chat");
   const listRef = useRef<HTMLDivElement | null>(null);
   const isPinnedToBottomRef = useRef(true);
@@ -1572,14 +1578,14 @@ function PoolMessagesPanel({
       return;
     }
 
-    if (!hasInitializedScrollRef.current || isPinnedToBottomRef.current) {
+    if (isOpen && (!hasInitializedScrollRef.current || isPinnedToBottomRef.current)) {
       requestAnimationFrame(() => {
         list.scrollTop = list.scrollHeight;
         hasInitializedScrollRef.current = true;
         isPinnedToBottomRef.current = true;
       });
     }
-  }, [chatMessages.length, lastChatMessageId]);
+  }, [chatMessages.length, isOpen, lastChatMessageId]);
 
   function updatePinnedToBottom() {
     const list = listRef.current;
@@ -1592,35 +1598,56 @@ function PoolMessagesPanel({
   }
 
   return (
-    <Panel className="poolMessagesPanel" title="Hội bà 8">
-      <div
-        className="poolMessageList"
-        ref={listRef}
-        onScroll={updatePinnedToBottom}
+    <div className={isOpen ? "poolChatDrawer open" : "poolChatDrawer"}>
+      <button
+        aria-label="Open pool chat"
+        aria-expanded={isOpen}
+        className="poolChatDrawerToggle"
+        type="button"
+        onClick={() => setIsOpen((current) => !current)}
       >
-        {chatMessages.length === 0 ? (
-          <p className="mutedText">No pool messages yet.</p>
-        ) : (
-          chatMessages.map((message) => (
-            <PoolMessageCard key={message.id} message={message} />
-          ))
-        )}
-      </div>
-      <MarkdownComposer
-        body={chatBody}
-        icon={MessageSquare}
-        mode={chatEditorMode}
-        placeholder="Chat with the pool..."
-        rows={3}
-        showEmojiPicker
-        submitLabel="Send"
-        title="Chat"
-        onBodyChange={onChatBodyChange}
-        onModeChange={onChatModeChange}
-        onSubmit={() => onSubmit("Chat")}
-        disabled={isPostingMessage}
-      />
-    </Panel>
+        <MessageSquare aria-hidden="true" size={18} />
+        <span>{chatMessages.length}</span>
+      </button>
+      {isOpen ? (
+        <Panel className="poolMessagesPanel poolChatDrawerPanel" title="Hội bà 8">
+          <button
+            className="poolChatDrawerClose"
+            type="button"
+            onClick={() => setIsOpen(false)}
+          >
+            <X aria-hidden="true" size={16} />
+          </button>
+          <div
+            className="poolMessageList"
+            ref={listRef}
+            onScroll={updatePinnedToBottom}
+          >
+            {chatMessages.length === 0 ? (
+              <p className="mutedText">No pool messages yet.</p>
+            ) : (
+              chatMessages.map((message) => (
+                <PoolMessageCard key={message.id} message={message} />
+              ))
+            )}
+          </div>
+          <MarkdownComposer
+            body={chatBody}
+            icon={MessageSquare}
+            mode={chatEditorMode}
+            placeholder="Chat with the pool..."
+            rows={3}
+            showEmojiPicker
+            submitLabel="Send"
+            title="Chat"
+            onBodyChange={onChatBodyChange}
+            onModeChange={onChatModeChange}
+            onSubmit={() => onSubmit("Chat")}
+            disabled={isPostingMessage}
+          />
+        </Panel>
+      ) : null}
+    </div>
   );
 }
 

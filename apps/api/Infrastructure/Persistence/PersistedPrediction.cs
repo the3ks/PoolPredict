@@ -1,4 +1,5 @@
 using PoolPredict.Api.Domain.Markets;
+using PoolPredict.Api.Domain.Predictions;
 
 namespace PoolPredict.Api.Infrastructure.Persistence;
 
@@ -15,5 +16,6 @@ public sealed class PersistedPrediction
     public decimal? LineValueSnapshot { get; set; }
     public decimal PayoutMultiplierSnapshot { get; set; }
     public int PayoutConfigurationVersionSnapshot { get; set; }
+    public PredictionStatus Status { get; set; } = PredictionStatus.Active;
     public DateTimeOffset SubmittedAt { get; set; }
 }

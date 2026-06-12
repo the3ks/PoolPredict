@@ -36,6 +36,35 @@ public static class PredictionEndpoints
             }
         }).RequireAuthorization();
 
+        group.MapPost("/{predictionId:guid}/cancel", (Guid predictionId, ClaimsPrincipal principal, PredictionStore predictions, PoolStore pools, TournamentCatalog catalog) =>
+        {
+            if (!TryGetUserId(principal, out var userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            try
+            {
+                return Results.Ok(predictions.CancelPrediction(predictionId, userId, pools, catalog));
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Forbid();
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return Results.NotFound(new { error = ex.Message });
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.Conflict(new { error = ex.Message });
+            }
+        }).RequireAuthorization();
+
         group.MapGet("/pool/{poolId:guid}", (Guid poolId, ClaimsPrincipal principal, PredictionStore predictions, PoolStore pools) =>
         {
             if (!TryGetUserId(principal, out var userId))

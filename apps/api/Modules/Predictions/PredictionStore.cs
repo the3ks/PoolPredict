@@ -141,6 +141,71 @@ public sealed class PredictionStore
         }
     }
 
+    public PredictionHistoryResponse CancelPrediction(Guid predictionId, Guid userId, PoolStore pools, TournamentCatalog catalog)
+    {
+        lock (_gate)
+        {
+            using var db = _dbContextFactory.CreateDbContext();
+            var persistedPrediction = db.Predictions.SingleOrDefault(candidate => candidate.Id == predictionId)
+                ?? throw new KeyNotFoundException("Prediction does not exist.");
+            var member = db.PoolMembers
+                .AsNoTracking()
+                .SingleOrDefault(candidate => candidate.Id == persistedPrediction.MemberId)
+                ?? throw new UnauthorizedAccessException("Prediction owner is invalid.");
+
+            if (member.UserId != userId)
+            {
+                throw new UnauthorizedAccessException("You can only cancel your own prediction.");
+            }
+
+            var pool = pools.GetPool(persistedPrediction.PoolId)
+                ?? throw new KeyNotFoundException("Pool does not exist.");
+            var market = pools.GetMarket(persistedPrediction.MarketId)
+                ?? throw new KeyNotFoundException("Market does not exist.");
+            var matchEvent = catalog.GetEvent(market.EventId)
+                ?? throw new KeyNotFoundException("Event does not exist.");
+
+            if (persistedPrediction.Status == PredictionStatus.Cancelled)
+            {
+                throw new InvalidOperationException("Prediction is already cancelled.");
+            }
+
+            if (!CanCancelPrediction(persistedPrediction.Status, market.Status, matchEvent.StartsAt, matchEvent.Status))
+            {
+                throw new InvalidOperationException("Prediction can only be cancelled before kickoff while the market is still open.");
+            }
+
+            var prediction = _predictions.SingleOrDefault(candidate => candidate.Id == predictionId);
+            if (prediction is null)
+            {
+                throw new KeyNotFoundException("Prediction does not exist.");
+            }
+
+            prediction.Cancel();
+            persistedPrediction.Status = PredictionStatus.Cancelled;
+
+            var refundEntry = new PointLedgerEntry(
+                Ids.NewId(),
+                prediction.PoolId,
+                prediction.MemberId,
+                prediction.Stake,
+                PointLedgerReason.PredictionCancelledRefund,
+                prediction.Id);
+
+            _ledger.Add(refundEntry);
+            db.PointLedger.Add(ToPersistedLedgerEntry(refundEntry));
+            db.SaveChanges();
+
+            return ToPredictionHistoryResponse(
+                prediction,
+                market,
+                matchEvent,
+                settlementCredit: prediction.Stake,
+                outcome: "Cancelled",
+                canCancel: false);
+        }
+    }
+
     public AutoPickPreviewResponse PreviewAutoPick(Guid poolId, AutoPickPredictionsRequest request, Guid userId, PoolStore pools, TournamentCatalog catalog)
     {
         if (request.Stake <= 0)
@@ -242,7 +307,9 @@ public sealed class PredictionStore
     {
         lock (_gate)
         {
-            return _predictions.Where(prediction => prediction.PoolId == poolId).ToArray();
+            return _predictions
+                .Where(prediction => prediction.PoolId == poolId && prediction.Status == PredictionStatus.Active)
+                .ToArray();
         }
     }
 
@@ -251,7 +318,10 @@ public sealed class PredictionStore
         lock (_gate)
         {
             return _predictions
-                .Where(prediction => prediction.PoolId == poolId && prediction.MemberId == memberId)
+                .Where(prediction =>
+                    prediction.PoolId == poolId
+                    && prediction.MemberId == memberId
+                    && prediction.Status == PredictionStatus.Active)
                 .OrderByDescending(prediction => prediction.SubmittedAt)
                 .ToArray();
         }
@@ -262,7 +332,7 @@ public sealed class PredictionStore
         using var db = _dbContextFactory.CreateDbContext();
         var rows = db.Predictions
             .AsNoTracking()
-            .Where(prediction => prediction.PoolId == poolId)
+            .Where(prediction => prediction.PoolId == poolId && prediction.Status == PredictionStatus.Active)
             .Join(
                 db.PoolMembers.AsNoTracking(),
                 prediction => prediction.MemberId,
@@ -319,6 +389,7 @@ public sealed class PredictionStore
                 && predictionIds.Contains(entry.PredictionId.Value)
                 && (entry.Reason == PointLedgerReason.SettlementPayout
                     || entry.Reason == PointLedgerReason.SettlementRefund
+                    || entry.Reason == PointLedgerReason.PredictionCancelledRefund
                     || entry.Reason == PointLedgerReason.AdminCorrection))
             .GroupBy(entry => entry.PredictionId!.Value)
             .Select(group => new { PredictionId = group.Key, Points = group.Sum(entry => entry.Points) })
@@ -329,25 +400,18 @@ public sealed class PredictionStore
             var market = markets.GetValueOrDefault(prediction.MarketId);
             var matchEvent = market is null ? null : events.GetValueOrDefault(market.EventId);
             var credit = settlementCredits.GetValueOrDefault(prediction.Id);
-            var outcome = ResolveOutcome(prediction.Stake, credit, market?.Status);
-            return new PredictionHistoryResponse(
-                prediction.Id,
-                prediction.PoolId,
-                prediction.MemberId,
-                prediction.MarketId,
-                prediction.SelectedOption,
-                prediction.Stake,
-                prediction.MarketType,
-                prediction.MarketPeriod,
-                matchEvent is null ? null : $"{matchEvent.HomeParticipant} vs {matchEvent.AwayParticipant}",
-                prediction.LineValueSnapshot,
-                prediction.PayoutMultiplierSnapshot,
-                prediction.PayoutConfigurationVersionSnapshot,
-                prediction.SubmittedAt,
-                market?.Status,
-                outcome,
+            var outcome = ResolveOutcome(prediction.Status, prediction.Stake, credit, market?.Status);
+            return ToPredictionHistoryResponse(
+                prediction,
+                market,
+                matchEvent,
                 credit,
-                credit - prediction.Stake);
+                outcome,
+                matchEvent is not null && market is not null && CanCancelPrediction(
+                    prediction.Status,
+                    market.Status,
+                    matchEvent.StartsAt,
+                    matchEvent.Status));
         }).ToArray();
     }
 
@@ -372,7 +436,10 @@ public sealed class PredictionStore
             .ToDictionary(item => item.MemberId, item => item.Balance);
         var predictions = db.Predictions
             .AsNoTracking()
-            .Where(prediction => prediction.PoolId == poolId && memberIds.Contains(prediction.MemberId))
+            .Where(prediction =>
+                prediction.PoolId == poolId
+                && memberIds.Contains(prediction.MemberId)
+                && prediction.Status == PredictionStatus.Active)
             .ToArray();
         var predictionIds = predictions.Select(prediction => prediction.Id).ToList();
         var marketIds = predictions.Select(prediction => prediction.MarketId).Distinct().ToList();
@@ -386,6 +453,7 @@ public sealed class PredictionStore
                 && predictionIds.Contains(entry.PredictionId.Value)
                 && (entry.Reason == PointLedgerReason.SettlementPayout
                     || entry.Reason == PointLedgerReason.SettlementRefund
+                    || entry.Reason == PointLedgerReason.PredictionCancelledRefund
                     || entry.Reason == PointLedgerReason.AdminCorrection))
             .GroupBy(entry => entry.PredictionId!.Value)
             .Select(group => new { PredictionId = group.Key, Points = group.Sum(entry => entry.Points) })
@@ -399,6 +467,7 @@ public sealed class PredictionStore
                     .ToArray();
                 var wonPredictions = settledPredictions.Count(prediction =>
                     ResolveOutcome(
+                        prediction.Status,
                         prediction.Stake,
                         settlementCredits.GetValueOrDefault(prediction.Id),
                         marketStatuses.GetValueOrDefault(prediction.MarketId)) is "Win" or "HalfWin");
@@ -589,6 +658,7 @@ public sealed class PredictionStore
             .Where(prediction =>
                 prediction.PoolId == poolId
                 && prediction.MemberId == memberId
+                && prediction.Status == PredictionStatus.Active
                 && marketsById.TryGetValue(prediction.MarketId, out var market)
                 && market.EventId == eventId)
             .Sum(prediction => prediction.Stake);
@@ -597,6 +667,7 @@ public sealed class PredictionStore
         _predictions.Any(prediction =>
             prediction.PoolId == poolId
             && prediction.MemberId == memberId
+            && prediction.Status == PredictionStatus.Active
             && marketsById.TryGetValue(prediction.MarketId, out var market)
             && market.EventId == eventId);
 
@@ -605,7 +676,10 @@ public sealed class PredictionStore
         using var db = _dbContextFactory.CreateDbContext();
         return db.Predictions
             .AsNoTracking()
-            .Where(prediction => prediction.PoolId == poolId && prediction.MemberId == memberId)
+            .Where(prediction =>
+                prediction.PoolId == poolId
+                && prediction.MemberId == memberId
+                && prediction.Status == PredictionStatus.Active)
             .Join(
                 db.Markets.AsNoTracking().Where(market => market.EventId == eventId),
                 prediction => prediction.MarketId,
@@ -620,7 +694,10 @@ public sealed class PredictionStore
         using var db = _dbContextFactory.CreateDbContext();
         var existingOptions = db.Predictions
             .AsNoTracking()
-            .Where(prediction => prediction.PoolId == poolId && prediction.MemberId == memberId)
+            .Where(prediction =>
+                prediction.PoolId == poolId
+                && prediction.MemberId == memberId
+                && prediction.Status == PredictionStatus.Active)
             .Join(
                 db.Markets.AsNoTracking().Where(market => market.EventId == eventId && market.Type == MarketType.OneXTwo),
                 prediction => prediction.MarketId,
@@ -833,7 +910,8 @@ public sealed class PredictionStore
             prediction.MarketPeriod,
             prediction.LineValueSnapshot,
             prediction.PayoutMultiplierSnapshot,
-            prediction.PayoutConfigurationVersionSnapshot)));
+            prediction.PayoutConfigurationVersionSnapshot,
+            prediction.Status)));
 
         _ledger.AddRange(db.PointLedger.AsNoTracking().Select(entry => new PointLedgerEntry(
             entry.Id,
@@ -865,6 +943,7 @@ public sealed class PredictionStore
             LineValueSnapshot = prediction.LineValueSnapshot,
             PayoutMultiplierSnapshot = prediction.PayoutMultiplierSnapshot,
             PayoutConfigurationVersionSnapshot = prediction.PayoutConfigurationVersionSnapshot,
+            Status = prediction.Status,
             SubmittedAt = prediction.SubmittedAt
         });
         db.PointLedger.Add(ToPersistedLedgerEntry(ledgerEntry));
@@ -887,6 +966,7 @@ public sealed class PredictionStore
             LineValueSnapshot = prediction.LineValueSnapshot,
             PayoutMultiplierSnapshot = prediction.PayoutMultiplierSnapshot,
             PayoutConfigurationVersionSnapshot = prediction.PayoutConfigurationVersionSnapshot,
+            Status = prediction.Status,
             SubmittedAt = prediction.SubmittedAt
         }));
         db.PointLedger.AddRange(ledgerEntries.Select(ToPersistedLedgerEntry));
@@ -937,8 +1017,13 @@ public sealed class PredictionStore
         CreatedAt = entry.CreatedAt
     };
 
-    private static string ResolveOutcome(int stake, int settlementCredit, MarketStatus? marketStatus)
+    private static string ResolveOutcome(PredictionStatus predictionStatus, int stake, int settlementCredit, MarketStatus? marketStatus)
     {
+        if (predictionStatus == PredictionStatus.Cancelled)
+        {
+            return "Cancelled";
+        }
+
         if (marketStatus is null or MarketStatus.Open or MarketStatus.Locked or MarketStatus.Draft or MarketStatus.LinePending)
         {
             return "Unsettled";
@@ -1000,6 +1085,72 @@ public sealed class PredictionStore
     private static bool IsSettledOutcome(string outcome) =>
         outcome is "Win" or "HalfWin" or "Push" or "HalfLose" or "Lose" or "Cancelled";
 
+    private static bool CanCancelPrediction(
+        PredictionStatus predictionStatus,
+        MarketStatus marketStatus,
+        DateTimeOffset startsAt,
+        EventStatus eventStatus) =>
+        predictionStatus == PredictionStatus.Active
+        && marketStatus == MarketStatus.Open
+        && eventStatus == EventStatus.Scheduled
+        && startsAt > DateTimeOffset.UtcNow;
+
+    private static PredictionHistoryResponse ToPredictionHistoryResponse(
+        PersistedPrediction prediction,
+        PersistedMarket? market,
+        PersistedEvent? matchEvent,
+        int settlementCredit,
+        string outcome,
+        bool canCancel) =>
+        new(
+            prediction.Id,
+            prediction.PoolId,
+            prediction.MemberId,
+            prediction.MarketId,
+            prediction.SelectedOption,
+            prediction.Stake,
+            prediction.MarketType,
+            prediction.MarketPeriod,
+            matchEvent is null ? null : $"{matchEvent.HomeParticipant} vs {matchEvent.AwayParticipant}",
+            prediction.LineValueSnapshot,
+            prediction.PayoutMultiplierSnapshot,
+            prediction.PayoutConfigurationVersionSnapshot,
+            prediction.SubmittedAt,
+            market?.Status,
+            prediction.Status,
+            outcome,
+            settlementCredit,
+            settlementCredit - prediction.Stake,
+            canCancel);
+
+    private static PredictionHistoryResponse ToPredictionHistoryResponse(
+        Prediction prediction,
+        Market? market,
+        Event? matchEvent,
+        int settlementCredit,
+        string outcome,
+        bool canCancel) =>
+        new(
+            prediction.Id,
+            prediction.PoolId,
+            prediction.MemberId,
+            prediction.MarketId,
+            prediction.SelectedOption,
+            prediction.Stake,
+            prediction.MarketType,
+            prediction.MarketPeriod,
+            matchEvent is null ? null : $"{matchEvent.HomeParticipant} vs {matchEvent.AwayParticipant}",
+            prediction.LineValueSnapshot,
+            prediction.PayoutMultiplierSnapshot,
+            prediction.PayoutConfigurationVersionSnapshot,
+            prediction.SubmittedAt,
+            market?.Status,
+            prediction.Status,
+            outcome,
+            settlementCredit,
+            settlementCredit - prediction.Stake,
+            canCancel);
+
     private static string FormatSignedNumber(decimal value) =>
         value > 0 ? $"+{FormatNumber(value)}" : FormatNumber(value);
 
@@ -1022,9 +1173,11 @@ public sealed record PredictionHistoryResponse(
     int PayoutConfigurationVersionSnapshot,
     DateTimeOffset SubmittedAt,
     MarketStatus? MarketStatus,
+    PredictionStatus PredictionStatus,
     string Outcome,
     int SettlementCredit,
-    int NetPoints);
+    int NetPoints,
+    bool CanCancel);
 
 public sealed record LeaderboardEntryResponse(
     Guid MemberId,

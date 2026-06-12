@@ -16,7 +16,8 @@ public sealed class Prediction : Entity
         MarketPeriod marketPeriod,
         decimal? lineValueSnapshot,
         decimal payoutMultiplierSnapshot,
-        int payoutConfigurationVersionSnapshot)
+        int payoutConfigurationVersionSnapshot,
+        PredictionStatus status = PredictionStatus.Active)
         : base(id)
     {
         PoolId = poolId;
@@ -29,6 +30,7 @@ public sealed class Prediction : Entity
         LineValueSnapshot = lineValueSnapshot;
         PayoutMultiplierSnapshot = payoutMultiplierSnapshot;
         PayoutConfigurationVersionSnapshot = payoutConfigurationVersionSnapshot;
+        Status = status;
         SubmittedAt = DateTimeOffset.UtcNow;
     }
 
@@ -52,5 +54,17 @@ public sealed class Prediction : Entity
 
     public int PayoutConfigurationVersionSnapshot { get; }
 
+    public PredictionStatus Status { get; private set; }
+
     public DateTimeOffset SubmittedAt { get; }
+
+    public void Cancel()
+    {
+        if (Status == PredictionStatus.Cancelled)
+        {
+            return;
+        }
+
+        Status = PredictionStatus.Cancelled;
+    }
 }

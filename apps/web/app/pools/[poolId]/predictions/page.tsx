@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, Dices, History, RefreshCw } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, Dices, History, RefreshCw, X } from "lucide-react";
 import { UserShell } from "../../../components/user-shell";
 import { IconLabel, PageHeader, Panel, StatusPill } from "../../../components/ui";
 import { apiUrl, readApiError } from "../../../lib/api";
@@ -30,6 +30,7 @@ export default function PoolPredictionsPage() {
   const [isLoadingAutoPickPreview, setIsLoadingAutoPickPreview] = useState(false);
   const [isSubmittingAutoPick, setIsSubmittingAutoPick] = useState(false);
   const [isAutoPickExpanded, setIsAutoPickExpanded] = useState(false);
+  const [cancellingPredictionId, setCancellingPredictionId] = useState("");
   const [predictionPageSize, setPredictionPageSize] = useState(20);
   const [predictionPage, setPredictionPage] = useState(1);
 
@@ -182,6 +183,43 @@ export default function PoolPredictionsPage() {
     ]);
     setStatus("Prediction history loaded.");
     setIsSubmittingAutoPick(false);
+  }
+
+  async function cancelPrediction(predictionId: string) {
+    if (!pool) {
+      return;
+    }
+
+    const token = getStoredToken();
+    if (!token) {
+      setStatus("Session is missing.");
+      return;
+    }
+
+    setCancellingPredictionId(predictionId);
+    setStatus("Cancelling prediction...");
+    try {
+      const response = await fetch(apiUrl(`/api/predictions/${predictionId}/cancel`), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) {
+        setStatus(await readApiError(response, "Could not cancel prediction."));
+        return;
+      }
+
+      await Promise.all([
+        loadPredictions(pool.id),
+        loadLeaderboard(pool.id),
+        loadAutoPickPreview(pool.id, autoPickStake),
+      ]);
+      setStatus("Prediction cancelled.");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Could not cancel prediction.");
+    } finally {
+      setCancellingPredictionId("");
+    }
   }
 
   const totalPredictionPages = Math.max(
@@ -363,6 +401,20 @@ export default function PoolPredictionsPage() {
                       <strong>{prediction.outcome ?? "Unsettled"}</strong>
                       <small>{formatNetPoints(prediction.netPoints)}</small>
                     </span>
+                    <div className="historyRowActions">
+                      {prediction.canCancel ? (
+                        <button
+                          className="button buttonSecondary compactButton"
+                          disabled={cancellingPredictionId === prediction.id}
+                          type="button"
+                          onClick={() => void cancelPrediction(prediction.id)}
+                        >
+                          <IconLabel icon={X}>
+                            {cancellingPredictionId === prediction.id ? "Cancelling..." : "Cancel"}
+                          </IconLabel>
+                        </button>
+                      ) : null}
+                    </div>
                   </article>
                 ))}
               </div>

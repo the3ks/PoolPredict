@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Activity, CalendarClock, CheckCircle2, KeyRound, ListChecks, RefreshCw, Save, Search, Send, SlidersHorizontal, Trophy, Users } from "lucide-react";
+import { Activity, CalendarClock, CheckCircle2, ChevronLeft, ChevronRight, KeyRound, ListChecks, RefreshCw, Save, Search, Send, SlidersHorizontal, Trophy, Users } from "lucide-react";
 import { IconLabel, Panel, StatGrid } from "../../components/ui";
 import { apiUrl, readApiError } from "../../lib/api";
 import { getStoredToken } from "../../lib/auth";
@@ -581,6 +581,15 @@ export function UserManagementSection() {
   const [userSearch, setUserSearch] = useState("");
   const [temporaryPassword, setTemporaryPassword] = useState("");
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [userPageSize, setUserPageSize] = useState(20);
+  const [userPage, setUserPage] = useState(1);
+
+  const totalUserPages = Math.max(1, Math.ceil(users.length / userPageSize));
+  const currentUserPage = Math.min(userPage, totalUserPages);
+  const pagedUsers = users.slice(
+    (currentUserPage - 1) * userPageSize,
+    currentUserPage * userPageSize,
+  );
 
   useEffect(() => {
     loadUsers();
@@ -613,6 +622,7 @@ export function UserManagementSection() {
 
       const result = (await response.json()) as AdminUser[];
       setUsers(result);
+      setUserPage(1);
       setUserMessage(result.length === 0 ? "No users match the search." : `${result.length} users loaded.`);
     } catch (error) {
       setUserMessage(error instanceof Error ? error.message : "Could not load users.");
@@ -688,8 +698,49 @@ export function UserManagementSection() {
           <div><dt>Temporary password</dt><dd>{temporaryPassword}</dd></div>
         </dl>
       ) : null}
+      {users.length > 0 ? (
+        <div className="listToolbar">
+          <label className="listPageSizeField">
+            Page size
+            <select
+              value={userPageSize}
+              onChange={(event) => {
+                setUserPageSize(Number(event.target.value));
+                setUserPage(1);
+              }}
+            >
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+          </label>
+          <div className="listPagination">
+            <button
+              className="button buttonSecondary compactButton"
+              disabled={currentUserPage <= 1}
+              type="button"
+              onClick={() => setUserPage((current) => Math.max(1, current - 1))}
+            >
+              <IconLabel icon={ChevronLeft}>Prev</IconLabel>
+            </button>
+            <span>
+              Page {currentUserPage} / {totalUserPages}
+            </span>
+            <button
+              className="button buttonSecondary compactButton"
+              disabled={currentUserPage >= totalUserPages}
+              type="button"
+              onClick={() =>
+                setUserPage((current) => Math.min(totalUserPages, current + 1))
+              }
+            >
+              <IconLabel icon={ChevronRight}>Next</IconLabel>
+            </button>
+          </div>
+        </div>
+      ) : null}
       <div className="adminUserList">
-        {users.map((user) => (
+        {pagedUsers.map((user) => (
           <article className="adminUserRow" key={user.id}>
             <span><strong>{user.displayName}</strong><small>{user.email}</small></span>
             <span><strong>{user.role}</strong><small>{user.isEmailVerified ? "Verified" : "Unverified"}</small></span>

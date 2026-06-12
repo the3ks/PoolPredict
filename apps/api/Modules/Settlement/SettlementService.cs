@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using PoolPredict.Api.Domain.Common;
 using PoolPredict.Api.Domain.Markets;
 using PoolPredict.Api.Domain.Points;
+using PoolPredict.Api.Domain.Predictions;
 using PoolPredict.Api.Domain.Settlement;
 using PoolPredict.Api.Domain.Tournaments;
 using PoolPredict.Api.Infrastructure.Persistence;
@@ -66,7 +67,9 @@ public sealed class SettlementService(
         var marketIds = markets.Select(market => market.Id).ToList();
         var marketById = markets.ToDictionary(market => market.Id);
         var eventPredictions = await db.Predictions
-            .Where(prediction => marketIds.Contains(prediction.MarketId))
+            .Where(prediction =>
+                marketIds.Contains(prediction.MarketId)
+                && prediction.Status == PredictionStatus.Active)
             .ToArrayAsync(cancellationToken);
         var existingSettlementCredits = await db.PointLedger
             .Where(entry => entry.PredictionId != null
