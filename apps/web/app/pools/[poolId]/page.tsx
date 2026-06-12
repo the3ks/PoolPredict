@@ -2556,7 +2556,11 @@ function getEventStakeUsed(
   );
 
   return predictions
-    .filter((prediction) => eventMarketIds.has(prediction.marketId))
+    .filter(
+      (prediction) =>
+        eventMarketIds.has(prediction.marketId) &&
+        prediction.predictionStatus !== "Cancelled",
+    )
     .reduce((sum, prediction) => sum + prediction.stake, 0);
 }
 
