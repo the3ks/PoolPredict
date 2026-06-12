@@ -404,6 +404,33 @@ public sealed class PoolStore
         }
     }
 
+    public PoolMember UpdateMemberLeaderboardStatus(
+        Guid poolId,
+        Guid ownerUserId,
+        Guid memberId,
+        PoolMemberLeaderboardStatus leaderboardStatus)
+    {
+        lock (_gate)
+        {
+            if (_pools.All(pool => pool.Id != poolId))
+            {
+                throw new KeyNotFoundException("Pool does not exist.");
+            }
+
+            var owner = _members.SingleOrDefault(member => member.PoolId == poolId && member.UserId == ownerUserId);
+            if (owner?.Role is not PoolMemberRole.Owner)
+            {
+                throw new UnauthorizedAccessException("Only the pool owner can update leaderboard status.");
+            }
+
+            var member = _members.SingleOrDefault(candidate => candidate.Id == memberId && candidate.PoolId == poolId)
+                ?? throw new KeyNotFoundException("Pool member does not exist.");
+            member.SetLeaderboardStatus(leaderboardStatus);
+            PersistMemberLeaderboardStatus(member);
+            return member;
+        }
+    }
+
     public bool IsMember(Guid poolId, Guid userId)
     {
         lock (_gate)
@@ -655,7 +682,8 @@ public sealed class PoolStore
             member.PoolId,
             member.UserId,
             member.Role,
-            member.JoinedAt)));
+            member.JoinedAt,
+            member.LeaderboardStatus)));
 
         _invites.AddRange(db.PoolInvites.AsNoTracking().Select(invite => new PoolInvite(
             invite.Id,
@@ -741,6 +769,19 @@ public sealed class PoolStore
         db.SaveChanges();
     }
 
+    private void PersistMemberLeaderboardStatus(PoolMember member)
+    {
+        using var db = _dbContextFactory.CreateDbContext();
+        var persistedMember = db.PoolMembers.SingleOrDefault(candidate => candidate.Id == member.Id);
+        if (persistedMember is null)
+        {
+            return;
+        }
+
+        persistedMember.LeaderboardStatus = member.LeaderboardStatus;
+        db.SaveChanges();
+    }
+
     private void PersistMarketLineUpdates(IReadOnlyCollection<Market> markets)
     {
         using var db = _dbContextFactory.CreateDbContext();
@@ -778,6 +819,7 @@ public sealed class PoolStore
         PoolId = member.PoolId,
         UserId = member.UserId,
         Role = member.Role,
+        LeaderboardStatus = member.LeaderboardStatus,
         JoinedAt = member.JoinedAt
     };
 
@@ -988,3 +1030,10 @@ public sealed record PoolJoinRequestDecisionResponse(
     Guid UserId,
     string Status,
     Guid? MemberId);
+
+public sealed record UpdateMemberLeaderboardStatusRequest(
+    PoolMemberLeaderboardStatus LeaderboardStatus);
+
+public sealed record PoolMemberLeaderboardStatusResponse(
+    Guid MemberId,
+    PoolMemberLeaderboardStatus LeaderboardStatus);

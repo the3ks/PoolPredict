@@ -13,6 +13,7 @@ import {
 } from "react";
 import { useParams } from "next/navigation";
 import {
+  Ban,
   CalendarClock,
   ChevronDown,
   ChevronRight,
@@ -130,6 +131,8 @@ export default function PoolOverviewPage() {
   const [isSavingPool, setIsSavingPool] = useState(false);
   const [joinRequestStatus, setJoinRequestStatus] = useState("");
   const [isLoadingJoinRequests, setIsLoadingJoinRequests] = useState(false);
+  const [updatingLeaderboardMemberId, setUpdatingLeaderboardMemberId] =
+    useState<string | null>(null);
   const [chatBody, setChatBody] = useState("");
   const [announcementDrafts, setAnnouncementDrafts] = useState<
     Record<number, { title: string; bodyMarkdown: string }>
@@ -636,6 +639,52 @@ export default function PoolOverviewPage() {
     await Promise.all([loadJoinRequests(pool.id), loadPool()]);
   }
 
+  async function updateMemberLeaderboardStatus(
+    entry: LeaderboardEntry,
+    leaderboardStatus: "Ranked" | "Excluded",
+  ) {
+    const token = getStoredToken();
+    if (!token || !pool) {
+      return;
+    }
+
+    setUpdatingLeaderboardMemberId(entry.memberId);
+    setStatus(
+      leaderboardStatus === "Excluded"
+        ? `Excluding ${entry.displayName} from leaderboard sorting...`
+        : `Restoring ${entry.displayName} to leaderboard sorting...`,
+    );
+    try {
+      const response = await fetch(
+        apiUrl(`/api/pools/${pool.id}/members/${entry.memberId}/leaderboard-status`),
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ leaderboardStatus }),
+        },
+      );
+
+      if (!response.ok) {
+        setStatus(await readApiError(response, "Could not update leaderboard status."));
+        return;
+      }
+
+      setStatus("Leaderboard status updated.");
+      await loadLeaderboard(pool.id);
+    } catch (error) {
+      setStatus(
+        error instanceof Error
+          ? error.message
+          : "Could not update leaderboard status.",
+      );
+    } finally {
+      setUpdatingLeaderboardMemberId(null);
+    }
+  }
+
   const selectedMarket =
     markets.find((market) => market.id === selectedMarketId) ?? null;
   const selectedEvent = selectedMarket
@@ -803,28 +852,38 @@ export default function PoolOverviewPage() {
                               className={[
                                 "poolLeaderboardRow",
                                 entry.memberId === pool.memberId ? "active" : "",
+                                canManageInvites(pool) ? "withActions" : "",
+                                entry.leaderboardStatus === "Excluded" ? "excluded" : "",
                               ]
                                 .filter(Boolean)
                                 .join(" ")}
                               key={entry.memberId}
                             >
                               <span>
-                                <strong className="leaderboardIdentity">
+                                <Link
+                                  className="leaderboardIdentity leaderboardIdentityLink"
+                                  href={`/pools/${pool.id}/members/${entry.memberId}`}
+                                >
                                   <span className="leaderboardName">
-                                    <span className="leaderboardRank">#{index + 1}</span>
-                                    <span className="leaderboardAvatarWrap">
-                                      {entry.avatarUrl ? (
-                                        // eslint-disable-next-line @next/next/no-img-element
-                                        <img alt="" className="leaderboardAvatar" src={entry.avatarUrl} />
-                                      ) : (
-                                        <span className="leaderboardAvatarFallback">
-                                          {entry.displayName.slice(0, 1).toUpperCase()}
-                                        </span>
-                                      )}
+                                    <span className="leaderboardTopline">
+                                      <span className="leaderboardRank">#{index + 1}</span>
+                                      <span className="leaderboardAvatarWrap">
+                                        {entry.avatarUrl ? (
+                                          // eslint-disable-next-line @next/next/no-img-element
+                                          <img alt="" className="leaderboardAvatar" src={entry.avatarUrl} />
+                                        ) : (
+                                          <span className="leaderboardAvatarFallback">
+                                            {entry.displayName.slice(0, 1).toUpperCase()}
+                                          </span>
+                                        )}
+                                      </span>
                                     </span>
                                     <span className="leaderboardLabel">{entry.displayName}</span>
+                                    {entry.leaderboardStatus === "Excluded" ? (
+                                      <span className="leaderboardExcludedBadge">Excluded</span>
+                                    ) : null}
                                   </span>
-                                </strong>
+                                </Link>
                               </span>
                               <span>
                                 <strong>{formatNumberDisplay(entry.winLoss)}</strong>
@@ -834,6 +893,35 @@ export default function PoolOverviewPage() {
                                 <strong>{entry.winRate}%</strong>
                                 <small>Win rate</small>
                               </span>
+                              {canManageInvites(pool) ? (
+                                <span className="leaderboardActionCell">
+                                  <button
+                                    className="button buttonSecondary compactButton"
+                                    disabled={updatingLeaderboardMemberId === entry.memberId}
+                                    type="button"
+                                    onClick={() =>
+                                      updateMemberLeaderboardStatus(
+                                        entry,
+                                        entry.leaderboardStatus === "Excluded"
+                                          ? "Ranked"
+                                          : "Excluded",
+                                      )
+                                    }
+                                  >
+                                    <IconLabel
+                                      icon={
+                                        entry.leaderboardStatus === "Excluded"
+                                          ? UserCheck
+                                          : Ban
+                                      }
+                                    >
+                                      {entry.leaderboardStatus === "Excluded"
+                                        ? "Rank"
+                                        : "Exclude"}
+                                    </IconLabel>
+                                  </button>
+                                </span>
+                              ) : null}
                             </article>
                           ))
                         )}

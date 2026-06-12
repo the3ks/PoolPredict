@@ -373,29 +373,48 @@ export default function PoolPredictionsPage() {
         <Panel title="Leaderboard">
           {leaderboard.length > 0 ? (
             <div className="leaderboardList">
+              <div className="leaderboardHeader">
+                <span>Player</span>
+                <span>WinLoss</span>
+                <span>WinRate</span>
+                <span>ROI</span>
+              </div>
               {leaderboard.map((entry, index) => (
-                <article className={entry.memberId === pool?.memberId ? "leaderboardRow active" : "leaderboardRow"} key={entry.memberId}>
+                <article
+                  className={[
+                    "leaderboardRow",
+                    entry.memberId === pool?.memberId ? "active" : "",
+                    entry.leaderboardStatus === "Excluded" ? "excluded" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  key={entry.memberId}
+                >
                   <span>
                     <strong className="leaderboardIdentity">
                       <span className="leaderboardName">
-                        <span className="leaderboardRank">#{index + 1}</span>
-                        <span className="leaderboardAvatarWrap">
-                          {entry.avatarUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img alt="" className="leaderboardAvatar" src={entry.avatarUrl} />
-                          ) : (
-                            <span className="leaderboardAvatarFallback">
-                              {entry.displayName.slice(0, 1).toUpperCase()}
-                            </span>
-                          )}
+                        <span className="leaderboardTopline">
+                          <span className="leaderboardRank">#{index + 1}</span>
+                          <span className="leaderboardAvatarWrap">
+                            {entry.avatarUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img alt="" className="leaderboardAvatar" src={entry.avatarUrl} />
+                            ) : (
+                              <span className="leaderboardAvatarFallback">
+                                {entry.displayName.slice(0, 1).toUpperCase()}
+                              </span>
+                            )}
+                          </span>
                         </span>
                         <span className="leaderboardLabel">{entry.displayName}</span>
+                        {entry.leaderboardStatus === "Excluded" ? (
+                          <span className="leaderboardExcludedBadge">Excluded</span>
+                        ) : null}
                       </span>
                     </strong>
                   </span>
                   <span>
                     <strong>{formatNumberDisplay(entry.winLoss)}</strong>
-                    <small>WinLoss</small>
                   </span>
                   <span>
                     <strong>{entry.winRate}%</strong>

@@ -446,6 +446,33 @@ public static class PoolEndpoints
             }
         }).RequireAuthorization();
 
+        group.MapPut("/{poolId:guid}/members/{memberId:guid}/leaderboard-status", (
+            Guid poolId,
+            Guid memberId,
+            ClaimsPrincipal principal,
+            UpdateMemberLeaderboardStatusRequest request,
+            PoolStore pools) =>
+        {
+            if (!TryGetUserId(principal, out var userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            try
+            {
+                var member = pools.UpdateMemberLeaderboardStatus(poolId, userId, memberId, request.LeaderboardStatus);
+                return Results.Ok(new PoolMemberLeaderboardStatusResponse(member.Id, member.LeaderboardStatus));
+            }
+            catch (KeyNotFoundException)
+            {
+                return Results.NotFound();
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Forbid();
+            }
+        }).RequireAuthorization();
+
         group.MapPost("/{poolId:guid}/invites", (Guid poolId, ClaimsPrincipal principal, PoolStore pools) =>
         {
             if (!TryGetUserId(principal, out var userId))

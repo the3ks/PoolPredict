@@ -8,5 +8,6 @@ public sealed class PersistedPoolMember
     public Guid PoolId { get; set; }
     public Guid UserId { get; set; }
     public PoolMemberRole Role { get; set; }
+    public PoolMemberLeaderboardStatus LeaderboardStatus { get; set; }
     public DateTimeOffset JoinedAt { get; set; }
 }

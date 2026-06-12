@@ -413,6 +413,7 @@ public sealed class PredictionStore
                     string.IsNullOrWhiteSpace(item.User.DisplayName) ? item.User.Email : item.User.DisplayName,
                     item.User.AvatarUrl,
                     item.Member.Role.ToString(),
+                    item.Member.LeaderboardStatus,
                     balances.GetValueOrDefault(item.Member.Id, startingBalance),
                     settledNet,
                     memberPredictions.Length,
@@ -421,10 +422,67 @@ public sealed class PredictionStore
                     settledPredictions.Length == 0 ? 0m : Math.Round(wonPredictions / (decimal)settledPredictions.Length * 100m, 2),
                     roi);
             })
-            .OrderByDescending(entry => entry.WinLoss)
+            .OrderBy(entry => entry.LeaderboardStatus == PoolMemberLeaderboardStatus.Excluded ? 1 : 0)
+            .ThenByDescending(entry => entry.WinLoss)
             .ThenByDescending(entry => entry.Roi)
             .ThenBy(entry => entry.DisplayName)
             .ToArray();
+    }
+
+    public PoolMemberPredictionProfileResponse? GetPoolMemberProfile(Guid poolId, Guid memberId, int startingBalance)
+    {
+        var leaderboard = GetLeaderboard(poolId, startingBalance).ToArray();
+        var leaderboardEntry = leaderboard.SingleOrDefault(entry => entry.MemberId == memberId);
+        if (leaderboardEntry is null)
+        {
+            return null;
+        }
+
+        var predictions = GetMemberPredictionHistory(poolId, memberId);
+        var rankIndex = Array.FindIndex(leaderboard, entry => entry.MemberId == memberId);
+        var marketBreakdown = predictions
+            .GroupBy(prediction => prediction.MarketType)
+            .Select(group => new PredictionProfileBreakdownResponse(
+                group.Key.ToString(),
+                group.Count(),
+                group.Count(prediction => IsSettledOutcome(prediction.Outcome)),
+                group.Count(prediction => prediction.Outcome is "Win" or "HalfWin"),
+                group.Sum(prediction => prediction.Stake),
+                group.Sum(prediction => prediction.NetPoints)))
+            .OrderByDescending(item => item.PredictionCount)
+            .ThenBy(item => item.Label)
+            .ToArray();
+        var outcomeBreakdown = predictions
+            .GroupBy(prediction => prediction.Outcome)
+            .Select(group => new PredictionProfileBreakdownResponse(
+                group.Key,
+                group.Count(),
+                group.Count(prediction => IsSettledOutcome(prediction.Outcome)),
+                group.Count(prediction => prediction.Outcome is "Win" or "HalfWin"),
+                group.Sum(prediction => prediction.Stake),
+                group.Sum(prediction => prediction.NetPoints)))
+            .OrderByDescending(item => item.PredictionCount)
+            .ThenBy(item => item.Label)
+            .ToArray();
+
+        return new PoolMemberPredictionProfileResponse(
+            leaderboardEntry.MemberId,
+            leaderboardEntry.UserId,
+            leaderboardEntry.DisplayName,
+            leaderboardEntry.AvatarUrl,
+            leaderboardEntry.Role,
+            leaderboardEntry.LeaderboardStatus,
+            rankIndex < 0 ? null : rankIndex + 1,
+            leaderboardEntry.Balance,
+            leaderboardEntry.WinLoss,
+            leaderboardEntry.PredictionCount,
+            leaderboardEntry.SettledPredictionCount,
+            leaderboardEntry.WinCount,
+            leaderboardEntry.WinRate,
+            leaderboardEntry.Roi,
+            predictions,
+            marketBreakdown,
+            outcomeBreakdown);
     }
 
     public int GetBalance(Guid poolId, Guid memberId)
@@ -939,6 +997,9 @@ public sealed class PredictionStore
     private static bool IsOneOf(string selectedOption, params string[] options) =>
         options.Any(option => string.Equals(selectedOption, option, StringComparison.OrdinalIgnoreCase));
 
+    private static bool IsSettledOutcome(string outcome) =>
+        outcome is "Win" or "HalfWin" or "Push" or "HalfLose" or "Lose" or "Cancelled";
+
     private static string FormatSignedNumber(decimal value) =>
         value > 0 ? $"+{FormatNumber(value)}" : FormatNumber(value);
 
@@ -971,6 +1032,7 @@ public sealed record LeaderboardEntryResponse(
     string DisplayName,
     string? AvatarUrl,
     string Role,
+    PoolMemberLeaderboardStatus LeaderboardStatus,
     int Balance,
     int WinLoss,
     int PredictionCount,
@@ -983,6 +1045,33 @@ public sealed record MarketPredictionSummaryResponse(
     Guid MarketId,
     string SelectedOption,
     IReadOnlyCollection<string> Users);
+
+public sealed record PoolMemberPredictionProfileResponse(
+    Guid MemberId,
+    Guid UserId,
+    string DisplayName,
+    string? AvatarUrl,
+    string Role,
+    PoolMemberLeaderboardStatus LeaderboardStatus,
+    int? Rank,
+    int Balance,
+    int WinLoss,
+    int PredictionCount,
+    int SettledPredictionCount,
+    int WinCount,
+    decimal WinRate,
+    decimal Roi,
+    IReadOnlyCollection<PredictionHistoryResponse> Predictions,
+    IReadOnlyCollection<PredictionProfileBreakdownResponse> MarketBreakdown,
+    IReadOnlyCollection<PredictionProfileBreakdownResponse> OutcomeBreakdown);
+
+public sealed record PredictionProfileBreakdownResponse(
+    string Label,
+    int PredictionCount,
+    int SettledPredictionCount,
+    int WinCount,
+    int Stake,
+    int NetPoints);
 
 public sealed record AutoPickPreviewResponse(
     int Stake,

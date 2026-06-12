@@ -202,6 +202,10 @@ public sealed class PoolPredictDbContext(DbContextOptions<PoolPredictDbContext> 
             entity.Property(member => member.PoolId).HasColumnName("pool_id");
             entity.Property(member => member.UserId).HasColumnName("user_id");
             entity.Property(member => member.Role).HasColumnName("role").HasConversion<string>().HasMaxLength(40);
+            entity.Property(member => member.LeaderboardStatus)
+                .HasColumnName("leaderboard_status")
+                .HasConversion<string>()
+                .HasMaxLength(40);
             entity.Property(member => member.JoinedAt).HasColumnName("joined_at");
         });
 

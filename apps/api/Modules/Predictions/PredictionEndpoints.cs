@@ -75,6 +75,30 @@ public static class PredictionEndpoints
                 : Results.Ok(predictions.GetLeaderboard(poolId, pool.StartingBalance));
         }).RequireAuthorization();
 
+        group.MapGet("/pool/{poolId:guid}/members/{memberId:guid}/profile", (Guid poolId, Guid memberId, ClaimsPrincipal principal, PredictionStore predictions, PoolStore pools) =>
+        {
+            if (!TryGetUserId(principal, out var userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var pool = pools.GetPoolForUser(poolId, userId);
+            if (pool is null)
+            {
+                return Results.Forbid();
+            }
+
+            if (pools.GetMembers(poolId).All(member => member.Id != memberId))
+            {
+                return Results.NotFound(new { error = "Pool member was not found." });
+            }
+
+            var profile = predictions.GetPoolMemberProfile(poolId, memberId, pool.StartingBalance);
+            return profile is null
+                ? Results.NotFound(new { error = "Pool member was not found." })
+                : Results.Ok(profile);
+        }).RequireAuthorization();
+
         group.MapGet("/pool/{poolId:guid}/market-summaries", (Guid poolId, ClaimsPrincipal principal, PredictionStore predictions, PoolStore pools) =>
         {
             if (!TryGetUserId(principal, out var userId))

@@ -140,6 +140,7 @@ export type LeaderboardEntry = {
   displayName: string;
   avatarUrl?: string | null;
   role: string;
+  leaderboardStatus: "Ranked" | "Excluded";
   balance: number;
   winLoss: number;
   predictionCount: number;
@@ -147,6 +148,35 @@ export type LeaderboardEntry = {
   winCount: number;
   winRate: number;
   roi: number;
+};
+
+export type PredictionProfileBreakdown = {
+  label: string;
+  predictionCount: number;
+  settledPredictionCount: number;
+  winCount: number;
+  stake: number;
+  netPoints: number;
+};
+
+export type PoolMemberPredictionProfile = {
+  memberId: string;
+  userId: string;
+  displayName: string;
+  avatarUrl?: string | null;
+  role: string;
+  leaderboardStatus: "Ranked" | "Excluded";
+  rank?: number | null;
+  balance: number;
+  winLoss: number;
+  predictionCount: number;
+  settledPredictionCount: number;
+  winCount: number;
+  winRate: number;
+  roi: number;
+  predictions: Prediction[];
+  marketBreakdown: PredictionProfileBreakdown[];
+  outcomeBreakdown: PredictionProfileBreakdown[];
 };
 
 export type AutoPickEligibleEvent = {
