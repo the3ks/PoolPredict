@@ -364,7 +364,12 @@ public sealed class PredictionStore
             .ToArray();
     }
 
-    public IReadOnlyCollection<PredictionHistoryResponse> GetMemberPredictionHistory(Guid poolId, Guid memberId)
+    public IReadOnlyCollection<PredictionHistoryResponse> GetMemberPredictionHistory(
+        Guid poolId,
+        Guid memberId,
+        string? settlement = null,
+        DateOnly? fromDate = null,
+        DateOnly? toDate = null)
     {
         using var db = _dbContextFactory.CreateDbContext();
         var predictions = db.Predictions
@@ -395,24 +400,29 @@ public sealed class PredictionStore
             .Select(group => new { PredictionId = group.Key, Points = group.Sum(entry => entry.Points) })
             .ToDictionary(item => item.PredictionId, item => item.Points);
 
-        return predictions.Select(prediction =>
-        {
-            var market = markets.GetValueOrDefault(prediction.MarketId);
-            var matchEvent = market is null ? null : events.GetValueOrDefault(market.EventId);
-            var credit = settlementCredits.GetValueOrDefault(prediction.Id);
-            var outcome = ResolveOutcome(prediction.Status, prediction.Stake, credit, market?.Status);
-            return ToPredictionHistoryResponse(
-                prediction,
-                market,
-                matchEvent,
-                credit,
-                outcome,
-                matchEvent is not null && market is not null && CanCancelPrediction(
-                    prediction.Status,
-                    market.Status,
-                    matchEvent.StartsAt,
-                    matchEvent.Status));
-        }).ToArray();
+        var history = predictions.Select(prediction =>
+            {
+                var market = markets.GetValueOrDefault(prediction.MarketId);
+                var matchEvent = market is null ? null : events.GetValueOrDefault(market.EventId);
+                var credit = settlementCredits.GetValueOrDefault(prediction.Id);
+                var outcome = ResolveOutcome(prediction.Status, prediction.Stake, credit, market?.Status);
+                return ToPredictionHistoryResponse(
+                    prediction,
+                    market,
+                    matchEvent,
+                    credit,
+                    outcome,
+                    matchEvent is not null && market is not null && CanCancelPrediction(
+                        prediction.Status,
+                        market.Status,
+                        matchEvent.StartsAt,
+                        matchEvent.Status));
+            })
+            .Where(prediction => MatchesSettlementFilter(prediction, settlement))
+            .Where(prediction => MatchesDateFilter(prediction.EventStartsAt, fromDate, toDate))
+            .ToArray();
+
+        return history;
     }
 
     public IReadOnlyCollection<LeaderboardEntryResponse> GetLeaderboard(Guid poolId, int startingBalance)
@@ -1105,6 +1115,42 @@ public sealed class PredictionStore
     private static bool IsSettledOutcome(string outcome) =>
         outcome is "Win" or "HalfWin" or "Push" or "HalfLose" or "Lose" or "Cancelled";
 
+    private static bool MatchesSettlementFilter(PredictionHistoryResponse prediction, string? settlement)
+    {
+        if (string.IsNullOrWhiteSpace(settlement))
+        {
+            return true;
+        }
+
+        return settlement.Trim().ToLowerInvariant() switch
+        {
+            "settled" => prediction.Outcome != "Unsettled",
+            "unsettled" => prediction.Outcome == "Unsettled",
+            _ => true
+        };
+    }
+
+    private static bool MatchesDateFilter(DateTimeOffset? eventStartsAt, DateOnly? fromDate, DateOnly? toDate)
+    {
+        if (eventStartsAt is null)
+        {
+            return true;
+        }
+
+        var eventDate = DateOnly.FromDateTime(eventStartsAt.Value.LocalDateTime);
+        if (fromDate is not null && eventDate < fromDate.Value)
+        {
+            return false;
+        }
+
+        if (toDate is not null && eventDate > toDate.Value)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
     private static bool CanCancelPrediction(
         PredictionStatus predictionStatus,
         MarketStatus marketStatus,
@@ -1132,6 +1178,7 @@ public sealed class PredictionStore
             prediction.MarketType,
             prediction.MarketPeriod,
             matchEvent is null ? null : $"{matchEvent.HomeParticipant} vs {matchEvent.AwayParticipant}",
+            matchEvent?.StartsAt,
             prediction.LineValueSnapshot,
             prediction.PayoutMultiplierSnapshot,
             prediction.PayoutConfigurationVersionSnapshot,
@@ -1160,6 +1207,7 @@ public sealed class PredictionStore
             prediction.MarketType,
             prediction.MarketPeriod,
             matchEvent is null ? null : $"{matchEvent.HomeParticipant} vs {matchEvent.AwayParticipant}",
+            matchEvent?.StartsAt,
             prediction.LineValueSnapshot,
             prediction.PayoutMultiplierSnapshot,
             prediction.PayoutConfigurationVersionSnapshot,
@@ -1188,6 +1236,7 @@ public sealed record PredictionHistoryResponse(
     MarketType MarketType,
     MarketPeriod MarketPeriod,
     string? EventName,
+    DateTimeOffset? EventStartsAt,
     decimal? LineValueSnapshot,
     decimal PayoutMultiplierSnapshot,
     int PayoutConfigurationVersionSnapshot,

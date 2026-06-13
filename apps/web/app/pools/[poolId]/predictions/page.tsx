@@ -64,7 +64,16 @@ export default function PoolPredictionsPage() {
 
   useEffect(() => {
     setPredictionPage(1);
-  }, [predictionPageSize, predictions.length, settlementFilter, fromDate, toDate]);
+  }, [predictionPageSize, predictions.length]);
+
+  useEffect(() => {
+    setPredictionPage(1);
+    if (!pool) {
+      return;
+    }
+
+    void loadPredictions(pool.id);
+  }, [pool?.id, settlementFilter, fromDate, toDate]);
 
   async function loadPage() {
     const token = getStoredToken();
@@ -84,7 +93,7 @@ export default function PoolPredictionsPage() {
     const poolResult = (await poolResponse.json()) as PoolSummary;
     setPool(poolResult);
     setAutoPickStake(poolResult.minStake);
-    await Promise.all([loadPredictions(poolResult.id), loadLeaderboard(poolResult.id)]);
+    await loadLeaderboard(poolResult.id);
     setStatus("Prediction history loaded.");
   }
 
@@ -94,7 +103,18 @@ export default function PoolPredictionsPage() {
       return;
     }
 
-    const response = await fetch(apiUrl(`/api/predictions/pool/${targetPoolId}`), {
+    const params = new URLSearchParams();
+    if (settlementFilter !== "All") {
+      params.set("settlement", settlementFilter);
+    }
+    if (fromDate) {
+      params.set("fromDate", fromDate);
+    }
+    if (toDate) {
+      params.set("toDate", toDate);
+    }
+
+    const response = await fetch(apiUrl(`/api/predictions/pool/${targetPoolId}?${params.toString()}`), {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (response.ok) {
@@ -227,33 +247,12 @@ export default function PoolPredictionsPage() {
     }
   }
 
-  const filteredPredictions = predictions.filter((prediction) => {
-    const submittedDate = toLocalDateInputValue(prediction.submittedAt);
-    if (fromDate && submittedDate < fromDate) {
-      return false;
-    }
-
-    if (toDate && submittedDate > toDate) {
-      return false;
-    }
-
-    if (settlementFilter === "Settled") {
-      return (prediction.outcome ?? "Unsettled") !== "Unsettled";
-    }
-
-    if (settlementFilter === "Unsettled") {
-      return (prediction.outcome ?? "Unsettled") === "Unsettled";
-    }
-
-    return true;
-  });
-
   const totalPredictionPages = Math.max(
     1,
-    Math.ceil(filteredPredictions.length / predictionPageSize),
+    Math.ceil(predictions.length / predictionPageSize),
   );
   const currentPredictionPage = Math.min(predictionPage, totalPredictionPages);
-  const pagedPredictions = filteredPredictions.slice(
+  const pagedPredictions = predictions.slice(
     (currentPredictionPage - 1) * predictionPageSize,
     currentPredictionPage * predictionPageSize,
   );
@@ -397,7 +396,7 @@ export default function PoolPredictionsPage() {
                   />
                 </label>
               </div>
-              {filteredPredictions.length === 0 ? (
+              {predictions.length === 0 ? (
                 <p className="mutedText">No predictions match the current filters.</p>
               ) : null}
               <div className="listToolbar">
@@ -442,12 +441,20 @@ export default function PoolPredictionsPage() {
                   </button>
                 </div>
               </div>
-              {filteredPredictions.length > 0 ? (
+              {predictions.length > 0 ? (
                 <div className="predictionHistory">
                   {pagedPredictions.map((prediction) => (
                     <article className="historyRow" key={prediction.id}>
                       <span>
-                        <strong>{formatMarketTypeLabel(prediction.marketType)}</strong>
+                        <strong>
+                          {formatMarketTypeLabel(prediction.marketType)}
+                          {prediction.eventStartsAt ? (
+                            <span className="historyKickoffText">
+                              {" - "}
+                              {formatDisplayDateTime(prediction.eventStartsAt)}
+                            </span>
+                          ) : null}
+                        </strong>
                         <small>{formatEventName(prediction.eventName) ?? prediction.marketPeriod}</small>
                       </span>
                       <span>
@@ -616,10 +623,6 @@ function getRelativeDateInputValue(daysFromToday: number) {
   date.setHours(0, 0, 0, 0);
   date.setDate(date.getDate() + daysFromToday);
   return toDateInputValue(date);
-}
-
-function toLocalDateInputValue(value: string) {
-  return toDateInputValue(new Date(value));
 }
 
 function toDateInputValue(date: Date) {

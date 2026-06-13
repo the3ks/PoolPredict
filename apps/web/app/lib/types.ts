@@ -124,6 +124,7 @@ export type Prediction = {
   marketType: string;
   marketPeriod: string;
   eventName?: string | null;
+  eventStartsAt?: string | null;
   lineValueSnapshot: number | null;
   payoutMultiplierSnapshot: number;
   payoutConfigurationVersionSnapshot: number;

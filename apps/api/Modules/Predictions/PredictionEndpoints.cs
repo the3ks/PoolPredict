@@ -65,7 +65,14 @@ public static class PredictionEndpoints
             }
         }).RequireAuthorization();
 
-        group.MapGet("/pool/{poolId:guid}", (Guid poolId, ClaimsPrincipal principal, PredictionStore predictions, PoolStore pools) =>
+        group.MapGet("/pool/{poolId:guid}", (
+            Guid poolId,
+            string? settlement,
+            string? fromDate,
+            string? toDate,
+            ClaimsPrincipal principal,
+            PredictionStore predictions,
+            PoolStore pools) =>
         {
             if (!TryGetUserId(principal, out var userId))
             {
@@ -75,7 +82,12 @@ public static class PredictionEndpoints
             var member = pools.GetMember(poolId, userId);
             return member is null
                 ? Results.Forbid()
-                : Results.Ok(predictions.GetMemberPredictionHistory(poolId, member.Id));
+                : Results.Ok(predictions.GetMemberPredictionHistory(
+                    poolId,
+                    member.Id,
+                    settlement,
+                    ParseDate(fromDate),
+                    ParseDate(toDate)));
         }).RequireAuthorization();
 
         group.MapGet("/balance", (Guid poolId, ClaimsPrincipal principal, PredictionStore predictions, PoolStore pools) =>
@@ -198,4 +210,7 @@ public static class PredictionEndpoints
         var subject = principal.FindFirstValue(ClaimTypes.NameIdentifier);
         return Guid.TryParse(subject, out userId);
     }
+
+    private static DateOnly? ParseDate(string? value) =>
+        DateOnly.TryParse(value, out var parsed) ? parsed : null;
 }

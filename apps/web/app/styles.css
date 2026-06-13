@@ -2944,6 +2944,20 @@ dd {
   overflow-wrap: anywhere;
 }
 
+.historyRow span:first-child strong {
+  align-items: baseline;
+  display: inline-flex;
+  flex-wrap: nowrap;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.historyKickoffText {
+  color: var(--muted-strong);
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .historyRow small {
   color: var(--muted);
   font-size: 12px;
