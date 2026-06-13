@@ -31,6 +31,11 @@ export default function PoolPredictionsPage() {
   const [isSubmittingAutoPick, setIsSubmittingAutoPick] = useState(false);
   const [isAutoPickExpanded, setIsAutoPickExpanded] = useState(false);
   const [cancellingPredictionId, setCancellingPredictionId] = useState("");
+  const [settlementFilter, setSettlementFilter] = useState<
+    "All" | "Settled" | "Unsettled"
+  >("All");
+  const [fromDate, setFromDate] = useState(() => getRelativeDateInputValue(-3));
+  const [toDate, setToDate] = useState(() => getRelativeDateInputValue(0));
   const [predictionPageSize, setPredictionPageSize] = useState(20);
   const [predictionPage, setPredictionPage] = useState(1);
 
@@ -59,7 +64,7 @@ export default function PoolPredictionsPage() {
 
   useEffect(() => {
     setPredictionPage(1);
-  }, [predictionPageSize, predictions.length]);
+  }, [predictionPageSize, predictions.length, settlementFilter, fromDate, toDate]);
 
   async function loadPage() {
     const token = getStoredToken();
@@ -222,12 +227,33 @@ export default function PoolPredictionsPage() {
     }
   }
 
+  const filteredPredictions = predictions.filter((prediction) => {
+    const submittedDate = toLocalDateInputValue(prediction.submittedAt);
+    if (fromDate && submittedDate < fromDate) {
+      return false;
+    }
+
+    if (toDate && submittedDate > toDate) {
+      return false;
+    }
+
+    if (settlementFilter === "Settled") {
+      return (prediction.outcome ?? "Unsettled") !== "Unsettled";
+    }
+
+    if (settlementFilter === "Unsettled") {
+      return (prediction.outcome ?? "Unsettled") === "Unsettled";
+    }
+
+    return true;
+  });
+
   const totalPredictionPages = Math.max(
     1,
-    Math.ceil(predictions.length / predictionPageSize),
+    Math.ceil(filteredPredictions.length / predictionPageSize),
   );
   const currentPredictionPage = Math.min(predictionPage, totalPredictionPages);
-  const pagedPredictions = predictions.slice(
+  const pagedPredictions = filteredPredictions.slice(
     (currentPredictionPage - 1) * predictionPageSize,
     currentPredictionPage * predictionPageSize,
   );
@@ -338,6 +364,42 @@ export default function PoolPredictionsPage() {
             <p className="mutedText">No predictions submitted yet.</p>
           ) : (
             <>
+              <div className="adminFilterBar">
+                <label>
+                  Settlement
+                  <select
+                    value={settlementFilter}
+                    onChange={(event) =>
+                      setSettlementFilter(
+                        event.target.value as "All" | "Settled" | "Unsettled",
+                      )
+                    }
+                  >
+                    <option value="All">All</option>
+                    <option value="Settled">Settled</option>
+                    <option value="Unsettled">Unsettled</option>
+                  </select>
+                </label>
+                <label>
+                  From date
+                  <input
+                    type="date"
+                    value={fromDate}
+                    onChange={(event) => setFromDate(event.target.value)}
+                  />
+                </label>
+                <label>
+                  To date
+                  <input
+                    type="date"
+                    value={toDate}
+                    onChange={(event) => setToDate(event.target.value)}
+                  />
+                </label>
+              </div>
+              {filteredPredictions.length === 0 ? (
+                <p className="mutedText">No predictions match the current filters.</p>
+              ) : null}
               <div className="listToolbar">
                 <label className="listPageSizeField">
                   Page size
@@ -380,44 +442,46 @@ export default function PoolPredictionsPage() {
                   </button>
                 </div>
               </div>
-              <div className="predictionHistory">
-                {pagedPredictions.map((prediction) => (
-                  <article className="historyRow" key={prediction.id}>
-                    <span>
-                      <strong>{formatMarketTypeLabel(prediction.marketType)}</strong>
-                      <small>{formatEventName(prediction.eventName) ?? prediction.marketPeriod}</small>
-                    </span>
-                    <span>
-                      <strong>{formatMarketOptionLabel(prediction.selectedOption)}</strong>
-                      <small>
-                        {prediction.marketPeriod} | {formatNumberDisplay(prediction.stake)} Điểm
-                      </small>
-                    </span>
-                    <span>
-                      <strong>{prediction.payoutMultiplierSnapshot}x</strong>
-                      <small>{formatDisplayDateTime(prediction.submittedAt)}</small>
-                    </span>
-                    <span>
-                      <strong>{prediction.outcome ?? "Unsettled"}</strong>
-                      <small>{formatNetPoints(prediction.netPoints)}</small>
-                    </span>
-                    <div className="historyRowActions">
-                      {prediction.canCancel ? (
-                        <button
-                          className="button buttonSecondary compactButton"
-                          disabled={cancellingPredictionId === prediction.id}
-                          type="button"
-                          onClick={() => void cancelPrediction(prediction.id)}
-                        >
-                          <IconLabel icon={X}>
-                            {cancellingPredictionId === prediction.id ? "Cancelling..." : "Cancel"}
-                          </IconLabel>
-                        </button>
-                      ) : null}
-                    </div>
-                  </article>
-                ))}
-              </div>
+              {filteredPredictions.length > 0 ? (
+                <div className="predictionHistory">
+                  {pagedPredictions.map((prediction) => (
+                    <article className="historyRow" key={prediction.id}>
+                      <span>
+                        <strong>{formatMarketTypeLabel(prediction.marketType)}</strong>
+                        <small>{formatEventName(prediction.eventName) ?? prediction.marketPeriod}</small>
+                      </span>
+                      <span>
+                        <strong>{formatMarketOptionLabel(prediction.selectedOption)}</strong>
+                        <small>
+                          {prediction.marketPeriod} | {formatNumberDisplay(prediction.stake)} Điểm
+                        </small>
+                      </span>
+                      <span>
+                        <strong>{prediction.payoutMultiplierSnapshot}x</strong>
+                        <small>{formatDisplayDateTime(prediction.submittedAt)}</small>
+                      </span>
+                      <span>
+                        <strong>{prediction.outcome ?? "Unsettled"}</strong>
+                        <small>{formatNetPoints(prediction.netPoints)}</small>
+                      </span>
+                      <div className="historyRowActions">
+                        {prediction.canCancel ? (
+                          <button
+                            className="button buttonSecondary compactButton"
+                            disabled={cancellingPredictionId === prediction.id}
+                            type="button"
+                            onClick={() => void cancelPrediction(prediction.id)}
+                          >
+                            <IconLabel icon={X}>
+                              {cancellingPredictionId === prediction.id ? "Cancelling..." : "Cancel"}
+                            </IconLabel>
+                          </button>
+                        ) : null}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : null}
             </>
           )}
         </Panel>
@@ -545,4 +609,22 @@ function formatMarketOptionLabel(option: string) {
   };
 
   return labels[option] ?? option;
+}
+
+function getRelativeDateInputValue(daysFromToday: number) {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  date.setDate(date.getDate() + daysFromToday);
+  return toDateInputValue(date);
+}
+
+function toLocalDateInputValue(value: string) {
+  return toDateInputValue(new Date(value));
+}
+
+function toDateInputValue(date: Date) {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
