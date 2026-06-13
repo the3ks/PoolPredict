@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, BadgeDollarSign, Hash, Percent, Target, Trophy, UserRound } from "lucide-react";
+import { ArrowLeft, ArrowUpDown, BadgeDollarSign, Hash, Percent, Target, Trophy, UserRound } from "lucide-react";
 import { UserShell } from "../../../../components/user-shell";
 import { IconLabel, PageHeader, Panel, StatusPill } from "../../../../components/ui";
 import { apiUrl, readApiError } from "../../../../lib/api";
@@ -18,6 +18,12 @@ export default function PoolMemberProfilePage() {
   const [status, setStatus] = useState("Loading member profile...");
   const [predictionPageSize, setPredictionPageSize] = useState(20);
   const [predictionPage, setPredictionPage] = useState(1);
+  const [settlementFilter, setSettlementFilter] = useState<
+    "All" | "Settled" | "Unsettled"
+  >("All");
+  const [fromDate, setFromDate] = useState(() => getRelativeDateInputValue(-3));
+  const [toDate, setToDate] = useState(() => getRelativeDateInputValue(3));
+  const [eventSortOrder, setEventSortOrder] = useState<"desc" | "asc">("desc");
 
   useEffect(() => {
     const token = getStoredToken();
@@ -45,20 +51,57 @@ export default function PoolMemberProfilePage() {
 
   useEffect(() => {
     setPredictionPage(1);
-  }, [params.memberId, predictionPageSize]);
+  }, [params.memberId, predictionPageSize, settlementFilter, fromDate, toDate, eventSortOrder]);
+
+  const filteredPredictions = useMemo(() => {
+    const source = profile?.predictions ?? [];
+    return source
+      .filter((prediction) => {
+        const outcome = prediction.outcome ?? "Unsettled";
+        if (settlementFilter === "Settled" && outcome === "Unsettled") {
+          return false;
+        }
+
+        if (settlementFilter === "Unsettled" && outcome !== "Unsettled") {
+          return false;
+        }
+
+        const eventDate = prediction.eventStartsAt
+          ? toDateInputValue(new Date(prediction.eventStartsAt))
+          : "";
+        if (fromDate && eventDate && eventDate < fromDate) {
+          return false;
+        }
+
+        if (toDate && eventDate && eventDate > toDate) {
+          return false;
+        }
+
+        return true;
+      })
+      .sort((left, right) => {
+        const leftTime = left.eventStartsAt
+          ? new Date(left.eventStartsAt).getTime()
+          : new Date(left.submittedAt).getTime();
+        const rightTime = right.eventStartsAt
+          ? new Date(right.eventStartsAt).getTime()
+          : new Date(right.submittedAt).getTime();
+        return eventSortOrder === "asc" ? leftTime - rightTime : rightTime - leftTime;
+      });
+  }, [eventSortOrder, fromDate, profile?.predictions, settlementFilter, toDate]);
 
   const totalPredictionPages = Math.max(
     1,
-    Math.ceil((profile?.predictions.length ?? 0) / predictionPageSize),
+    Math.ceil(filteredPredictions.length / predictionPageSize),
   );
   const currentPredictionPage = Math.min(predictionPage, totalPredictionPages);
   const pagedPredictions = useMemo(
     () =>
-      profile?.predictions.slice(
+      filteredPredictions.slice(
         (currentPredictionPage - 1) * predictionPageSize,
         currentPredictionPage * predictionPageSize,
-      ) ?? [],
-    [currentPredictionPage, predictionPageSize, profile?.predictions],
+      ),
+    [currentPredictionPage, filteredPredictions, predictionPageSize],
   );
 
   return (
@@ -117,18 +160,64 @@ export default function PoolMemberProfilePage() {
             </div>
 
             <Panel title="Recent predictions">
-              <div className="memberPredictionToolbar">
+              <div className="adminFilterBar">
                 <label>
-                  Page size
+                  Settlement
                   <select
-                    value={predictionPageSize}
-                    onChange={(event) => setPredictionPageSize(Number(event.target.value))}
+                    value={settlementFilter}
+                    onChange={(event) =>
+                      setSettlementFilter(
+                        event.target.value as "All" | "Settled" | "Unsettled",
+                      )
+                    }
                   >
-                    <option value={20}>20</option>
-                    <option value={50}>50</option>
-                    <option value={100}>100</option>
+                    <option value="All">All</option>
+                    <option value="Settled">Settled</option>
+                    <option value="Unsettled">Unsettled</option>
                   </select>
                 </label>
+                <label>
+                  From date
+                  <input
+                    type="date"
+                    value={fromDate}
+                    onChange={(event) => setFromDate(event.target.value)}
+                  />
+                </label>
+                <label>
+                  To date
+                  <input
+                    type="date"
+                    value={toDate}
+                    onChange={(event) => setToDate(event.target.value)}
+                  />
+                </label>
+              </div>
+              <div className="memberPredictionToolbar">
+                <div className="listToolbarControls">
+                  <label>
+                    Page size
+                    <select
+                      value={predictionPageSize}
+                      onChange={(event) => setPredictionPageSize(Number(event.target.value))}
+                    >
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                  </label>
+                  <button
+                    className="button buttonSecondary compactButton"
+                    type="button"
+                    onClick={() =>
+                      setEventSortOrder((current) => (current === "desc" ? "asc" : "desc"))
+                    }
+                  >
+                    <IconLabel icon={ArrowUpDown}>
+                      Kickoff {eventSortOrder === "desc" ? "↓" : "↑"}
+                    </IconLabel>
+                  </button>
+                </div>
                 <span>
                   Page {currentPredictionPage} of {totalPredictionPages}
                 </span>
@@ -152,8 +241,8 @@ export default function PoolMemberProfilePage() {
                 </div>
               </div>
               <div className="memberPredictionList">
-                {pagedPredictions.length === 0 ? (
-                  <p className="mutedText">No predictions yet.</p>
+                {filteredPredictions.length === 0 ? (
+                  <p className="mutedText">No predictions match the current filters.</p>
                 ) : null}
                 {pagedPredictions.map((prediction) => (
                   <article className="memberPredictionRow" key={prediction.id}>
@@ -256,4 +345,18 @@ function formatNumberDisplay(value: number) {
     maximumFractionDigits: 2,
     minimumFractionDigits: 0,
   });
+}
+
+function getRelativeDateInputValue(daysFromToday: number) {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  date.setDate(date.getDate() + daysFromToday);
+  return toDateInputValue(date);
+}
+
+function toDateInputValue(date: Date) {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }

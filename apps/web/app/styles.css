@@ -1324,7 +1324,7 @@ dd {
 }
 
 .memberPredictionToolbar select {
-  min-height: 34px;
+  min-height: 44px;
   min-width: 86px;
 }
 
@@ -2124,7 +2124,11 @@ dd {
 }
 
 .listPageSizeField select {
+  height: 44px;
   min-width: 88px;
+  min-height: 44px;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 .listPagination {
