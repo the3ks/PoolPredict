@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, Dices, History, RefreshCw, X } from "lucide-react";
+import { ArrowLeft, ArrowUpDown, ChevronDown, ChevronLeft, ChevronRight, Dices, History, RefreshCw, X } from "lucide-react";
 import { UserShell } from "../../../components/user-shell";
 import { IconLabel, PageHeader, Panel, StatusPill } from "../../../components/ui";
 import { apiUrl, readApiError } from "../../../lib/api";
@@ -35,9 +35,10 @@ export default function PoolPredictionsPage() {
     "All" | "Settled" | "Unsettled"
   >("All");
   const [fromDate, setFromDate] = useState(() => getRelativeDateInputValue(-3));
-  const [toDate, setToDate] = useState(() => getRelativeDateInputValue(0));
+  const [toDate, setToDate] = useState(() => getRelativeDateInputValue(3));
   const [predictionPageSize, setPredictionPageSize] = useState(20);
   const [predictionPage, setPredictionPage] = useState(1);
+  const [eventSortOrder, setEventSortOrder] = useState<"desc" | "asc">("desc");
 
   useEffect(() => {
     loadPage();
@@ -64,7 +65,7 @@ export default function PoolPredictionsPage() {
 
   useEffect(() => {
     setPredictionPage(1);
-  }, [predictionPageSize, predictions.length]);
+  }, [predictionPageSize, predictions.length, eventSortOrder]);
 
   useEffect(() => {
     setPredictionPage(1);
@@ -247,12 +248,23 @@ export default function PoolPredictionsPage() {
     }
   }
 
+  const sortedPredictions = [...predictions].sort((left, right) => {
+    const leftTime = left.eventStartsAt
+      ? new Date(left.eventStartsAt).getTime()
+      : new Date(left.submittedAt).getTime();
+    const rightTime = right.eventStartsAt
+      ? new Date(right.eventStartsAt).getTime()
+      : new Date(right.submittedAt).getTime();
+
+    return eventSortOrder === "asc" ? leftTime - rightTime : rightTime - leftTime;
+  });
+
   const totalPredictionPages = Math.max(
     1,
-    Math.ceil(predictions.length / predictionPageSize),
+    Math.ceil(sortedPredictions.length / predictionPageSize),
   );
   const currentPredictionPage = Math.min(predictionPage, totalPredictionPages);
-  const pagedPredictions = predictions.slice(
+  const pagedPredictions = sortedPredictions.slice(
     (currentPredictionPage - 1) * predictionPageSize,
     currentPredictionPage * predictionPageSize,
   );
@@ -400,19 +412,34 @@ export default function PoolPredictionsPage() {
                 <p className="mutedText">No predictions match the current filters.</p>
               ) : null}
               <div className="listToolbar">
-                <label className="listPageSizeField">
-                  Page size
-                  <select
-                    value={predictionPageSize}
-                    onChange={(event) =>
-                      setPredictionPageSize(Number(event.target.value))
+                <div className="listToolbarControls">
+                  <label className="listPageSizeField">
+                    Page size
+                    <select
+                      value={predictionPageSize}
+                      onChange={(event) =>
+                        setPredictionPageSize(Number(event.target.value))
+                      }
+                    >
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                  </label>
+                  <button
+                    className="button buttonSecondary compactButton"
+                    type="button"
+                    onClick={() =>
+                      setEventSortOrder((current) =>
+                        current === "desc" ? "asc" : "desc",
+                      )
                     }
                   >
-                    <option value={20}>20</option>
-                    <option value={50}>50</option>
-                    <option value={100}>100</option>
-                  </select>
-                </label>
+                    <IconLabel icon={ArrowUpDown}>
+                      Kickoff {eventSortOrder === "desc" ? "↓" : "↑"}
+                    </IconLabel>
+                  </button>
+                </div>
                 <div className="listPagination">
                   <button
                     className="button buttonSecondary compactButton"
