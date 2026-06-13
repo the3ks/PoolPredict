@@ -2962,7 +2962,7 @@ dd {
 
 .leaderboardHeader {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) repeat(3, minmax(96px, 0.35fr));
+  grid-template-columns: minmax(0, 1fr) repeat(4, minmax(88px, 0.32fr));
   gap: 12px;
   padding: 0 12px;
   color: var(--muted);
@@ -2978,7 +2978,7 @@ dd {
 
 .leaderboardRow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) repeat(3, minmax(96px, 0.35fr));
+  grid-template-columns: minmax(0, 1fr) repeat(4, minmax(88px, 0.32fr));
   gap: 12px;
   align-items: center;
   border: 1px solid var(--border);

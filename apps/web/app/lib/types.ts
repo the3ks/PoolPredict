@@ -150,6 +150,9 @@ export type LeaderboardEntry = {
   winCount: number;
   winRate: number;
   roi: number;
+  settledEventCount: number;
+  totalEventCount: number;
+  settledEventRate: number;
 };
 
 export type PredictionProfileBreakdown = {

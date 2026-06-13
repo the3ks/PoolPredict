@@ -443,10 +443,19 @@ public sealed class PredictionStore
             .ToArray();
         var predictionIds = predictions.Select(prediction => prediction.Id).ToList();
         var marketIds = predictions.Select(prediction => prediction.MarketId).Distinct().ToList();
-        var marketStatuses = db.Markets
+        var markets = db.Markets
             .AsNoTracking()
             .Where(market => marketIds.Contains(market.Id))
-            .ToDictionary(market => market.Id, market => market.Status);
+            .ToDictionary(market => market.Id);
+        var marketStatuses = markets.ToDictionary(item => item.Key, item => item.Value.Status);
+        var tournamentId = db.Pools
+            .AsNoTracking()
+            .Where(pool => pool.Id == poolId)
+            .Select(pool => pool.TournamentId)
+            .SingleOrDefault();
+        var totalTournamentEventCount = tournamentId == Guid.Empty
+            ? 0
+            : db.Events.AsNoTracking().Count(matchEvent => matchEvent.TournamentId == tournamentId);
         var settlementCredits = db.PointLedger
             .AsNoTracking()
             .Where(entry => entry.PredictionId != null
@@ -475,6 +484,14 @@ public sealed class PredictionStore
                 var settledNet = settledPredictions.Sum(prediction =>
                     settlementCredits.GetValueOrDefault(prediction.Id) - prediction.Stake);
                 var roi = settledStake == 0 ? 0m : Math.Round(settledNet / (decimal)settledStake * 100m, 2);
+                var settledEventCount = settledPredictions
+                    .Select(prediction => markets.GetValueOrDefault(prediction.MarketId)?.EventId)
+                    .Where(eventId => eventId.HasValue)
+                    .Distinct()
+                    .Count();
+                var settledEventRate = totalTournamentEventCount == 0
+                    ? 0m
+                    : Math.Round(settledEventCount / (decimal)totalTournamentEventCount * 100m, 2);
 
                 return new LeaderboardEntryResponse(
                     item.Member.Id,
@@ -489,7 +506,10 @@ public sealed class PredictionStore
                     settledPredictions.Length,
                     wonPredictions,
                     settledPredictions.Length == 0 ? 0m : Math.Round(wonPredictions / (decimal)settledPredictions.Length * 100m, 2),
-                    roi);
+                    roi,
+                    settledEventCount,
+                    totalTournamentEventCount,
+                    settledEventRate);
             })
             .OrderBy(entry => entry.LeaderboardStatus == PoolMemberLeaderboardStatus.Excluded ? 1 : 0)
             .ThenByDescending(entry => entry.WinLoss)
@@ -1192,7 +1212,10 @@ public sealed record LeaderboardEntryResponse(
     int SettledPredictionCount,
     int WinCount,
     decimal WinRate,
-    decimal Roi);
+    decimal Roi,
+    int SettledEventCount,
+    int TotalEventCount,
+    decimal SettledEventRate);
 
 public sealed record MarketPredictionSummaryResponse(
     Guid MarketId,

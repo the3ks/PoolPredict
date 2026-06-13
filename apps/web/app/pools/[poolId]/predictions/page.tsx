@@ -430,6 +430,7 @@ export default function PoolPredictionsPage() {
                 <span>WinLoss</span>
                 <span>WinRate</span>
                 <span>ROI</span>
+                <span>Events</span>
               </div>
               {leaderboard.map((entry, index) => (
                 <article
@@ -475,6 +476,10 @@ export default function PoolPredictionsPage() {
                   <span>
                     <strong>{entry.roi}%</strong>
                     <small>{entry.predictionCount} picks</small>
+                  </span>
+                  <span>
+                    <strong>{entry.settledEventRate}%</strong>
+                    <small>{entry.settledEventCount}/{entry.totalEventCount} events</small>
                   </span>
                 </article>
               ))}
