@@ -74,8 +74,8 @@ Create Pool → Invite Members → Done.
 * Email login
 * Google login
 * Registration and password forms should provide show/hide password controls where password entry benefits from it
-* Email/password registration must require email verification before login
-* Users must be able to resend verification email
+* Email/password registration must require Platform Admin activation before login
+* Users must not be able to self-activate by email link
 * Users must be able to request a password reset link by email
 * Password reset must be completed through an email link
 * Signed-in users must be able to change their password from profile settings
@@ -86,7 +86,7 @@ Create Pool → Invite Members → Done.
 * Platform Admin can reset a user's password.
 * Admin password reset must not expose the user's existing password.
 * Reset users should be required to change their password after receiving a temporary password.
-* Platform Admin can mark a user's email as verified.
+* Platform Admin can mark a user's email as verified and activate the account.
 * Platform Admin can configure SMTP settings used by system emails.
 * SMTP configuration should support AWS SES SMTP first.
 * SMTP settings should include:
@@ -100,7 +100,7 @@ Create Pool → Invite Members → Done.
   * STARTTLS setting
   * enabled/disabled state
 * Platform Admin can send a test email to validate SMTP settings.
-* Email verification and password reset emails must use the configured SMTP sender when enabled.
+* Password reset emails must use the configured SMTP sender when enabled.
 
 ### Pools
 

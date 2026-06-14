@@ -60,6 +60,8 @@ Role: PlatformAdmin
 
 The development admin is seeded from `apps/api/appsettings.Development.json`.
 
+New email/password registrations stay pending until a PlatformAdmin activates the account from `/admin/users`.
+
 ## Local App Testing
 
 For current MVP development, run the API and web app directly on your machine instead of using Docker for the whole stack.
@@ -95,7 +97,7 @@ dotnet run --project apps/api/PoolPredict.Api.csproj
 
 The API expects `ConnectionStrings:MariaDb` to be configured and the database schema to already be migrated; it does not run migrations at startup. After the Sprint 7 event-management changes, apply the pending migration before testing admin settlement or provider/manual event mode changes. See [docs/DatabaseInitialization.md](docs/DatabaseInitialization.md) for detailed local MariaDB setup.
 
-The tournament provider defaults to `Mock`. To use football-data.org, set `EventProvider:Provider` to `FootballData` and configure `EventProvider:FootballData:ApiToken`. Platform admins can inspect and trigger provider sync from `/app/admin`.
+The tournament provider defaults to `Mock`. To use football-data.org, set `EventProvider:Provider` to `FootballData` and configure `EventProvider:FootballData:ApiToken`. Platform admins can inspect and trigger provider sync from `/admin/provider`.
 
 ## Docker Infrastructure
 

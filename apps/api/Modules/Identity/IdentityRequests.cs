@@ -1,6 +1,9 @@
 namespace PoolPredict.Api.Modules.Identity;
 
-public sealed record AuthMessageResponse(string Message);
+public sealed record AuthMessageResponse(
+    string Message,
+    string? VerificationLink = null,
+    bool? EmailSent = null);
 
 public sealed record VerifyEmailRequest(string Token);
 

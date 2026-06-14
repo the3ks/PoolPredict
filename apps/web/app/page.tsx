@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   BadgeDollarSign,
   CalendarDays,
@@ -21,6 +22,7 @@ import { formatDisplayDate } from "./lib/datetime";
 import { DiscoverPool, PoolSummary, Tournament } from "./lib/types";
 
 export default function Home() {
+  const router = useRouter();
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [myPools, setMyPools] = useState<PoolSummary[]>([]);
   const [communityPools, setCommunityPools] = useState<DiscoverPool[]>([]);
@@ -30,6 +32,11 @@ export default function Home() {
   useEffect(() => {
     syncAuthState();
     const unsubscribe = subscribeToAuthChanges(syncAuthState);
+
+    if (!getStoredToken()) {
+      router.replace("/login");
+      return unsubscribe;
+    }
 
     fetch(apiUrl("/api/tournaments"))
       .then(async (response) => {
@@ -55,11 +62,14 @@ export default function Home() {
       );
 
     return unsubscribe;
-  }, []);
+  }, [router]);
 
   function syncAuthState() {
     const token = getStoredToken();
     setIsSignedIn(Boolean(token));
+    if (!token) {
+      router.replace("/login");
+    }
     if (token) {
       void loadPoolPreviews(token);
       return;

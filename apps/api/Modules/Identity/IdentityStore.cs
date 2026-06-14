@@ -67,7 +67,7 @@ public sealed class IdentityStore
 
             if (!user.IsEmailVerified)
             {
-                throw new InvalidOperationException("Verify your email address before logging in.");
+                throw new InvalidOperationException("Your account is pending admin activation.");
             }
 
             user.MarkLoggedIn(DateTimeOffset.UtcNow);

@@ -9,23 +9,14 @@ public static class IdentityEndpoints
     {
         var group = app.MapGroup("/api/auth");
 
-        group.MapPost("/register", async (RegisterRequest request, IdentityStore users, SmtpEmailSender emailSender, IConfiguration configuration) =>
+        group.MapPost("/register", (RegisterRequest request, IdentityStore users) =>
         {
             try
             {
-                var user = users.Register(request);
-                var token = users.CreateEmailVerificationToken(user.Id);
-                var link = BuildWebLink(configuration, "/verify-email", token);
-                var emailResult = await emailSender.SendAsync(
-                    user.Email,
-                    "Verify your PoolPredict email",
-                    $"Verify your PoolPredict account by opening this link: {link}");
-
-                var message = emailResult.Sent
-                    ? "Account created. Check your email to verify your account before logging in."
-                    : $"Account created, but verification email could not be sent: {emailResult.Message}";
-
-                return Results.Created("/api/auth/verify-email", new AuthMessageResponse(message));
+                users.Register(request);
+                return Results.Created(
+                    "/api/admin/users",
+                    new AuthMessageResponse("Account created. Your account is pending admin activation before you can log in."));
             }
             catch (ArgumentException ex)
             {
@@ -57,36 +48,14 @@ public static class IdentityEndpoints
             }
         });
 
-        group.MapPost("/verify-email", (VerifyEmailRequest request, IdentityStore users) =>
+        group.MapPost("/verify-email", (VerifyEmailRequest _, IdentityStore __) =>
         {
-            return users.VerifyEmailToken(request.Token)
-                ? Results.Ok(new AuthMessageResponse("Email verified. You can now log in."))
-                : Results.BadRequest(new { error = "Verification link is invalid or expired." });
+            return Results.BadRequest(new { error = "Self-activation is disabled. A platform admin must activate your account." });
         });
 
-        group.MapPost("/resend-verification", async (ResendVerificationRequest request, IdentityStore users, SmtpEmailSender emailSender, IConfiguration configuration) =>
+        group.MapPost("/resend-verification", (ResendVerificationRequest _, IdentityStore __) =>
         {
-            try
-            {
-                var user = users.FindByEmail(request.Email);
-                if (user is null || user.IsEmailVerified)
-                {
-                    return Results.Ok(new AuthMessageResponse("If the account requires verification, a new email will be sent."));
-                }
-
-                var token = users.CreateEmailVerificationToken(user.Id);
-                var link = BuildWebLink(configuration, "/verify-email", token);
-                await emailSender.SendAsync(
-                    user.Email,
-                    "Verify your PoolPredict email",
-                    $"Verify your PoolPredict account by opening this link: {link}");
-
-                return Results.Ok(new AuthMessageResponse("If the account requires verification, a new email will be sent."));
-            }
-            catch (ArgumentException)
-            {
-                return Results.Ok(new AuthMessageResponse("If the account requires verification, a new email will be sent."));
-            }
+            return Results.BadRequest(new { error = "Self-activation is disabled. Contact a platform admin to activate your account." });
         });
 
         group.MapPost("/forgot-password", async (ForgotPasswordRequest request, IdentityStore users, SmtpEmailSender emailSender, IConfiguration configuration) =>

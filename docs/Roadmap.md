@@ -507,9 +507,9 @@ Pool discovery:
 Identity and admin security:
 
 * Registration password show/hide toggle
-* Email verification required before login
-* Resend verification email flow
-* Admin can mark user email as verified
+* PlatformAdmin activation required before login
+* Users cannot self-activate by email link
+* Admin can mark user email as verified and activate the account
 * Forgot/reset password via email link
 * Signed-in user password change
 * Admin user search/list
@@ -524,7 +524,7 @@ PlatformAdmin users can use `/admin/*` for admin work with a flat sidebar.
 
 Pool owners/admins can approve a join request and the requester becomes a pool member.
 
-Users must verify email before logging in, can recover passwords by email, and can change password while signed in.
+Users must wait for PlatformAdmin activation before logging in, can recover passwords by email, and can change password while signed in.
 
 PlatformAdmin users can manage users and SMTP settings from the admin panel.
 
@@ -541,7 +541,7 @@ Implemented:
 * Join request submit/list/approve/deny endpoints
 * Pool detail join-request approval UI for pool owners/admins
 * Registration password visibility toggle
-* Email verification, resend verification, forgot-password and reset-password flows
+* Admin-gated account activation plus forgot-password and reset-password flows
 * Signed-in password change on `/profile`
 * Admin user list/search, admin password reset and admin email verification controls
 * SMTP system settings with AWS SES SMTP-compatible configuration and test email

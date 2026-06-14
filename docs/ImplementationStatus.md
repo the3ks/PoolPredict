@@ -54,8 +54,6 @@ Implemented endpoints:
 * `POST /api/auth/login`
 * `POST /api/auth/google`
 * `GET /api/auth/me`
-* `POST /api/auth/verify-email`
-* `POST /api/auth/resend-verification`
 * `POST /api/auth/forgot-password`
 * `POST /api/auth/reset-password`
 * `POST /api/auth/change-password`
@@ -100,7 +98,7 @@ Implemented domain slice backed by MariaDB persistence:
 
 * Identity users
 * User external logins
-* Identity verification and password reset tokens
+* Identity password reset tokens
 * SMTP email settings
 * Tournaments
 * Participants
@@ -191,10 +189,8 @@ Prediction behavior:
 Authentication behavior:
 
 * Registers email/password users
-* Email/password registration now returns a verification-required message instead of issuing a JWT immediately
-* Sends email verification links when SMTP is enabled
-* Blocks email/password login until the user's email is verified
-* Supports verification email resend
+* Email/password registration now creates a pending account that requires PlatformAdmin activation before login
+* Blocks email/password login until the user's account is activated by PlatformAdmin
 * Supports forgot-password reset links
 * Supports reset-password token consumption
 * Supports signed-in password changes from the profile page
@@ -214,7 +210,7 @@ Admin identity and email behavior:
 * PlatformAdmin users can list and search registered users
 * PlatformAdmin users can reset a user's password to a temporary password
 * Temporary password reset marks the user as requiring a password change
-* PlatformAdmin users can mark a user's email as verified
+* PlatformAdmin users can mark a user's email as verified and activate the account
 * PlatformAdmin users can view and update SMTP settings
 * SMTP settings default to AWS SES SMTP shape
 * PlatformAdmin users can send a test email
@@ -266,9 +262,8 @@ Current web behavior:
 * Shows tournament provider/source labels on public and signed-in tournament cards
 * Provides local-user login and registration forms on `/login` and `/register`
 * Provides password show/hide controls on password entry forms
-* Registration shows a verification-required result instead of immediately signing in the user
-* Provides `/verify-email` for verification links
-* Allows users to resend verification email
+* Registration shows an admin-activation-required result instead of immediately signing in the user
+* Provides `/verify-email` as an informational page that explains self-activation is disabled
 * Provides `/forgot-password` for reset-link requests
 * Provides `/reset-password` for email password resets
 * Keeps Google login hidden from the web UI for now
@@ -408,7 +403,7 @@ Manual smoke tests verified:
 * API startup fails when `ConnectionStrings:MariaDb` is missing
 * Google login API does not yet validate a real Google ID token or OAuth client configuration and is not exposed in the web UI
 * SMTP password is stored in application database storage without dedicated encryption-at-rest beyond database-level protections
-* Email verification and reset email delivery require SMTP settings to be configured and enabled
+* Password reset email delivery requires SMTP settings to be configured and enabled
 * Public auth token flows do not yet include throttling/rate limiting
 * Pool member management is limited to owner/member roles, invite-code joins and join-request approval
 * Join request approval is shown on pool detail pages only; there is no dedicated member-management page yet
