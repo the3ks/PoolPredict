@@ -79,10 +79,11 @@ export default function Wc2026Page() {
     };
   }, []);
 
-  const matchesByDate = useMemo(() => groupEventsByDate(events), [events]);
+  const visibleEvents = useMemo(() => filterCalendarEvents(events), [events]);
+  const matchesByDate = useMemo(() => groupEventsByDate(visibleEvents), [visibleEvents]);
   const todayLinkDateKey = useMemo(() => getNearestDateKey(matchesByDate), [matchesByDate]);
-  const completedCount = events.filter((event) => hasResult(event)).length;
-  const upcomingCount = events.length - completedCount;
+  const completedCount = visibleEvents.filter((event) => hasResult(event)).length;
+  const upcomingCount = visibleEvents.length - completedCount;
 
   return (
     <UserShell>
@@ -105,7 +106,7 @@ export default function Wc2026Page() {
 
         <StatGrid
           items={[
-            { label: "Matches", value: events.length, icon: CalendarDays },
+            { label: "Matches", value: visibleEvents.length, icon: CalendarDays },
             { label: "Results", value: completedCount, icon: CheckCircle2 },
             { label: "Upcoming", value: upcomingCount, icon: Clock },
           ]}
@@ -199,6 +200,14 @@ function groupEventsByDate(events: TournamentEvent[]) {
     dateKey,
     matches,
   }));
+}
+
+function filterCalendarEvents(events: TournamentEvent[]) {
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const oldestVisibleDateKey = localDateKey(yesterday);
+
+  return events.filter((event) => event.startsAt.slice(0, 10) >= oldestVisibleDateKey);
 }
 
 function getNearestDateKey(groups: Array<{ dateKey: string; matches: TournamentEvent[] }>) {

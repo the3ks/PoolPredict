@@ -127,6 +127,10 @@ export default function PoolOverviewPage() {
   const [minStake, setMinStake] = useState(10);
   const [maxStake, setMaxStake] = useState(200);
   const [maxTotalStakePerEvent, setMaxTotalStakePerEvent] = useState(400);
+  const [
+    leaderboardMinEventAverageStakePercentInput,
+    setLeaderboardMinEventAverageStakePercentInput,
+  ] = useState("0");
   const [status, setStatus] = useState("Loading pool...");
   const [predictionFeedback, setPredictionFeedback] = useState("");
   const [isSavingPool, setIsSavingPool] = useState(false);
@@ -221,6 +225,9 @@ export default function PoolOverviewPage() {
     setMinStake(result.minStake);
     setMaxStake(result.maxStake);
     setMaxTotalStakePerEvent(result.maxTotalStakePerEvent);
+    setLeaderboardMinEventAverageStakePercentInput(
+      formatCompactNumber(result.leaderboardMinEventAverageStakePercent ?? 0),
+    );
     setStake(result.defaultStake);
     setStatus("Pool loaded.");
     await Promise.all([
@@ -418,6 +425,20 @@ export default function PoolOverviewPage() {
     setIsSavingPool(true);
     setStatus("Saving pool settings...");
     try {
+      const leaderboardMinEventAverageStakePercent = Number(
+        leaderboardMinEventAverageStakePercentInput,
+      );
+      if (
+        !Number.isFinite(leaderboardMinEventAverageStakePercent) ||
+        leaderboardMinEventAverageStakePercent < 0 ||
+        leaderboardMinEventAverageStakePercent > 100
+      ) {
+        setStatus(
+          "Leaderboard minimum event average stake percent must be between 0 and 100.",
+        );
+        return;
+      }
+
       const response = await fetch(apiUrl(`/api/pools/${pool.id}`), {
         method: "PUT",
         headers: {
@@ -434,6 +455,7 @@ export default function PoolOverviewPage() {
           minStake,
           maxStake,
           maxTotalStakePerEvent,
+          leaderboardMinEventAverageStakePercent,
         }),
       });
 
@@ -1034,6 +1056,22 @@ export default function PoolOverviewPage() {
                       type="number"
                       value={maxTotalStakePerEvent}
                       onChange={(event) => setMaxTotalStakePerEvent(Number(event.target.value))}
+                    />
+                  </label>
+                  <label>
+                    Leaderboard min avg event stake (%)
+                    <input
+                      min={0}
+                      max={100}
+                      required
+                      step="0.01"
+                      type="number"
+                      value={leaderboardMinEventAverageStakePercentInput}
+                      onChange={(event) =>
+                        setLeaderboardMinEventAverageStakePercentInput(
+                          event.target.value,
+                        )
+                      }
                     />
                   </label>
                   <label className="checkboxRow poolPredictionLockToggle">

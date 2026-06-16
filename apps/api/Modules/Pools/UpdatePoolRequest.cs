@@ -9,4 +9,5 @@ public sealed record UpdatePoolRequest(
     int DefaultStake,
     int MinStake,
     int MaxStake,
-    int MaxTotalStakePerEvent);
+    int MaxTotalStakePerEvent,
+    decimal LeaderboardMinEventAverageStakePercent);

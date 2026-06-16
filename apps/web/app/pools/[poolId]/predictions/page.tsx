@@ -529,12 +529,14 @@ export default function PoolPredictionsPage() {
                 <span>WinRate</span>
                 <span>ROI</span>
                 <span>Events</span>
+                <span>Event Avg Stake</span>
               </div>
               {leaderboard.map((entry, index) => (
                 <article
                   className={[
                     "leaderboardRow",
                     entry.memberId === pool?.memberId ? "active" : "",
+                    !entry.isStakeQualified && entry.leaderboardStatus !== "Excluded" ? "invalid" : "",
                     entry.leaderboardStatus === "Excluded" ? "excluded" : "",
                   ]
                     .filter(Boolean)
@@ -578,6 +580,12 @@ export default function PoolPredictionsPage() {
                   <span>
                     <strong>{entry.settledEventRate}%</strong>
                     <small>{entry.settledEventCount}/{entry.totalEventCount} events</small>
+                  </span>
+                  <span>
+                    <strong>{formatNumberDisplay(entry.settledEventAverageStake)}</strong>
+                    <small>
+                      {entry.isStakeQualified ? ">=" : "<"} {formatNumberDisplay(entry.minimumEventAverageStake)}
+                    </small>
                   </span>
                 </article>
               ))}

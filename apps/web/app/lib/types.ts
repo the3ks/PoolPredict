@@ -24,6 +24,7 @@ export type PoolSummary = {
   minStake: number;
   maxStake: number;
   maxTotalStakePerEvent: number;
+  leaderboardMinEventAverageStakePercent: number;
   role: string;
   memberCount: number;
   inviteCount: number;
@@ -154,6 +155,9 @@ export type LeaderboardEntry = {
   settledEventCount: number;
   totalEventCount: number;
   settledEventRate: number;
+  settledEventAverageStake: number;
+  minimumEventAverageStake: number;
+  isStakeQualified: boolean;
 };
 
 export type PredictionProfileBreakdown = {

@@ -458,14 +458,22 @@ public sealed class PredictionStore
             .Where(market => marketIds.Contains(market.Id))
             .ToDictionary(market => market.Id);
         var marketStatuses = markets.ToDictionary(item => item.Key, item => item.Value.Status);
-        var tournamentId = db.Pools
+        var poolSettings = db.Pools
             .AsNoTracking()
             .Where(pool => pool.Id == poolId)
-            .Select(pool => pool.TournamentId)
+            .Select(pool => new
+            {
+                pool.TournamentId,
+                pool.MaxTotalStakePerEvent,
+                pool.LeaderboardMinEventAverageStakePercent
+            })
             .SingleOrDefault();
-        var totalTournamentEventCount = tournamentId == Guid.Empty
+        var totalTournamentEventCount = poolSettings is null
             ? 0
-            : db.Events.AsNoTracking().Count(matchEvent => matchEvent.TournamentId == tournamentId);
+            : db.Events.AsNoTracking().Count(matchEvent => matchEvent.TournamentId == poolSettings.TournamentId);
+        var minimumEventAverageStake = poolSettings is null
+            ? 0m
+            : Math.Round(poolSettings.MaxTotalStakePerEvent * poolSettings.LeaderboardMinEventAverageStakePercent / 100m, 2);
         var settlementCredits = db.PointLedger
             .AsNoTracking()
             .Where(entry => entry.PredictionId != null
@@ -499,6 +507,15 @@ public sealed class PredictionStore
                     .Where(eventId => eventId.HasValue)
                     .Distinct()
                     .Count();
+                var settledEventAverageStake = settledPredictions
+                    .GroupBy(prediction => markets.GetValueOrDefault(prediction.MarketId)?.EventId)
+                    .Where(group => group.Key.HasValue)
+                    .Select(group => group.Sum(prediction => prediction.Stake) / 1m)
+                    .DefaultIfEmpty(0m)
+                    .Average();
+                settledEventAverageStake = Math.Round(settledEventAverageStake, 2);
+                var isStakeQualified = minimumEventAverageStake <= 0m
+                    || settledEventAverageStake >= minimumEventAverageStake;
                 var settledEventRate = totalTournamentEventCount == 0
                     ? 0m
                     : Math.Round(settledEventCount / (decimal)totalTournamentEventCount * 100m, 2);
@@ -519,9 +536,12 @@ public sealed class PredictionStore
                     roi,
                     settledEventCount,
                     totalTournamentEventCount,
-                    settledEventRate);
+                    settledEventRate,
+                    settledEventAverageStake,
+                    minimumEventAverageStake,
+                    isStakeQualified);
             })
-            .OrderBy(entry => entry.LeaderboardStatus == PoolMemberLeaderboardStatus.Excluded ? 1 : 0)
+            .OrderBy(entry => entry.LeaderboardStatus == PoolMemberLeaderboardStatus.Excluded ? 2 : entry.IsStakeQualified ? 0 : 1)
             .ThenByDescending(entry => entry.WinLoss)
             .ThenByDescending(entry => entry.Roi)
             .ThenBy(entry => entry.DisplayName)
@@ -1264,7 +1284,10 @@ public sealed record LeaderboardEntryResponse(
     decimal Roi,
     int SettledEventCount,
     int TotalEventCount,
-    decimal SettledEventRate);
+    decimal SettledEventRate,
+    decimal SettledEventAverageStake,
+    decimal MinimumEventAverageStake,
+    bool IsStakeQualified);
 
 public sealed record MarketPredictionSummaryResponse(
     Guid MarketId,

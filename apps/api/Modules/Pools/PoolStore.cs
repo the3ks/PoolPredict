@@ -132,6 +132,11 @@ public sealed class PoolStore
             throw new ArgumentException("Starting balance must be greater than zero.", nameof(request));
         }
 
+        if (request.LeaderboardMinEventAverageStakePercent is < 0m or > 100m)
+        {
+            throw new ArgumentException("Leaderboard minimum event average stake percent must be between 0 and 100.", nameof(request));
+        }
+
         var normalizedStakeSettings = NormalizeStakeSettings(
             request.StartingBalance,
             request.DefaultStake,
@@ -161,6 +166,7 @@ public sealed class PoolStore
                 normalizedStakeSettings.minStake,
                 normalizedStakeSettings.maxStake,
                 normalizedStakeSettings.maxTotalStakePerEvent,
+                request.LeaderboardMinEventAverageStakePercent,
                 announcementTitle);
             PersistPoolUpdate(pool);
             return pool;
@@ -613,6 +619,7 @@ public sealed class PoolStore
             pool.MinStake,
             pool.MaxStake,
             pool.MaxTotalStakePerEvent,
+            pool.LeaderboardMinEventAverageStakePercent,
             role,
             CountMembers(pool.Id),
             CountInvites(pool.Id));
@@ -632,6 +639,7 @@ public sealed class PoolStore
             pool.MinStake,
             pool.MaxStake,
             pool.MaxTotalStakePerEvent,
+            pool.LeaderboardMinEventAverageStakePercent,
             member.Role,
             CountMembers(pool.Id),
             CountInvites(pool.Id));
@@ -673,6 +681,7 @@ public sealed class PoolStore
                 normalizedStakeSettings.minStake,
                 normalizedStakeSettings.maxStake,
                 normalizedStakeSettings.maxTotalStakePerEvent,
+                pool.LeaderboardMinEventAverageStakePercent,
                 string.IsNullOrWhiteSpace(pool.AnnouncementTitle) ? "Announcements" : pool.AnnouncementTitle,
                 pool.IsHidden);
         }));
@@ -729,6 +738,7 @@ public sealed class PoolStore
         persisted.MinStake = pool.MinStake;
         persisted.MaxStake = pool.MaxStake;
         persisted.MaxTotalStakePerEvent = pool.MaxTotalStakePerEvent;
+        persisted.LeaderboardMinEventAverageStakePercent = pool.LeaderboardMinEventAverageStakePercent;
         db.SaveChanges();
     }
 
@@ -810,7 +820,8 @@ public sealed class PoolStore
         DefaultStake = pool.DefaultStake,
         MinStake = pool.MinStake,
         MaxStake = pool.MaxStake,
-        MaxTotalStakePerEvent = pool.MaxTotalStakePerEvent
+        MaxTotalStakePerEvent = pool.MaxTotalStakePerEvent,
+        LeaderboardMinEventAverageStakePercent = pool.LeaderboardMinEventAverageStakePercent
     };
 
     private static PersistedPoolMember ToPersistedMember(PoolMember member) => new()
@@ -976,6 +987,7 @@ public sealed record PoolSummaryResponse(
     int MinStake,
     int MaxStake,
     int MaxTotalStakePerEvent,
+    decimal LeaderboardMinEventAverageStakePercent,
     PoolMemberRole Role,
     int MemberCount,
     int InviteCount);
@@ -994,6 +1006,7 @@ public sealed record PoolDetailsResponse(
     int MinStake,
     int MaxStake,
     int MaxTotalStakePerEvent,
+    decimal LeaderboardMinEventAverageStakePercent,
     PoolMemberRole Role,
     int MemberCount,
     int InviteCount);
