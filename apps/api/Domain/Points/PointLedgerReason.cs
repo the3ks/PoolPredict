@@ -8,5 +8,6 @@ public enum PointLedgerReason
     PredictionCancelledRefund,
     SettlementPayout,
     SettlementRefund,
-    AdminCorrection
+    AdminCorrection,
+    PoolOwnerAdjustment
 }

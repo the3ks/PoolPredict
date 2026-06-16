@@ -437,6 +437,34 @@ public sealed class PoolStore
         }
     }
 
+    public PoolMember AddMemberVipAdjustment(Guid poolId, Guid ownerUserId, Guid memberId, int amount)
+    {
+        if (amount == 0)
+        {
+            throw new ArgumentException("Adjustment amount cannot be zero.", nameof(amount));
+        }
+
+        lock (_gate)
+        {
+            if (_pools.All(pool => pool.Id != poolId))
+            {
+                throw new KeyNotFoundException("Pool does not exist.");
+            }
+
+            var owner = _members.SingleOrDefault(member => member.PoolId == poolId && member.UserId == ownerUserId);
+            if (owner?.Role is not PoolMemberRole.Owner)
+            {
+                throw new UnauthorizedAccessException("Only the pool owner can adjust member balance.");
+            }
+
+            var member = _members.SingleOrDefault(candidate => candidate.Id == memberId && candidate.PoolId == poolId)
+                ?? throw new KeyNotFoundException("Pool member does not exist.");
+            member.AddVipAdjustment(amount);
+            PersistMemberVipAdjustment(member);
+            return member;
+        }
+    }
+
     public bool IsMember(Guid poolId, Guid userId)
     {
         lock (_gate)
@@ -692,7 +720,8 @@ public sealed class PoolStore
             member.UserId,
             member.Role,
             member.JoinedAt,
-            member.LeaderboardStatus)));
+            member.LeaderboardStatus,
+            member.VipAdjustmentAmount)));
 
         _invites.AddRange(db.PoolInvites.AsNoTracking().Select(invite => new PoolInvite(
             invite.Id,
@@ -792,6 +821,19 @@ public sealed class PoolStore
         db.SaveChanges();
     }
 
+    private void PersistMemberVipAdjustment(PoolMember member)
+    {
+        using var db = _dbContextFactory.CreateDbContext();
+        var persistedMember = db.PoolMembers.SingleOrDefault(candidate => candidate.Id == member.Id);
+        if (persistedMember is null)
+        {
+            return;
+        }
+
+        persistedMember.VipAdjustmentAmount = member.VipAdjustmentAmount;
+        db.SaveChanges();
+    }
+
     private void PersistMarketLineUpdates(IReadOnlyCollection<Market> markets)
     {
         using var db = _dbContextFactory.CreateDbContext();
@@ -831,6 +873,7 @@ public sealed class PoolStore
         UserId = member.UserId,
         Role = member.Role,
         LeaderboardStatus = member.LeaderboardStatus,
+        VipAdjustmentAmount = member.VipAdjustmentAmount,
         JoinedAt = member.JoinedAt
     };
 
@@ -1050,3 +1093,11 @@ public sealed record UpdateMemberLeaderboardStatusRequest(
 public sealed record PoolMemberLeaderboardStatusResponse(
     Guid MemberId,
     PoolMemberLeaderboardStatus LeaderboardStatus);
+
+public sealed record AddMemberBalanceAdjustmentRequest(int Amount);
+
+public sealed record MemberBalanceAdjustmentResponse(
+    Guid MemberId,
+    int VipAdjustmentAmount,
+    int Amount,
+    int CurrentBalance);

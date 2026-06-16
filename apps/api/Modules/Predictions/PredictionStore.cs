@@ -527,6 +527,8 @@ public sealed class PredictionStore
                     item.User.AvatarUrl,
                     item.Member.Role.ToString(),
                     item.Member.LeaderboardStatus,
+                    item.Member.VipAdjustmentAmount,
+                    GetVipLevel(item.Member.VipAdjustmentAmount, startingBalance),
                     balances.GetValueOrDefault(item.Member.Id, startingBalance),
                     settledNet,
                     memberPredictions.Length,
@@ -548,7 +550,11 @@ public sealed class PredictionStore
             .ToArray();
     }
 
-    public PoolMemberPredictionProfileResponse? GetPoolMemberProfile(Guid poolId, Guid memberId, int startingBalance)
+    public PoolMemberPredictionProfileResponse? GetPoolMemberProfile(
+        Guid poolId,
+        Guid memberId,
+        int startingBalance,
+        bool canAdjustBalance = false)
     {
         var leaderboard = GetLeaderboard(poolId, startingBalance).ToArray();
         var leaderboardEntry = leaderboard.SingleOrDefault(entry => entry.MemberId == memberId);
@@ -591,6 +597,10 @@ public sealed class PredictionStore
             leaderboardEntry.AvatarUrl,
             leaderboardEntry.Role,
             leaderboardEntry.LeaderboardStatus,
+            leaderboardEntry.VipAdjustmentAmount,
+            leaderboardEntry.VipLevel,
+            startingBalance,
+            canAdjustBalance,
             rankIndex < 0 ? null : rankIndex + 1,
             leaderboardEntry.Balance,
             leaderboardEntry.WinLoss,
@@ -618,6 +628,33 @@ public sealed class PredictionStore
         {
             EnsureMemberInitialized(pool.Id, pool.MemberId, pool.StartingBalance);
             return GetBalanceUnsafe(pool.Id, pool.MemberId);
+        }
+    }
+
+    public BalanceAdjustmentResponse AddPoolOwnerBalanceAdjustment(Guid poolId, Guid memberId, int amount)
+    {
+        if (amount == 0)
+        {
+            throw new ArgumentException("Adjustment amount cannot be zero.", nameof(amount));
+        }
+
+        lock (_gate)
+        {
+            var entry = new PointLedgerEntry(
+                Ids.NewId(),
+                poolId,
+                memberId,
+                amount,
+                PointLedgerReason.PoolOwnerAdjustment,
+                predictionId: null);
+
+            _ledger.Add(entry);
+            PersistLedgerEntry(entry);
+
+            return new BalanceAdjustmentResponse(
+                memberId,
+                amount,
+                GetBalanceUnsafe(poolId, memberId));
         }
     }
 
@@ -1244,6 +1281,9 @@ public sealed class PredictionStore
 
     private static string FormatNumber(decimal value) =>
         value.ToString("0.##");
+
+    private static int GetVipLevel(int vipAdjustmentAmount, int startingBalance) =>
+        startingBalance <= 0 ? 0 : vipAdjustmentAmount / startingBalance;
 }
 
 public sealed record PredictionHistoryResponse(
@@ -1275,6 +1315,8 @@ public sealed record LeaderboardEntryResponse(
     string? AvatarUrl,
     string Role,
     PoolMemberLeaderboardStatus LeaderboardStatus,
+    int VipAdjustmentAmount,
+    int VipLevel,
     int Balance,
     int WinLoss,
     int PredictionCount,
@@ -1301,6 +1343,10 @@ public sealed record PoolMemberPredictionProfileResponse(
     string? AvatarUrl,
     string Role,
     PoolMemberLeaderboardStatus LeaderboardStatus,
+    int VipAdjustmentAmount,
+    int VipLevel,
+    int PoolStartingBalance,
+    bool CanAdjustBalance,
     int? Rank,
     int Balance,
     int WinLoss,
@@ -1320,6 +1366,11 @@ public sealed record PredictionProfileBreakdownResponse(
     int WinCount,
     int Stake,
     int NetPoints);
+
+public sealed record BalanceAdjustmentResponse(
+    Guid MemberId,
+    int Amount,
+    int CurrentBalance);
 
 public sealed record AutoPickPreviewResponse(
     int Stake,

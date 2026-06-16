@@ -209,6 +209,7 @@ public sealed class PoolPredictDbContext(DbContextOptions<PoolPredictDbContext> 
                 .HasColumnName("leaderboard_status")
                 .HasConversion<string>()
                 .HasMaxLength(40);
+            entity.Property(member => member.VipAdjustmentAmount).HasColumnName("vip_adjustment_amount");
             entity.Property(member => member.JoinedAt).HasColumnName("joined_at");
         });
 

@@ -560,6 +560,11 @@ export default function PoolPredictionsPage() {
                           </span>
                         </span>
                         <span className="leaderboardLabel">{entry.displayName}</span>
+                        {entry.vipAdjustmentAmount > 0 ? (
+                          <span className="vipBadge compact">
+                            {formatVipLabel(entry.vipLevel)}
+                          </span>
+                        ) : null}
                         {entry.leaderboardStatus === "Excluded" ? (
                           <span className="leaderboardExcludedBadge">Excluded</span>
                         ) : null}
@@ -618,6 +623,10 @@ function formatNumberDisplay(value: number) {
     maximumFractionDigits: 2,
     minimumFractionDigits: 0,
   });
+}
+
+function formatVipLabel(vipLevel: number) {
+  return `VIP${"⭐".repeat(Math.max(0, vipLevel))}`;
 }
 
 function formatEventName(eventName: string | null | undefined) {

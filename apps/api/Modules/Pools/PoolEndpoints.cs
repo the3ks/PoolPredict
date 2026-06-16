@@ -473,6 +473,43 @@ public static class PoolEndpoints
             }
         }).RequireAuthorization();
 
+        group.MapPost("/{poolId:guid}/members/{memberId:guid}/balance-adjustments", (
+            Guid poolId,
+            Guid memberId,
+            ClaimsPrincipal principal,
+            AddMemberBalanceAdjustmentRequest request,
+            PoolStore pools,
+            PredictionStore predictions) =>
+        {
+            if (!TryGetUserId(principal, out var userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            try
+            {
+                var member = pools.AddMemberVipAdjustment(poolId, userId, memberId, request.Amount);
+                var balance = predictions.AddPoolOwnerBalanceAdjustment(poolId, member.Id, request.Amount);
+                return Results.Ok(new MemberBalanceAdjustmentResponse(
+                    member.Id,
+                    member.VipAdjustmentAmount,
+                    balance.Amount,
+                    balance.CurrentBalance));
+            }
+            catch (KeyNotFoundException)
+            {
+                return Results.NotFound();
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Forbid();
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+        }).RequireAuthorization();
+
         group.MapPost("/{poolId:guid}/invites", (Guid poolId, ClaimsPrincipal principal, PoolStore pools) =>
         {
             if (!TryGetUserId(principal, out var userId))

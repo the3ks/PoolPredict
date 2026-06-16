@@ -145,6 +145,8 @@ export type LeaderboardEntry = {
   avatarUrl?: string | null;
   role: string;
   leaderboardStatus: "Ranked" | "Excluded";
+  vipAdjustmentAmount: number;
+  vipLevel: number;
   balance: number;
   winLoss: number;
   predictionCount: number;
@@ -176,6 +178,10 @@ export type PoolMemberPredictionProfile = {
   avatarUrl?: string | null;
   role: string;
   leaderboardStatus: "Ranked" | "Excluded";
+  vipAdjustmentAmount: number;
+  vipLevel: number;
+  poolStartingBalance: number;
+  canAdjustBalance: boolean;
   rank?: number | null;
   balance: number;
   winLoss: number;

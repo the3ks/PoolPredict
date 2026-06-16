@@ -9,5 +9,6 @@ public sealed class PersistedPoolMember
     public Guid UserId { get; set; }
     public PoolMemberRole Role { get; set; }
     public PoolMemberLeaderboardStatus LeaderboardStatus { get; set; }
+    public int VipAdjustmentAmount { get; set; }
     public DateTimeOffset JoinedAt { get; set; }
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, ArrowUpDown, BadgeDollarSign, Hash, Percent, Target, Trophy, UserRound } from "lucide-react";
 import { UserShell } from "../../../../components/user-shell";
@@ -24,29 +24,11 @@ export default function PoolMemberProfilePage() {
   const [fromDate, setFromDate] = useState(() => getRelativeDateInputValue(-3));
   const [toDate, setToDate] = useState(() => getRelativeDateInputValue(3));
   const [eventSortOrder, setEventSortOrder] = useState<"desc" | "asc">("desc");
+  const [adjustmentAmount, setAdjustmentAmount] = useState("");
+  const [isAdjustingBalance, setIsAdjustingBalance] = useState(false);
 
   useEffect(() => {
-    const token = getStoredToken();
-    if (!token) {
-      router.replace("/login");
-      return;
-    }
-
-    fetch(apiUrl(`/api/predictions/pool/${params.poolId}/members/${params.memberId}/profile`), {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(async (response) => {
-        if (!response.ok) {
-          setStatus(await readApiError(response, "Could not load member profile."));
-          return;
-        }
-
-        setProfile((await response.json()) as PoolMemberPredictionProfile);
-        setStatus("Profile loaded.");
-      })
-      .catch((error) => {
-        setStatus(error instanceof Error ? error.message : "Could not load member profile.");
-      });
+    void loadProfile();
   }, [params.memberId, params.poolId, router]);
 
   useEffect(() => {
@@ -104,6 +86,78 @@ export default function PoolMemberProfilePage() {
     [currentPredictionPage, filteredPredictions, predictionPageSize],
   );
 
+  async function loadProfile() {
+    const token = getStoredToken();
+    if (!token) {
+      router.replace("/login");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        apiUrl(`/api/predictions/pool/${params.poolId}/members/${params.memberId}/profile`),
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      if (!response.ok) {
+        setStatus(await readApiError(response, "Could not load member profile."));
+        return;
+      }
+
+      const result = (await response.json()) as PoolMemberPredictionProfile;
+      setProfile(result);
+      if (result.canAdjustBalance) {
+        setAdjustmentAmount(`${result.poolStartingBalance}`);
+      }
+      setStatus("Profile loaded.");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Could not load member profile.");
+    }
+  }
+
+  async function submitBalanceAdjustment(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const token = getStoredToken();
+    const amount = Number(adjustmentAmount);
+    if (!token || !profile) {
+      return;
+    }
+
+    if (!Number.isInteger(amount) || amount === 0) {
+      setStatus("Adjustment amount must be a non-zero whole number.");
+      return;
+    }
+
+    setIsAdjustingBalance(true);
+    setStatus("Adjusting member balance...");
+    try {
+      const response = await fetch(
+        apiUrl(`/api/pools/${params.poolId}/members/${params.memberId}/balance-adjustments`),
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ amount }),
+        },
+      );
+
+      if (!response.ok) {
+        setStatus(await readApiError(response, "Could not adjust member balance."));
+        return;
+      }
+
+      await loadProfile();
+      setStatus("Member balance adjusted.");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Could not adjust member balance.");
+    } finally {
+      setIsAdjustingBalance(false);
+    }
+  }
+
   return (
     <UserShell>
       <section className="pageStack">
@@ -133,11 +187,35 @@ export default function PoolMemberProfilePage() {
                 </span>
                 <div className="memberProfileIdentity">
                   <strong>{profile.displayName}</strong>
+                  {profile.vipAdjustmentAmount > 0 ? (
+                    <span className="vipBadge">
+                      {formatVipLabel(profile.vipLevel)}
+                    </span>
+                  ) : null}
                   <small>
                     {profile.role}
                     {profile.leaderboardStatus === "Excluded" ? " · excluded from leaderboard" : ""}
                   </small>
                 </div>
+                {profile.canAdjustBalance ? (
+                  <form className="memberBalanceAdjustForm" onSubmit={submitBalanceAdjustment}>
+                    <input
+                      placeholder="Amount"
+                      type="number"
+                      value={adjustmentAmount}
+                      onChange={(event) => setAdjustmentAmount(event.target.value)}
+                    />
+                    <button
+                      className="button compactButton"
+                      disabled={isAdjustingBalance}
+                      type="submit"
+                    >
+                      <IconLabel icon={BadgeDollarSign}>
+                        {isAdjustingBalance ? "Adjusting..." : "Adjust balance"}
+                      </IconLabel>
+                    </button>
+                  </form>
+                ) : null}
               </div>
             </Panel>
 
@@ -345,6 +423,10 @@ function formatNumberDisplay(value: number) {
     maximumFractionDigits: 2,
     minimumFractionDigits: 0,
   });
+}
+
+function formatVipLabel(vipLevel: number) {
+  return `VIP${"⭐".repeat(Math.max(0, vipLevel))}`;
 }
 
 function getRelativeDateInputValue(daysFromToday: number) {

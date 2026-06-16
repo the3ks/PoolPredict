@@ -134,7 +134,11 @@ public static class PredictionEndpoints
                 return Results.NotFound(new { error = "Pool member was not found." });
             }
 
-            var profile = predictions.GetPoolMemberProfile(poolId, memberId, pool.StartingBalance);
+            var profile = predictions.GetPoolMemberProfile(
+                poolId,
+                memberId,
+                pool.StartingBalance,
+                pool.Role == PoolPredict.Api.Domain.Pools.PoolMemberRole.Owner);
             return profile is null
                 ? Results.NotFound(new { error = "Pool member was not found." })
                 : Results.Ok(profile);
