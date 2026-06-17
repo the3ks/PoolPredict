@@ -23,6 +23,7 @@ import {
   History,
   KeyRound,
   Lock,
+  Maximize2,
   MessageSquare,
   RefreshCw,
   Save,
@@ -156,6 +157,7 @@ export default function PoolOverviewPage() {
   const [showRecentClosedMarkets, setShowRecentClosedMarkets] = useState(true);
   const [isPredictionSlipExpanded, setIsPredictionSlipExpanded] = useState(false);
   const [isAnnouncementsExpanded, setIsAnnouncementsExpanded] = useState(false);
+  const [isLeaderboardModalOpen, setIsLeaderboardModalOpen] = useState(false);
   const [isMobileMarketsView, setIsMobileMarketsView] = useState(false);
   const [mobileSelectedMarketEventId, setMobileSelectedMarketEventId] =
     useState("");
@@ -869,7 +871,18 @@ export default function PoolOverviewPage() {
                         </div>
                       </div>
                     </Panel>
-                    <Panel className="poolLeaderboardPanel" title="Leaderboard">
+                    <Panel className="poolLeaderboardPanel">
+                      <h2 className="poolLeaderboardTitle">
+                        <span>Leaderboard</span>
+                        <button
+                          aria-label="Open full leaderboard"
+                          className="iconButton"
+                          type="button"
+                          onClick={() => setIsLeaderboardModalOpen(true)}
+                        >
+                          <Maximize2 aria-hidden="true" size={16} />
+                        </button>
+                      </h2>
                       <div className="poolLeaderboardList">
                         {leaderboard.length === 0 ? (
                           <p className="mutedText">No leaderboard entries yet.</p>
@@ -959,6 +972,33 @@ export default function PoolOverviewPage() {
                         )}
                       </div>
                     </Panel>
+                    {isLeaderboardModalOpen ? (
+                      <div className="modalBackdrop" role="presentation">
+                        <section
+                          aria-labelledby="fullLeaderboardTitle"
+                          aria-modal="true"
+                          className="leaderboardModal"
+                          role="dialog"
+                        >
+                          <div className="leaderboardModalHeader">
+                            <h2 id="fullLeaderboardTitle">Leaderboard</h2>
+                            <button
+                              aria-label="Close full leaderboard"
+                              className="iconButton"
+                              type="button"
+                              onClick={() => setIsLeaderboardModalOpen(false)}
+                            >
+                              <X aria-hidden="true" size={18} />
+                            </button>
+                          </div>
+                          <FullLeaderboardTable
+                            currentMemberId={pool.memberId ?? ""}
+                            leaderboard={leaderboard}
+                            poolId={pool.id}
+                          />
+                        </section>
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
               </section>
@@ -1586,6 +1626,101 @@ function PoolAnnouncementsPanel({
         </div>
       ) : null}
     </Panel>
+  );
+}
+
+function FullLeaderboardTable({
+  currentMemberId,
+  leaderboard,
+  poolId,
+}: {
+  currentMemberId: string;
+  leaderboard: LeaderboardEntry[];
+  poolId: string;
+}) {
+  if (leaderboard.length === 0) {
+    return <p className="mutedText">No leaderboard rows yet.</p>;
+  }
+
+  return (
+    <div className="leaderboardList fullLeaderboardList">
+      <div className="leaderboardHeader">
+        <span>Player</span>
+        <span>WinLoss</span>
+        <span>WinRate</span>
+        <span>ROI</span>
+        <span>Events</span>
+        <span>Event Avg Stake</span>
+      </div>
+      {leaderboard.map((entry, index) => (
+        <article
+          className={[
+            "leaderboardRow",
+            entry.memberId === currentMemberId ? "active" : "",
+            !entry.isStakeQualified && entry.leaderboardStatus !== "Excluded"
+              ? "invalid"
+              : "",
+            entry.leaderboardStatus === "Excluded" ? "excluded" : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          key={entry.memberId}
+        >
+          <span>
+            <Link
+              className="leaderboardIdentity leaderboardIdentityLink"
+              href={`/pools/${poolId}/members/${entry.memberId}`}
+            >
+              <span className="leaderboardName">
+                <span className="leaderboardTopline">
+                  <span className="leaderboardRank">#{index + 1}</span>
+                  <span className="leaderboardAvatarWrap">
+                    {entry.avatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img alt="" className="leaderboardAvatar" src={entry.avatarUrl} />
+                    ) : (
+                      <span className="leaderboardAvatarFallback">
+                        {entry.displayName.slice(0, 1).toUpperCase()}
+                      </span>
+                    )}
+                  </span>
+                </span>
+                <span className="leaderboardLabel">{entry.displayName}</span>
+                {entry.vipAdjustmentAmount > 0 ? (
+                  <span className="vipBadge compact">
+                    {formatVipLabel(entry.vipLevel)}
+                  </span>
+                ) : null}
+                {entry.leaderboardStatus === "Excluded" ? (
+                  <span className="leaderboardExcludedBadge">Excluded</span>
+                ) : null}
+              </span>
+            </Link>
+          </span>
+          <span>
+            <strong>{formatNumberDisplay(entry.winLoss)}</strong>
+          </span>
+          <span>
+            <strong>{entry.winRate}%</strong>
+            <small>{entry.winCount}/{entry.settledPredictionCount} wins</small>
+          </span>
+          <span>
+            <strong>{entry.roi}%</strong>
+            <small>{entry.predictionCount} picks</small>
+          </span>
+          <span>
+            <strong>{entry.settledEventRate}%</strong>
+            <small>{entry.settledEventCount}/{entry.totalEventCount} events</small>
+          </span>
+          <span>
+            <strong>{formatNumberDisplay(entry.settledEventAverageStake)}</strong>
+            <small>
+              {entry.isStakeQualified ? ">=" : "<"} {formatNumberDisplay(entry.minimumEventAverageStake)}
+            </small>
+          </span>
+        </article>
+      ))}
+    </div>
   );
 }
 
