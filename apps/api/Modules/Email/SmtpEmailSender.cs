@@ -6,7 +6,12 @@ namespace PoolPredict.Api.Modules.Email;
 
 public sealed class SmtpEmailSender(EmailSettingsStore settingsStore, ILogger<SmtpEmailSender> logger)
 {
-    public async Task<EmailSendResult> SendAsync(string toEmail, string subject, string body, bool isHtml = false)
+    public async Task<EmailSendResult> SendAsync(
+        string toEmail,
+        string subject,
+        string body,
+        bool isHtml = false,
+        IReadOnlyCollection<EmailAttachment>? attachments = null)
     {
         var settings = settingsStore.GetEnabledSettings();
         if (settings is null)
@@ -28,6 +33,11 @@ public sealed class SmtpEmailSender(EmailSettingsStore settingsStore, ILogger<Sm
             IsBodyHtml = isHtml
         };
         message.To.Add(toEmail);
+        foreach (var attachment in attachments ?? [])
+        {
+            var stream = new MemoryStream(attachment.Content, writable: false);
+            message.Attachments.Add(new Attachment(stream, attachment.FileName, attachment.ContentType));
+        }
 
         using var client = new SmtpClient(settings.Host, settings.Port)
         {
@@ -61,3 +71,5 @@ public sealed class SmtpEmailSender(EmailSettingsStore settingsStore, ILogger<Sm
 }
 
 public sealed record EmailSendResult(bool Sent, string Message);
+
+public sealed record EmailAttachment(string FileName, string ContentType, byte[] Content);

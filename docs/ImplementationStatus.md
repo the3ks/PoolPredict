@@ -64,6 +64,9 @@ Implemented endpoints:
 * `GET /api/admin/email-settings`
 * `PUT /api/admin/email-settings`
 * `POST /api/admin/email-settings/test`
+* `GET /api/admin/database-backup/settings`
+* `PUT /api/admin/database-backup/settings`
+* `POST /api/admin/database-backup/send`
 * `GET /api/admin/pools`
 * `GET /api/tournaments`
 * `GET /api/tournaments/{tournamentId}/events`
@@ -100,6 +103,7 @@ Implemented domain slice backed by MariaDB persistence:
 * User external logins
 * Identity password reset tokens
 * SMTP email settings
+* Database backup recipient settings
 * Tournaments
 * Participants
 * Events
@@ -215,6 +219,11 @@ Admin identity and email behavior:
 * SMTP settings default to AWS SES SMTP shape
 * PlatformAdmin users can send a test email
 * SMTP password is not returned by the API; the settings response exposes only whether a saved password exists
+* PlatformAdmin users can save a default backup recipient email
+* PlatformAdmin users can generate a full MariaDB SQL dump, zip it, and send it as an email attachment
+* Database backup delivery reuses the configured SMTP sender
+* Database backup can also keep the generated `.zip` in a configured local archive directory while deleting the temporary `.sql` working file
+* Manual event settlement now attempts an automatic database backup immediately after settlement completes, using the saved backup recipient when configured
 
 Pool behavior:
 
@@ -294,6 +303,7 @@ Current web behavior:
 * Allows PlatformAdmin users to search users and reset passwords on `/admin/users`
 * Allows PlatformAdmin users to mark user email as verified on `/admin/users`
 * Allows PlatformAdmin users to configure SMTP settings and send a test email on `/admin/system`
+* Allows PlatformAdmin users to save a backup recipient and email a zipped database backup from `/admin/system/backup`
 * Shows pool markets grouped by match on `/pools/[poolId]`
 * Allows signed-in pool members to submit predictions from available markets
 * Shows pool cover image and compact stake-rule summary on `/pools/[poolId]`
@@ -404,6 +414,8 @@ Manual smoke tests verified:
 * Google login API does not yet validate a real Google ID token or OAuth client configuration and is not exposed in the web UI
 * SMTP password is stored in application database storage without dedicated encryption-at-rest beyond database-level protections
 * Password reset email delivery requires SMTP settings to be configured and enabled
+* Database backup delivery requires SMTP settings plus a host-installed `mariadb-dump` or `mysqldump` executable, unless `DatabaseBackup:DumpExecutablePath` is configured
+* Local retained `.zip` backups require `DatabaseBackup:ArchiveDirectory` to be configured on the API host
 * Public auth token flows do not yet include throttling/rate limiting
 * Pool member management is limited to owner/member roles, invite-code joins and join-request approval
 * Join request approval is shown on pool detail pages only; there is no dedicated member-management page yet

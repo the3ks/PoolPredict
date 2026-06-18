@@ -181,6 +181,54 @@ public static class AdminEndpoints
                 : Results.BadRequest(new { error = result.Message });
         });
 
+        group.MapGet("/database-backup/settings", (ClaimsPrincipal principal, DatabaseBackupSettingsStore settings) =>
+        {
+            if (!IsPlatformAdmin(principal))
+            {
+                return Results.Forbid();
+            }
+
+            return Results.Ok(settings.Get());
+        });
+
+        group.MapPut("/database-backup/settings", (UpdateDatabaseBackupSettingsRequest request, ClaimsPrincipal principal, DatabaseBackupSettingsStore settings) =>
+        {
+            if (!IsPlatformAdmin(principal))
+            {
+                return Results.Forbid();
+            }
+
+            try
+            {
+                return Results.Ok(settings.Save(request));
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+        });
+
+        group.MapPost("/database-backup/send", async (SendDatabaseBackupRequest request, ClaimsPrincipal principal, DatabaseBackupService backups, CancellationToken cancellationToken) =>
+        {
+            if (!IsPlatformAdmin(principal))
+            {
+                return Results.Forbid();
+            }
+
+            try
+            {
+                return Results.Ok(await backups.CreateAndSendAsync(request.RecipientEmail, cancellationToken));
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+        });
+
         return app;
     }
 

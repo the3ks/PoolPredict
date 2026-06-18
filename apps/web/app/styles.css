@@ -450,6 +450,39 @@ select {
   gap: 20px;
 }
 
+.systemSectionHeader {
+  margin-bottom: 16px;
+}
+
+.systemSectionHeader .mutedText {
+  margin-bottom: 0;
+}
+
+.sectionSubnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.sectionSubnav a {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--secondary-bg);
+  color: var(--text);
+  padding: 0 14px;
+  text-decoration: none;
+}
+
+.sectionSubnav a.active,
+.sectionSubnav a:hover {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
 .pageStack:has(.poolBackdropSection) {
   overflow-x: clip;
 }

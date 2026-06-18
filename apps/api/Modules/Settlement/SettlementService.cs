@@ -6,6 +6,7 @@ using PoolPredict.Api.Domain.Predictions;
 using PoolPredict.Api.Domain.Settlement;
 using PoolPredict.Api.Domain.Tournaments;
 using PoolPredict.Api.Infrastructure.Persistence;
+using PoolPredict.Api.Modules.Admin;
 using PoolPredict.Api.Modules.Predictions;
 
 namespace PoolPredict.Api.Modules.Settlement;
@@ -13,7 +14,10 @@ namespace PoolPredict.Api.Modules.Settlement;
 public sealed class SettlementService(
     IDbContextFactory<PoolPredictDbContext> dbContextFactory,
     PredictionStore predictions,
-    SettlementCalculator calculator)
+    SettlementCalculator calculator,
+    DatabaseBackupSettingsStore backupSettings,
+    DatabaseBackupService backupService,
+    ILogger<SettlementService> logger)
 {
     public async Task<SettlementResponse> RecordResultAndSettleAsync(
         Guid eventId,
@@ -152,7 +156,40 @@ public sealed class SettlementService(
         await db.SaveChangesAsync(cancellationToken);
         predictions.AddPersistedLedgerEntries(ledgerEntries);
 
-        return new SettlementResponse(run.Id, eventId, settled, unchanged, ledgerEntries.Count, "Completed");
+        var backupRecipientEmail = backupSettings.GetRecipientEmail();
+        var backupAttempted = !string.IsNullOrWhiteSpace(backupRecipientEmail);
+        var backupSucceeded = false;
+        string? backupMessage;
+
+        if (backupAttempted)
+        {
+            try
+            {
+                var backupResult = await backupService.CreateAndSendAsync(backupRecipientEmail!, cancellationToken);
+                backupSucceeded = true;
+                backupMessage = backupResult.Message;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Automatic database backup failed after settling event {EventId}", eventId);
+                backupMessage = $"Settlement completed, but automatic database backup failed: {ex.Message}";
+            }
+        }
+        else
+        {
+            backupMessage = "Settlement completed. Automatic database backup was skipped because no backup recipient email is configured.";
+        }
+
+        return new SettlementResponse(
+            run.Id,
+            eventId,
+            settled,
+            unchanged,
+            ledgerEntries.Count,
+            "Completed",
+            backupAttempted,
+            backupSucceeded,
+            backupMessage);
     }
 
     private static void ValidateResult(SetEventResultRequest request)

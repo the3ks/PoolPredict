@@ -50,6 +50,8 @@ builder.Services.AddSingleton<TournamentCatalog>();
 builder.Services.AddSingleton<TournamentSyncJob>();
 builder.Services.AddSingleton<EmailSettingsStore>();
 builder.Services.AddSingleton<SmtpEmailSender>();
+builder.Services.AddSingleton<DatabaseBackupSettingsStore>();
+builder.Services.AddSingleton<DatabaseBackupService>();
 builder.Services.AddSingleton<IdentityStore>();
 builder.Services.AddSingleton<AvatarService>();
 builder.Services.AddSingleton<JwtTokenService>();

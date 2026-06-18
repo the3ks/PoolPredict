@@ -261,7 +261,7 @@ Platform admin user search, email verification override and temporary password r
 
 `/admin/system`
 
-System settings. SMTP settings are the first implemented settings section.
+System settings. SMTP settings are implemented on `/admin/system`, and database backup is implemented on `/admin/system/backup`.
 
 ## Layout Recommendation
 
@@ -385,6 +385,9 @@ Settlement
 Payout
 User management
 System settings
+
+* SMTP settings
+* Database backup
 ```
 
 ## Implemented Route Split

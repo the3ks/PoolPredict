@@ -101,6 +101,10 @@ Create Pool → Invite Members → Done.
   * enabled/disabled state
 * Platform Admin can send a test email to validate SMTP settings.
 * Password reset emails must use the configured SMTP sender when enabled.
+* Platform Admin can save a default database-backup recipient email.
+* Platform Admin can generate a full MariaDB structure-and-data SQL backup, zip it as `poolpredict_db_YYYYMMdd-HHmm.zip`, and send it to the saved email address.
+* The API may optionally store the generated `.zip` backup file in a configured local archive directory.
+* After a Platform Admin settles an event, the system should automatically attempt the same database backup flow using the saved backup recipient email.
 
 ### Pools
 

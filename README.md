@@ -99,6 +99,8 @@ The API expects `ConnectionStrings:MariaDb` to be configured and the database sc
 
 The tournament provider defaults to `Mock`. To use football-data.org, set `EventProvider:Provider` to `FootballData` and configure `EventProvider:FootballData:ApiToken`. Platform admins can inspect and trigger provider sync from `/admin/provider`.
 
+Admin database-backup email delivery requires SMTP to be configured and enabled, plus `mariadb-dump` or `mysqldump` to be installed on the API host. If the dump executable is not on `PATH`, configure `DatabaseBackup:DumpExecutablePath`. To keep a local copy of each generated `.zip`, configure `DatabaseBackup:ArchiveDirectory`; the temporary `.sql` file is still deleted after the email flow completes.
+
 ## Docker Infrastructure
 
 Use Docker only when you want infrastructure services running:

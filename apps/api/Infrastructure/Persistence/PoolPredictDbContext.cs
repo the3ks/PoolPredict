@@ -169,6 +169,9 @@ public sealed class PoolPredictDbContext(DbContextOptions<PoolPredictDbContext> 
             entity.Property(settings => settings.FromName).HasColumnName("from_name").HasMaxLength(200);
             entity.Property(settings => settings.UseStartTls).HasColumnName("use_start_tls");
             entity.Property(settings => settings.IsEnabled).HasColumnName("is_enabled");
+            entity.Property(settings => settings.BackupToEmail).HasColumnName("backup_to_email").HasMaxLength(320);
+            entity.Property(settings => settings.BackupUpdatedAt).HasColumnName("backup_updated_at");
+            entity.Property(settings => settings.BackupLastSentAt).HasColumnName("backup_last_sent_at");
             entity.Property(settings => settings.UpdatedAt).HasColumnName("updated_at");
         });
 

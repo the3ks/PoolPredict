@@ -1,5 +1,9 @@
-import { SystemSettingsSection } from "../_components/admin-sections";
+import { SmtpSettingsSection, SystemSettingsShell } from "../_components/system-settings-sections";
 
 export default function AdminSystemPage() {
-  return <SystemSettingsSection />;
+  return (
+    <SystemSettingsShell>
+      <SmtpSettingsSection />
+    </SystemSettingsShell>
+  );
 }

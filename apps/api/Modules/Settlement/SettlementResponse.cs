@@ -6,4 +6,7 @@ public sealed record SettlementResponse(
     int SettledPredictions,
     int UnchangedPredictions,
     int LedgerEntriesCreated,
-    string Status);
+    string Status,
+    bool BackupAttempted,
+    bool BackupSucceeded,
+    string? BackupMessage);

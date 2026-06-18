@@ -17,7 +17,15 @@ const adminNavItems = [
   { href: "/admin/settlement", label: "Settlement", icon: CheckCircle2 },
   { href: "/admin/payout", label: "Payout", icon: SlidersHorizontal },
   { href: "/admin/users", label: "User management", icon: Users },
-  { href: "/admin/system", label: "System settings", icon: Settings },
+  {
+    href: "/admin/system",
+    label: "System settings",
+    icon: Settings,
+    children: [
+      { href: "/admin/system", label: "SMTP settings" },
+      { href: "/admin/system/backup", label: "Database backup" },
+    ],
+  },
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
@@ -96,12 +104,33 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             <Shield aria-hidden="true" size={18} strokeWidth={2.2} />
             <span>Admin dashboard</span>
           </Link>
-          {adminNavItems.map((item) => (
-            <Link className={pathname === item.href ? "active" : ""} href={item.href} key={item.href}>
-              <item.icon aria-hidden="true" size={18} strokeWidth={2.2} />
-              <span>{item.label}</span>
-            </Link>
-          ))}
+          {adminNavItems.map((item) => {
+            const parentActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            if (!item.children) {
+              return (
+                <Link className={pathname === item.href ? "active" : ""} href={item.href} key={item.href}>
+                  <item.icon aria-hidden="true" size={18} strokeWidth={2.2} />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            }
+
+            return (
+              <div className="sidebarGroup" key={item.href}>
+                <Link className={parentActive ? "active" : ""} href={item.href}>
+                  <item.icon aria-hidden="true" size={18} strokeWidth={2.2} />
+                  <span>{item.label}</span>
+                </Link>
+                <div className="sidebarSubnav">
+                  {item.children.map((child) => (
+                    <Link className={pathname === child.href ? "active" : ""} href={child.href} key={child.href}>
+                      <span>{child.label}</span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </nav>
       </aside>
       <main className="appMain">{children}</main>

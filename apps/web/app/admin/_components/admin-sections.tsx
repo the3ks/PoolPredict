@@ -472,8 +472,16 @@ export function SettlementSection() {
         return;
       }
 
-      const result = await response.json() as { settledPredictions: number; unchangedPredictions: number; ledgerEntriesCreated: number };
-      setSettlementMessage(`Settled ${result.settledPredictions} predictions, unchanged ${result.unchangedPredictions}, created ${result.ledgerEntriesCreated} ledger entries.`);
+      const result = await response.json() as {
+        settledPredictions: number;
+        unchangedPredictions: number;
+        ledgerEntriesCreated: number;
+        backupAttempted: boolean;
+        backupSucceeded: boolean;
+        backupMessage?: string | null;
+      };
+      const summary = `Settled ${result.settledPredictions} predictions, unchanged ${result.unchangedPredictions}, created ${result.ledgerEntriesCreated} ledger entries.`;
+      setSettlementMessage(result.backupMessage ? `${summary} ${result.backupMessage}` : summary);
       await eventState.loadEvents();
     } catch (error) {
       setSettlementMessage(error instanceof Error ? error.message : "Settlement failed.");

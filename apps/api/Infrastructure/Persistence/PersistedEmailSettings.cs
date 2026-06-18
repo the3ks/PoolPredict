@@ -12,5 +12,8 @@ public sealed class PersistedEmailSettings
     public string FromName { get; set; } = "PoolPredict";
     public bool UseStartTls { get; set; } = true;
     public bool IsEnabled { get; set; }
+    public string? BackupToEmail { get; set; }
+    public DateTimeOffset? BackupUpdatedAt { get; set; }
+    public DateTimeOffset? BackupLastSentAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }
