@@ -371,49 +371,48 @@ export default function PoolPredictionsPage() {
               ) : null}
             </form>
           ) : null}
-          {predictions.length === 0 ? (
-            <p className="mutedText">No predictions submitted yet.</p>
-          ) : (
-            <>
-              <div className="adminFilterBar">
-                <label>
-                  Settlement
-                  <select
-                    value={settlementFilter}
-                    onChange={(event) =>
-                      setSettlementFilter(
-                        event.target.value as "All" | "Settled" | "Unsettled",
-                      )
-                    }
-                  >
-                    <option value="All">All</option>
-                    <option value="Settled">Settled</option>
-                    <option value="Unsettled">Unsettled</option>
-                  </select>
-                </label>
-                <label>
-                  From date
-                  <input
-                    type="date"
-                    value={fromDate}
-                    onChange={(event) => setFromDate(event.target.value)}
-                  />
-                </label>
-                <label>
-                  To date
-                  <input
-                    type="date"
-                    value={toDate}
-                    onChange={(event) => setToDate(event.target.value)}
-                  />
-                </label>
-              </div>
-              {predictions.length === 0 ? (
-                <p className="mutedText">No predictions match the current filters.</p>
-              ) : null}
-              <div className="listToolbar">
-                <div className="listToolbarControls">
-                  <label className="listPageSizeField">
+          <>
+            <div className="adminFilterBar">
+              <label>
+                Settlement
+                <select
+                  value={settlementFilter}
+                  onChange={(event) =>
+                    setSettlementFilter(
+                      event.target.value as "All" | "Settled" | "Unsettled",
+                    )
+                  }
+                >
+                  <option value="All">All</option>
+                  <option value="Settled">Settled</option>
+                  <option value="Unsettled">Unsettled</option>
+                </select>
+              </label>
+              <label>
+                From date
+                <input
+                  type="date"
+                  value={fromDate}
+                  onChange={(event) => setFromDate(event.target.value)}
+                />
+              </label>
+              <label>
+                To date
+                <input
+                  type="date"
+                  value={toDate}
+                  onChange={(event) => setToDate(event.target.value)}
+                />
+              </label>
+            </div>
+            {predictions.length === 0 ? (
+              <p className="mutedText">No predictions match the current filters.</p>
+            ) : null}
+            {predictions.length > 0 ? (
+              <>
+                <div className="listToolbar">
+                  <div className="listToolbarControls">
+                    <label className="listPageSizeField">
                     Page size
                     <select
                       value={predictionPageSize}
@@ -466,9 +465,8 @@ export default function PoolPredictionsPage() {
                   >
                     <IconLabel icon={ChevronRight}>Next</IconLabel>
                   </button>
+                  </div>
                 </div>
-              </div>
-              {predictions.length > 0 ? (
                 <div className="predictionHistory">
                   {pagedPredictions.map((prediction) => (
                     <article className="historyRow" key={prediction.id}>
@@ -515,9 +513,9 @@ export default function PoolPredictionsPage() {
                     </article>
                   ))}
                 </div>
-              ) : null}
-            </>
-          )}
+              </>
+            ) : null}
+          </>
         </Panel>
 
         <Panel title="Leaderboard">

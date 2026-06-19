@@ -1181,7 +1181,7 @@ public sealed class PredictionStore
 
         return settlement.Trim().ToLowerInvariant() switch
         {
-            "settled" => prediction.Outcome != "Unsettled",
+            "settled" => prediction.Outcome is "Win" or "HalfWin" or "Push" or "HalfLose" or "Lose",
             "unsettled" => prediction.Outcome == "Unsettled",
             _ => true
         };
