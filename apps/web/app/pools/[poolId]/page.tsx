@@ -785,6 +785,20 @@ export default function PoolOverviewPage() {
     accumulator[prediction.marketId] = current;
     return accumulator;
   }, {});
+  const selectedEventPredictions = selectedEvent
+    ? predictionHistory
+        .filter((prediction) => {
+          const predictionMarket = markets.find(
+            (market) => market.id === prediction.marketId,
+          );
+          return predictionMarket?.eventId === selectedEvent.id;
+        })
+        .sort(
+          (first, second) =>
+            new Date(second.submittedAt).getTime() -
+            new Date(first.submittedAt).getTime(),
+        )
+    : [];
 
   return (
     <UserShell>
@@ -1397,17 +1411,20 @@ export default function PoolOverviewPage() {
                 </div>
                 {selectedMarket ? (
                   selectedMarket.type === "CorrectScore" ? (
-                    <label>
-                      Score
-                      <input
-                        inputMode="numeric"
-                        pattern="[0-9]+-[0-9]+"
-                        placeholder="2-1"
-                        value={selectedOption}
-                        onChange={(event) =>
-                          setSelectedOption(event.target.value)
-                        }
-                      />
+                      <label>
+                        Score
+                        <input
+                          pattern="[0-9]+-[0-9]+"
+                          placeholder="2-1"
+                          autoCapitalize="off"
+                          autoCorrect="off"
+                          inputMode="text"
+                          spellCheck={false}
+                          value={selectedOption}
+                          onChange={(event) =>
+                            setSelectedOption(event.target.value)
+                          }
+                        />
                     </label>
                   ) : (
                     <label>
@@ -1499,8 +1516,29 @@ export default function PoolOverviewPage() {
                     </small>
                   </div>
                 ) : null}
-                </form>
-              </Panel>
+                {selectedEventPredictions.length > 0 ? (
+                  <div className="recentPredictionList">
+                    <strong>
+                      Your predictions on this match ({selectedEventPredictions.length})
+                    </strong>
+                    {selectedEventPredictions.map((prediction) => (
+                      <div className="recentPredictionItem" key={prediction.id}>
+                        <span>
+                          {prediction.marketPeriod}{" "}
+                          {formatMarketTypeLabel(prediction.marketType)} |{" "}
+                          {formatMarketOptionLabel(prediction.selectedOption)}
+                        </span>
+                        <small>
+                          {formatNumberDisplay(prediction.stake)} Điểm |{" "}
+                          {prediction.payoutMultiplierSnapshot}x |{" "}
+                          {formatDisplayDateTime(prediction.submittedAt)}
+                        </small>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </form>
+            </Panel>
               <PoolMessagesPanel
                 chatBody={chatBody}
                 chatEditorMode={chatEditorMode}

@@ -2789,6 +2789,37 @@ dd {
   text-transform: uppercase;
 }
 
+.recentPredictionList {
+  display: grid;
+  gap: 8px;
+}
+
+.recentPredictionList > strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.recentPredictionItem {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--secondary-bg);
+  padding: 10px 12px;
+}
+
+.recentPredictionItem span {
+  color: var(--text);
+  font-weight: 800;
+}
+
+.recentPredictionItem small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
 .poolMessageList {
   display: grid;
   align-content: start;
