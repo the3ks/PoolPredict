@@ -787,12 +787,15 @@ export default function PoolOverviewPage() {
   }, {});
   const selectedEventPredictions = selectedEvent
     ? predictionHistory
-        .filter((prediction) => {
-          const predictionMarket = markets.find(
-            (market) => market.id === prediction.marketId,
-          );
-          return predictionMarket?.eventId === selectedEvent.id;
-        })
+          .filter((prediction) => {
+            if (prediction.predictionStatus === "Cancelled") {
+              return false;
+            }
+            const predictionMarket = markets.find(
+              (market) => market.id === prediction.marketId,
+            );
+            return predictionMarket?.eventId === selectedEvent.id;
+          })
         .sort(
           (first, second) =>
             new Date(second.submittedAt).getTime() -
