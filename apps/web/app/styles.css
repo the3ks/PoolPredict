@@ -2716,7 +2716,8 @@ dd {
   .predictionSubmitPanel:not(.predictionSubmitPanelExpanded) .predictionForm label,
   .predictionSubmitPanel:not(.predictionSubmitPanelExpanded) .predictionForm > .button,
   .predictionSubmitPanel:not(.predictionSubmitPanelExpanded) .predictionForm .buttonSecondary,
-  .predictionSubmitPanel:not(.predictionSubmitPanelExpanded) .recentPredictionCard {
+  .predictionSubmitPanel:not(.predictionSubmitPanelExpanded) .recentPredictionCard,
+  .predictionSubmitPanel:not(.predictionSubmitPanelExpanded) .recentPredictionList {
     display: none;
   }
 
@@ -3827,7 +3828,8 @@ dd {
   .predictionSubmitPanel:not(.predictionSubmitPanelExpanded) .predictionForm label,
   .predictionSubmitPanel:not(.predictionSubmitPanelExpanded) .predictionForm > .button,
   .predictionSubmitPanel:not(.predictionSubmitPanelExpanded) .predictionForm .buttonSecondary,
-  .predictionSubmitPanel:not(.predictionSubmitPanelExpanded) .recentPredictionCard {
+  .predictionSubmitPanel:not(.predictionSubmitPanelExpanded) .recentPredictionCard,
+  .predictionSubmitPanel:not(.predictionSubmitPanelExpanded) .recentPredictionList {
     display: none;
   }
 
