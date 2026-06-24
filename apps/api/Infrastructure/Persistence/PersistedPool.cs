@@ -18,5 +18,6 @@ public sealed class PersistedPool
     public int MinStake { get; set; }
     public int MaxStake { get; set; }
     public int MaxTotalStakePerEvent { get; set; }
+    public bool VipEventStakeMultiplierEnabled { get; set; }
     public decimal LeaderboardMinEventAverageStakePercent { get; set; }
 }

@@ -194,6 +194,7 @@ public sealed class PoolPredictDbContext(DbContextOptions<PoolPredictDbContext> 
             entity.Property(pool => pool.MinStake).HasColumnName("min_stake");
             entity.Property(pool => pool.MaxStake).HasColumnName("max_stake");
             entity.Property(pool => pool.MaxTotalStakePerEvent).HasColumnName("max_total_stake_per_event");
+            entity.Property(pool => pool.VipEventStakeMultiplierEnabled).HasColumnName("vip_event_stake_multiplier_enabled");
             entity.Property(pool => pool.LeaderboardMinEventAverageStakePercent)
                 .HasColumnName("leaderboard_min_event_average_stake_percent")
                 .HasPrecision(5, 2);

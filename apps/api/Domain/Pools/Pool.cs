@@ -17,6 +17,7 @@ public sealed class Pool : Entity
         int minStake = 10,
         int maxStake = 200,
         int maxTotalStakePerEvent = 400,
+        bool vipEventStakeMultiplierEnabled = false,
         decimal leaderboardMinEventAverageStakePercent = 0m,
         string announcementTitle = "Announcements",
         bool isHidden = false)
@@ -33,6 +34,7 @@ public sealed class Pool : Entity
         MinStake = minStake;
         MaxStake = maxStake;
         MaxTotalStakePerEvent = maxTotalStakePerEvent;
+        VipEventStakeMultiplierEnabled = vipEventStakeMultiplierEnabled;
         LeaderboardMinEventAverageStakePercent = leaderboardMinEventAverageStakePercent;
         AnnouncementTitle = announcementTitle;
         IsHidden = isHidden;
@@ -60,6 +62,8 @@ public sealed class Pool : Entity
 
     public int MaxTotalStakePerEvent { get; private set; }
 
+    public bool VipEventStakeMultiplierEnabled { get; private set; }
+
     public decimal LeaderboardMinEventAverageStakePercent { get; private set; }
 
     public string AnnouncementTitle { get; private set; }
@@ -75,6 +79,7 @@ public sealed class Pool : Entity
         int minStake,
         int maxStake,
         int maxTotalStakePerEvent,
+        bool vipEventStakeMultiplierEnabled,
         decimal leaderboardMinEventAverageStakePercent,
         string announcementTitle)
     {
@@ -86,6 +91,7 @@ public sealed class Pool : Entity
         MinStake = minStake;
         MaxStake = maxStake;
         MaxTotalStakePerEvent = maxTotalStakePerEvent;
+        VipEventStakeMultiplierEnabled = vipEventStakeMultiplierEnabled;
         LeaderboardMinEventAverageStakePercent = leaderboardMinEventAverageStakePercent;
         AnnouncementTitle = announcementTitle;
     }

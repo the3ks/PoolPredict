@@ -24,6 +24,9 @@ export type PoolSummary = {
   minStake: number;
   maxStake: number;
   maxTotalStakePerEvent: number;
+  vipEventStakeMultiplierEnabled: boolean;
+  memberVipLevel?: number;
+  effectiveMaxTotalStakePerEvent?: number;
   leaderboardMinEventAverageStakePercent: number;
   role: string;
   memberCount: number;
@@ -217,6 +220,7 @@ export type AutoPickPreview = {
   currentBalance: number;
   balanceAfterAutoPick: number;
   hasEnoughBalance: boolean;
+  effectiveMaxTotalStakePerEvent: number;
   eligibleEvents: AutoPickEligibleEvent[];
   skippedEvents: AutoPickSkippedEvent[];
 };

@@ -104,12 +104,13 @@ public sealed class PredictionStore
                 throw new InvalidOperationException("For 1X2, you can only choose one option per event. You can add more points to the same option, but cannot switch to another option.");
             }
 
+            var eventCap = GetEffectiveMaxTotalStakePerEvent(pool, member);
             var totalStakeForEvent = GetTotalStakeForEventUnsafe(pool.Id, member.Id, market.EventId);
-            if (totalStakeForEvent + request.Stake > pool.MaxTotalStakePerEvent)
+            if (totalStakeForEvent + request.Stake > eventCap)
             {
-                var remaining = Math.Max(0, pool.MaxTotalStakePerEvent - totalStakeForEvent);
+                var remaining = Math.Max(0, eventCap - totalStakeForEvent);
                 throw new InvalidOperationException(
-                    $"This prediction exceeds the event cap of {pool.MaxTotalStakePerEvent}. Remaining allowance: {remaining}.");
+                    $"This prediction exceeds the event cap of {eventCap}. Remaining allowance: {remaining}.");
             }
 
             var prediction = new Prediction(
@@ -850,6 +851,7 @@ public sealed class PredictionStore
             member,
             stake,
             currentBalance,
+            GetEffectiveMaxTotalStakePerEvent(pool, member),
             eligibleEvents,
             skippedEvents,
             totalStake,
@@ -886,7 +888,7 @@ public sealed class PredictionStore
         }
 
         var eventStakeUsed = GetTotalStakeForEventUnsafe(pool.Id, member.Id, matchEvent.Id, marketsById);
-        if (eventStakeUsed + stake > pool.MaxTotalStakePerEvent)
+        if (eventStakeUsed + stake > GetEffectiveMaxTotalStakePerEvent(pool, member))
         {
             return "Event cap too low.";
         }
@@ -925,6 +927,7 @@ public sealed class PredictionStore
             plan.CurrentBalance,
             plan.CurrentBalance - plan.TotalStake,
             plan.HasEnoughBalance,
+            plan.EffectiveMaxTotalStakePerEvent,
             plan.EligibleEvents.Select(item => new AutoPickEligibleEventResponse(
                 item.Event.Id,
                 FormatEventName(item.Event),
@@ -1283,7 +1286,17 @@ public sealed class PredictionStore
         value.ToString("0.##");
 
     private static int GetVipLevel(int vipAdjustmentAmount, int startingBalance) =>
-        startingBalance <= 0 ? 0 : vipAdjustmentAmount / startingBalance;
+        startingBalance <= 0 ? 0 : Math.Max(0, vipAdjustmentAmount / startingBalance);
+
+    private static int GetEffectiveMaxTotalStakePerEvent(Pool pool, PoolMember member)
+    {
+        var vipLevel = GetVipLevel(member.VipAdjustmentAmount, pool.StartingBalance);
+        var multiplier = pool.VipEventStakeMultiplierEnabled
+            ? ((1 + vipLevel) / 2) + 1
+            : 1;
+        var effectiveCap = (long)pool.MaxTotalStakePerEvent * multiplier;
+        return effectiveCap > int.MaxValue ? int.MaxValue : (int)effectiveCap;
+    }
 }
 
 public sealed record PredictionHistoryResponse(
@@ -1380,6 +1393,7 @@ public sealed record AutoPickPreviewResponse(
     int CurrentBalance,
     int BalanceAfterAutoPick,
     bool HasEnoughBalance,
+    int EffectiveMaxTotalStakePerEvent,
     IReadOnlyCollection<AutoPickEligibleEventResponse> EligibleEvents,
     IReadOnlyCollection<AutoPickSkippedEventResponse> SkippedEvents);
 
@@ -1425,6 +1439,7 @@ sealed record AutoPickPlan(
     PoolMember Member,
     int Stake,
     int CurrentBalance,
+    int EffectiveMaxTotalStakePerEvent,
     IReadOnlyCollection<AutoPickEligibleEvent> EligibleEvents,
     IReadOnlyCollection<AutoPickSkippedEventResponse> SkippedEvents,
     int TotalStake,

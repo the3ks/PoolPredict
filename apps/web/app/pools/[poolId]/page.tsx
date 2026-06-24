@@ -128,6 +128,8 @@ export default function PoolOverviewPage() {
   const [minStake, setMinStake] = useState(10);
   const [maxStake, setMaxStake] = useState(200);
   const [maxTotalStakePerEvent, setMaxTotalStakePerEvent] = useState(400);
+  const [vipEventStakeMultiplierEnabled, setVipEventStakeMultiplierEnabled] =
+    useState(false);
   const [
     leaderboardMinEventAverageStakePercentInput,
     setLeaderboardMinEventAverageStakePercentInput,
@@ -227,6 +229,7 @@ export default function PoolOverviewPage() {
     setMinStake(result.minStake);
     setMaxStake(result.maxStake);
     setMaxTotalStakePerEvent(result.maxTotalStakePerEvent);
+    setVipEventStakeMultiplierEnabled(result.vipEventStakeMultiplierEnabled);
     setLeaderboardMinEventAverageStakePercentInput(
       formatCompactNumber(result.leaderboardMinEventAverageStakePercent ?? 0),
     );
@@ -457,6 +460,7 @@ export default function PoolOverviewPage() {
           minStake,
           maxStake,
           maxTotalStakePerEvent,
+          vipEventStakeMultiplierEnabled,
           leaderboardMinEventAverageStakePercent,
         }),
       });
@@ -722,21 +726,28 @@ export default function PoolOverviewPage() {
         pool?.predictionsLocked ?? false,
       )
     : { isAvailable: false, reason: "No market selected" };
+  const effectiveEventCap =
+    pool?.effectiveMaxTotalStakePerEvent ?? pool?.maxTotalStakePerEvent ?? 0;
   const selectedEventStakeUsed =
     pool && selectedEvent
       ? getEventStakeUsed(predictionHistory, markets, selectedEvent.id)
       : 0;
   const selectedEventStakeRemaining = pool
-    ? Math.max(0, pool.maxTotalStakePerEvent - selectedEventStakeUsed)
+    ? Math.max(0, effectiveEventCap - selectedEventStakeUsed)
     : 0;
   const isStakeBelowMin = pool ? stake < pool.minStake : false;
   const isStakeAboveMax = pool ? stake > pool.maxStake : false;
   const exceedsEventStakeLimit = pool
-    ? selectedEventStakeUsed + stake > pool.maxTotalStakePerEvent
+    ? selectedEventStakeUsed + stake > effectiveEventCap
     : false;
   const currentMemberLeaderboardEntry = pool?.memberId
     ? leaderboard.find((entry) => entry.memberId === pool.memberId) ?? null
     : null;
+  const currentMemberVipLevel =
+    pool?.memberVipLevel ?? currentMemberLeaderboardEntry?.vipLevel ?? 0;
+  const currentMemberVipEventCapMultiplier = pool?.vipEventStakeMultiplierEnabled
+    ? Math.floor((1 + currentMemberVipLevel) / 2 + 1)
+    : 1;
   const marketGroups = events
     .map((matchEvent) => {
       return {
@@ -855,11 +866,11 @@ export default function PoolOverviewPage() {
                       <h2 className="poolSummaryTitle">
                         Summary (<IconLabel icon={Users}>{pool.memberCount}</IconLabel>)
                       </h2>
-                      <div className="poolSummaryCompactGrid">
-                        <div className="poolSummaryStatBox">
-                          <small><IconLabel icon={ShieldCheck}>Role</IconLabel></small>
-                          <strong>{pool.role}</strong>
-                        </div>
+                        <div className="poolSummaryCompactGrid">
+                          <div className="poolSummaryStatBox">
+                            <small><IconLabel icon={ShieldCheck}>Role</IconLabel></small>
+                            <strong>{pool.role}</strong>
+                          </div>
                         <div className="poolSummaryStatBox">
                           <small><IconLabel icon={Lock}>Prediction status</IconLabel></small>
                           <strong>{pool.predictionsLocked ? "Locked" : "Open"}</strong>
@@ -876,18 +887,24 @@ export default function PoolOverviewPage() {
                               : "-"}
                           </strong>
                         </div>
-                        <div className="poolSummaryStatBox">
-                          <small>Stake range</small>
-                          <strong>
-                            {formatNumberDisplay(pool.minStake)}-{formatNumberDisplay(pool.maxStake)}
-                          </strong>
+                          <div className="poolSummaryStatBox">
+                            <small>Stake range</small>
+                            <strong>
+                              {formatNumberDisplay(pool.minStake)}-{formatNumberDisplay(pool.maxStake)}
+                            </strong>
+                          </div>
+                          <div className="poolSummaryStatBox">
+                            <small>Event cap</small>
+                            <strong>{formatNumberDisplay(effectiveEventCap)}</strong>
+                              <small>
+                                Base {formatNumberDisplay(pool.maxTotalStakePerEvent)}
+                                {pool.vipEventStakeMultiplierEnabled
+                                  ? ` | VIP x${currentMemberVipEventCapMultiplier}`
+                                  : " | VIP off"}
+                              </small>
+                          </div>
                         </div>
-                        <div className="poolSummaryStatBox">
-                          <small>Event cap</small>
-                          <strong>{formatNumberDisplay(pool.maxTotalStakePerEvent)}</strong>
-                        </div>
-                      </div>
-                    </Panel>
+                      </Panel>
                     <Panel className="poolLeaderboardPanel">
                       <h2 className="poolLeaderboardTitle">
                         <span>Leaderboard</span>
@@ -1110,19 +1127,29 @@ export default function PoolOverviewPage() {
                       onChange={(event) => setMaxStake(Number(event.target.value))}
                     />
                   </label>
-                  <label>
-                    Event cap
-                    <input
+                    <label>
+                      Event cap
+                      <input
                       min={1}
                       required
                       type="number"
                       value={maxTotalStakePerEvent}
-                      onChange={(event) => setMaxTotalStakePerEvent(Number(event.target.value))}
-                    />
-                  </label>
-                  <label>
-                    Leaderboard min avg event stake (%)
-                    <input
+                        onChange={(event) => setMaxTotalStakePerEvent(Number(event.target.value))}
+                      />
+                    </label>
+                    <label className="checkboxRow poolPredictionLockToggle">
+                      <input
+                        checked={vipEventStakeMultiplierEnabled}
+                        type="checkbox"
+                        onChange={(event) =>
+                          setVipEventStakeMultiplierEnabled(event.target.checked)
+                        }
+                      />
+                      Enable VIP event cap multiplier
+                    </label>
+                    <label>
+                      Leaderboard min avg event stake (%)
+                      <input
                       min={0}
                       max={100}
                       required
@@ -1472,12 +1499,12 @@ export default function PoolOverviewPage() {
                     Stake cannot exceed {formatNumberDisplay(pool.maxStake)}.
                   </p>
                 ) : null}
-                {exceedsEventStakeLimit ? (
-                  <p className="stakeValidationText">
-                    This match allows {formatNumberDisplay(pool.maxTotalStakePerEvent)} total stake.
-                    {" "}Remaining allowance: {formatNumberDisplay(selectedEventStakeRemaining)}.
-                  </p>
-                ) : null}
+                  {exceedsEventStakeLimit ? (
+                    <p className="stakeValidationText">
+                    This match allows {formatNumberDisplay(effectiveEventCap)} total stake.
+                      {" "}Remaining allowance: {formatNumberDisplay(selectedEventStakeRemaining)}.
+                    </p>
+                  ) : null}
                 <button
                   className="button"
                   disabled={

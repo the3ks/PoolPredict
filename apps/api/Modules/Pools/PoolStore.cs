@@ -95,7 +95,7 @@ public sealed class PoolStore
                     _pools.Where(pool => !pool.IsHidden),
                     member => member.PoolId,
                     pool => pool.Id,
-                    (member, pool) => ToSummary(pool, member.Role))
+                    (member, pool) => ToSummary(pool, member))
                 .ToArray();
         }
     }
@@ -166,6 +166,7 @@ public sealed class PoolStore
                 normalizedStakeSettings.minStake,
                 normalizedStakeSettings.maxStake,
                 normalizedStakeSettings.maxTotalStakePerEvent,
+                request.VipEventStakeMultiplierEnabled,
                 request.LeaderboardMinEventAverageStakePercent,
                 announcementTitle);
             PersistPoolUpdate(pool);
@@ -633,9 +634,10 @@ public sealed class PoolStore
             string.Equals(invite.Code, normalizedCode, StringComparison.OrdinalIgnoreCase));
     }
 
-    private PoolSummaryResponse ToSummary(Pool pool, PoolMemberRole role) =>
+    private PoolSummaryResponse ToSummary(Pool pool, PoolMember member) =>
         new(
             pool.Id,
+            member.Id,
             pool.Name,
             pool.TournamentId,
             pool.Profile,
@@ -647,8 +649,11 @@ public sealed class PoolStore
             pool.MinStake,
             pool.MaxStake,
             pool.MaxTotalStakePerEvent,
+            pool.VipEventStakeMultiplierEnabled,
+            GetVipLevel(member.VipAdjustmentAmount, pool.StartingBalance),
+            GetEffectiveMaxTotalStakePerEvent(pool, member),
             pool.LeaderboardMinEventAverageStakePercent,
-            role,
+            member.Role,
             CountMembers(pool.Id),
             CountInvites(pool.Id));
 
@@ -667,6 +672,9 @@ public sealed class PoolStore
             pool.MinStake,
             pool.MaxStake,
             pool.MaxTotalStakePerEvent,
+            pool.VipEventStakeMultiplierEnabled,
+            GetVipLevel(member.VipAdjustmentAmount, pool.StartingBalance),
+            GetEffectiveMaxTotalStakePerEvent(pool, member),
             pool.LeaderboardMinEventAverageStakePercent,
             member.Role,
             CountMembers(pool.Id),
@@ -709,6 +717,7 @@ public sealed class PoolStore
                 normalizedStakeSettings.minStake,
                 normalizedStakeSettings.maxStake,
                 normalizedStakeSettings.maxTotalStakePerEvent,
+                pool.VipEventStakeMultiplierEnabled,
                 pool.LeaderboardMinEventAverageStakePercent,
                 string.IsNullOrWhiteSpace(pool.AnnouncementTitle) ? "Announcements" : pool.AnnouncementTitle,
                 pool.IsHidden);
@@ -767,6 +776,7 @@ public sealed class PoolStore
         persisted.MinStake = pool.MinStake;
         persisted.MaxStake = pool.MaxStake;
         persisted.MaxTotalStakePerEvent = pool.MaxTotalStakePerEvent;
+        persisted.VipEventStakeMultiplierEnabled = pool.VipEventStakeMultiplierEnabled;
         persisted.LeaderboardMinEventAverageStakePercent = pool.LeaderboardMinEventAverageStakePercent;
         db.SaveChanges();
     }
@@ -863,8 +873,22 @@ public sealed class PoolStore
         MinStake = pool.MinStake,
         MaxStake = pool.MaxStake,
         MaxTotalStakePerEvent = pool.MaxTotalStakePerEvent,
+        VipEventStakeMultiplierEnabled = pool.VipEventStakeMultiplierEnabled,
         LeaderboardMinEventAverageStakePercent = pool.LeaderboardMinEventAverageStakePercent
     };
+
+    private static int GetVipLevel(int vipAdjustmentAmount, int startingBalance) =>
+        startingBalance <= 0 ? 0 : Math.Max(0, vipAdjustmentAmount / startingBalance);
+
+    private static int GetEffectiveMaxTotalStakePerEvent(Pool pool, PoolMember member)
+    {
+        var vipLevel = GetVipLevel(member.VipAdjustmentAmount, pool.StartingBalance);
+        var multiplier = pool.VipEventStakeMultiplierEnabled
+            ? ((1 + vipLevel) / 2) + 1
+            : 1;
+        var effectiveCap = (long)pool.MaxTotalStakePerEvent * multiplier;
+        return effectiveCap > int.MaxValue ? int.MaxValue : (int)effectiveCap;
+    }
 
     private static PersistedPoolMember ToPersistedMember(PoolMember member) => new()
     {
@@ -924,10 +948,6 @@ public sealed class PoolStore
             throw new ArgumentException("Default stake cannot exceed maximum stake.", nameof(defaultStake));
         }
 
-        if (maxTotalStakePerEvent < maxStake)
-        {
-            throw new ArgumentException("Maximum total stake per event cannot be lower than maximum stake.", nameof(maxTotalStakePerEvent));
-        }
     }
 
     private void EnsureCurrentOneXTwoMarketPayouts()
@@ -1019,6 +1039,7 @@ public sealed record HandicapLineMarketResponse(
 
 public sealed record PoolSummaryResponse(
     Guid Id,
+    Guid MemberId,
     string Name,
     Guid TournamentId,
     MarketProfile Profile,
@@ -1030,6 +1051,9 @@ public sealed record PoolSummaryResponse(
     int MinStake,
     int MaxStake,
     int MaxTotalStakePerEvent,
+    bool VipEventStakeMultiplierEnabled,
+    int MemberVipLevel,
+    int EffectiveMaxTotalStakePerEvent,
     decimal LeaderboardMinEventAverageStakePercent,
     PoolMemberRole Role,
     int MemberCount,
@@ -1049,6 +1073,9 @@ public sealed record PoolDetailsResponse(
     int MinStake,
     int MaxStake,
     int MaxTotalStakePerEvent,
+    bool VipEventStakeMultiplierEnabled,
+    int MemberVipLevel,
+    int EffectiveMaxTotalStakePerEvent,
     decimal LeaderboardMinEventAverageStakePercent,
     PoolMemberRole Role,
     int MemberCount,
