@@ -40,6 +40,11 @@ export default function PoolMemberProfilePage() {
     return source
       .filter((prediction) => {
         const outcome = prediction.outcome ?? "Unsettled";
+        const isCancelled = outcome === "Cancelled" || outcome === "Canceled";
+        if (settlementFilter !== "All" && isCancelled) {
+          return false;
+        }
+
         if (settlementFilter === "Settled" && outcome === "Unsettled") {
           return false;
         }
