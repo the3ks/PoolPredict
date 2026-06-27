@@ -50,18 +50,14 @@ export default function PoolPredictionsPage() {
       return;
     }
 
-    void loadAutoPickPreview(pool.id, autoPickStake);
-  }, [pool?.id, autoPickStake]);
-
-  useEffect(() => {
-    if (!pool) {
+    if (autoPickStake < pool.minStake || autoPickStake > pool.maxStake) {
+      setAutoPickPreview(null);
+      setAutoPickStatus("");
       return;
     }
 
-    if (autoPickStake < pool.minStake || autoPickStake > pool.maxStake) {
-      setAutoPickStake(pool.minStake);
-    }
-  }, [pool, autoPickStake]);
+    void loadAutoPickPreview(pool.id, autoPickStake);
+  }, [pool?.id, pool?.minStake, pool?.maxStake, autoPickStake]);
 
   useEffect(() => {
     setPredictionPage(1);
@@ -306,8 +302,6 @@ export default function PoolPredictionsPage() {
                   <label>
                     Stake per event
                     <input
-                      max={pool.maxStake}
-                      min={pool.minStake}
                       required
                       type="number"
                       value={autoPickStake}

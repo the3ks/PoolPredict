@@ -746,7 +746,7 @@ export default function PoolOverviewPage() {
   const currentMemberVipLevel =
     pool?.memberVipLevel ?? currentMemberLeaderboardEntry?.vipLevel ?? 0;
   const currentMemberVipEventCapMultiplier = pool?.vipEventStakeMultiplierEnabled
-    ? Math.floor((1 + currentMemberVipLevel) / 2 + 1)
+    ? 1 + currentMemberVipLevel / 2
     : 1;
   const marketGroups = events
     .map((matchEvent) => {
@@ -899,7 +899,7 @@ export default function PoolOverviewPage() {
                               <small>
                                 Base {formatNumberDisplay(pool.maxTotalStakePerEvent)}
                                 {pool.vipEventStakeMultiplierEnabled
-                                  ? ` | VIP x${currentMemberVipEventCapMultiplier}`
+                                  ? ` | VIP x${formatNumberDisplay(currentMemberVipEventCapMultiplier)}`
                                   : " | VIP off"}
                               </small>
                           </div>

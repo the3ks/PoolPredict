@@ -883,10 +883,9 @@ public sealed class PoolStore
     private static int GetEffectiveMaxTotalStakePerEvent(Pool pool, PoolMember member)
     {
         var vipLevel = GetVipLevel(member.VipAdjustmentAmount, pool.StartingBalance);
-        var multiplier = pool.VipEventStakeMultiplierEnabled
-            ? ((1 + vipLevel) / 2) + 1
-            : 1;
-        var effectiveCap = (long)pool.MaxTotalStakePerEvent * multiplier;
+        var effectiveCap = pool.VipEventStakeMultiplierEnabled
+            ? (long)pool.MaxTotalStakePerEvent + ((long)pool.MaxTotalStakePerEvent * vipLevel / 2)
+            : pool.MaxTotalStakePerEvent;
         return effectiveCap > int.MaxValue ? int.MaxValue : (int)effectiveCap;
     }
 
