@@ -482,6 +482,53 @@ public sealed class PoolStore
         }
     }
 
+    public int SyncMissingMarketsForTournamentPools(TournamentCatalog catalog)
+    {
+        var addedMarkets = new List<Market>();
+
+        lock (_gate)
+        {
+            var configuration = _payoutConfigurations.GetActiveConfiguration();
+            foreach (var pool in _pools)
+            {
+                var tournamentEventIds = catalog.GetEvents(pool.TournamentId)
+                    .Select(matchEvent => matchEvent.Id)
+                    .ToHashSet();
+                if (tournamentEventIds.Count == 0)
+                {
+                    continue;
+                }
+
+                var existingEventIds = _markets
+                    .Where(market => market.PoolId == pool.Id)
+                    .Select(market => market.EventId)
+                    .ToHashSet();
+
+                var missingEventIds = tournamentEventIds
+                    .Where(eventId => !existingEventIds.Contains(eventId))
+                    .ToArray();
+
+                if (missingEventIds.Length == 0)
+                {
+                    continue;
+                }
+
+                var generatedMarkets = missingEventIds
+                    .SelectMany(eventId => GenerateMarkets(pool, eventId, configuration))
+                    .ToArray();
+                _markets.AddRange(generatedMarkets);
+                addedMarkets.AddRange(generatedMarkets);
+            }
+        }
+
+        if (addedMarkets.Count > 0)
+        {
+            PersistMarkets(addedMarkets);
+        }
+
+        return addedMarkets.Count;
+    }
+
     public IReadOnlyCollection<HandicapLineMarketResponse> GetHandicapLineMarkets(Guid eventId)
     {
         using var db = _dbContextFactory.CreateDbContext();
@@ -758,6 +805,13 @@ public sealed class PoolStore
         using var db = _dbContextFactory.CreateDbContext();
         db.Pools.Add(ToPersistedPool(pool));
         db.PoolMembers.Add(ToPersistedMember(owner));
+        db.Markets.AddRange(markets.Select(ToPersistedMarket));
+        db.SaveChanges();
+    }
+
+    private void PersistMarkets(IReadOnlyCollection<Market> markets)
+    {
+        using var db = _dbContextFactory.CreateDbContext();
         db.Markets.AddRange(markets.Select(ToPersistedMarket));
         db.SaveChanges();
     }
