@@ -22,6 +22,7 @@ import {
   Goal,
   History,
   KeyRound,
+  LineChart,
   Lock,
   Maximize2,
   MessageSquare,
@@ -37,6 +38,7 @@ import {
   Waves,
   X,
 } from "lucide-react";
+import { LeaderboardTimelineChart } from "../../components/leaderboard-timeline-chart";
 import { UserShell } from "../../components/user-shell";
 import {
   IconLabel,
@@ -53,6 +55,7 @@ import {
 } from "../../lib/participant-flags";
 import {
   LeaderboardEntry,
+  LeaderboardTimeline,
   Market,
   Prediction,
   PoolJoinRequest,
@@ -160,6 +163,11 @@ export default function PoolOverviewPage() {
   const [isPredictionSlipExpanded, setIsPredictionSlipExpanded] = useState(false);
   const [isAnnouncementsExpanded, setIsAnnouncementsExpanded] = useState(false);
   const [isLeaderboardModalOpen, setIsLeaderboardModalOpen] = useState(false);
+  const [isLeaderboardTrendModalOpen, setIsLeaderboardTrendModalOpen] =
+    useState(false);
+  const [leaderboardTimeline, setLeaderboardTimeline] =
+    useState<LeaderboardTimeline | null>(null);
+  const [leaderboardTimelineStatus, setLeaderboardTimelineStatus] = useState("");
   const [isMobileMarketsView, setIsMobileMarketsView] = useState(false);
   const [mobileSelectedMarketEventId, setMobileSelectedMarketEventId] =
     useState("");
@@ -356,6 +364,36 @@ export default function PoolOverviewPage() {
     if (response.ok) {
       setLeaderboard((await response.json()) as LeaderboardEntry[]);
     }
+  }
+
+  async function loadLeaderboardTimeline(targetPoolId: string) {
+    const token = getStoredToken();
+    if (!token) {
+      setLeaderboardTimelineStatus("Session is missing.");
+      return;
+    }
+
+    setLeaderboardTimelineStatus("Loading leaderboard trend...");
+    const response = await fetch(
+      apiUrl(`/api/predictions/pool/${targetPoolId}/leaderboard/timeline`),
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    );
+    if (!response.ok) {
+      setLeaderboardTimelineStatus(
+        await readApiError(response, "Could not load leaderboard trend."),
+      );
+      return;
+    }
+
+    setLeaderboardTimeline((await response.json()) as LeaderboardTimeline);
+    setLeaderboardTimelineStatus("Leaderboard trend loaded.");
+  }
+
+  function openLeaderboardTrendModal(targetPoolId: string) {
+    setIsLeaderboardTrendModalOpen(true);
+    void loadLeaderboardTimeline(targetPoolId);
   }
 
   async function loadPredictionHistory(targetPoolId: string) {
@@ -908,14 +946,26 @@ export default function PoolOverviewPage() {
                     <Panel className="poolLeaderboardPanel">
                       <h2 className="poolLeaderboardTitle">
                         <span>Leaderboard</span>
-                        <button
-                          aria-label="Open full leaderboard"
-                          className="iconButton"
-                          type="button"
-                          onClick={() => setIsLeaderboardModalOpen(true)}
-                        >
-                          <Maximize2 aria-hidden="true" size={16} />
-                        </button>
+                        <span className="leaderboardTitleActions">
+                          <button
+                            aria-label="Open leaderboard trend"
+                            className="iconButton"
+                            title="Open leaderboard trend"
+                            type="button"
+                            onClick={() => openLeaderboardTrendModal(pool.id)}
+                          >
+                            <LineChart aria-hidden="true" size={16} />
+                          </button>
+                          <button
+                            aria-label="Open full leaderboard"
+                            className="iconButton"
+                            title="Open full leaderboard"
+                            type="button"
+                            onClick={() => setIsLeaderboardModalOpen(true)}
+                          >
+                            <Maximize2 aria-hidden="true" size={16} />
+                          </button>
+                        </span>
                       </h2>
                       <div className="poolLeaderboardList">
                         {leaderboard.length === 0 ? (
@@ -1030,6 +1080,42 @@ export default function PoolOverviewPage() {
                             leaderboard={leaderboard}
                             poolId={pool.id}
                           />
+                        </section>
+                      </div>
+                    ) : null}
+                    {isLeaderboardTrendModalOpen ? (
+                      <div className="modalBackdrop" role="presentation">
+                        <section
+                          aria-labelledby="leaderboardTrendTitle"
+                          aria-modal="true"
+                          className="leaderboardModal leaderboardTrendModal"
+                          role="dialog"
+                        >
+                          <div className="leaderboardModalHeader">
+                            <h2 id="leaderboardTrendTitle">Leaderboard trend</h2>
+                            <span className="leaderboardTitleActions">
+                              <Link
+                                aria-label="Open leaderboard trend page"
+                                className="iconButton"
+                                href={`/pools/${pool.id}/leaderboard-trend`}
+                                title="Open leaderboard trend page"
+                              >
+                                <Maximize2 aria-hidden="true" size={16} />
+                              </Link>
+                              <button
+                                aria-label="Close leaderboard trend"
+                                className="iconButton"
+                                type="button"
+                                onClick={() => setIsLeaderboardTrendModalOpen(false)}
+                              >
+                                <X aria-hidden="true" size={18} />
+                              </button>
+                            </span>
+                          </div>
+                          {leaderboardTimelineStatus ? (
+                            <p className="statusText">{leaderboardTimelineStatus}</p>
+                          ) : null}
+                          <LeaderboardTimelineChart timeline={leaderboardTimeline} />
                         </section>
                       </div>
                     ) : null}

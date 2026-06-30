@@ -165,6 +165,30 @@ export type LeaderboardEntry = {
   isStakeQualified: boolean;
 };
 
+export type LeaderboardTimelineMember = {
+  memberId: string;
+  userId: string;
+  displayName: string;
+  avatarUrl?: string | null;
+  currentWinLoss: number;
+};
+
+export type LeaderboardTimelineEvent = {
+  eventId: string;
+  sequence: number;
+  eventName: string;
+  startsAt: string;
+  points: Array<{
+    memberId: string;
+    winLoss: number;
+  }>;
+};
+
+export type LeaderboardTimeline = {
+  members: LeaderboardTimelineMember[];
+  events: LeaderboardTimelineEvent[];
+};
+
 export type PredictionProfileBreakdown = {
   label: string;
   predictionCount: number;

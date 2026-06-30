@@ -551,6 +551,110 @@ public sealed class PredictionStore
             .ToArray();
     }
 
+    public LeaderboardTimelineResponse GetLeaderboardTimeline(Guid poolId, int startingBalance)
+    {
+        using var db = _dbContextFactory.CreateDbContext();
+        var rankedMembers = GetLeaderboard(poolId, startingBalance)
+            .Where(entry => entry.LeaderboardStatus == PoolMemberLeaderboardStatus.Ranked)
+            .ToArray();
+        if (rankedMembers.Length == 0)
+        {
+            return new LeaderboardTimelineResponse([], []);
+        }
+
+        var rankedMemberIds = rankedMembers.Select(member => member.MemberId).ToList();
+        var predictions = db.Predictions
+            .AsNoTracking()
+            .Where(prediction =>
+                prediction.PoolId == poolId
+                && rankedMemberIds.Contains(prediction.MemberId)
+                && prediction.Status == PredictionStatus.Active)
+            .ToArray();
+        if (predictions.Length == 0)
+        {
+            return new LeaderboardTimelineResponse(
+                rankedMembers.Select(ToLeaderboardTimelineMemberResponse).ToArray(),
+                []);
+        }
+
+        var predictionIds = predictions.Select(prediction => prediction.Id).ToList();
+        var marketIds = predictions.Select(prediction => prediction.MarketId).Distinct().ToList();
+        var markets = db.Markets
+            .AsNoTracking()
+            .Where(market => marketIds.Contains(market.Id))
+            .ToDictionary(market => market.Id);
+        var settledEventIds = predictions
+            .Select(prediction => markets.GetValueOrDefault(prediction.MarketId))
+            .Where(market => market?.Status is MarketStatus.Settled or MarketStatus.Voided)
+            .Select(market => market!.EventId)
+            .Distinct()
+            .ToList();
+        var events = db.Events
+            .AsNoTracking()
+            .Where(matchEvent => settledEventIds.Contains(matchEvent.Id))
+            .OrderBy(matchEvent => matchEvent.StartsAt)
+            .ThenBy(matchEvent => matchEvent.HomeParticipant)
+            .ThenBy(matchEvent => matchEvent.AwayParticipant)
+            .Select(matchEvent => new
+            {
+                matchEvent.Id,
+                EventName = matchEvent.HomeParticipant + " vs " + matchEvent.AwayParticipant,
+                matchEvent.StartsAt
+            })
+            .ToArray();
+        if (events.Length == 0)
+        {
+            return new LeaderboardTimelineResponse(
+                rankedMembers.Select(ToLeaderboardTimelineMemberResponse).ToArray(),
+                []);
+        }
+
+        var settlementCredits = db.PointLedger
+            .AsNoTracking()
+            .Where(entry => entry.PredictionId != null
+                && predictionIds.Contains(entry.PredictionId.Value)
+                && (entry.Reason == PointLedgerReason.SettlementPayout
+                    || entry.Reason == PointLedgerReason.SettlementRefund
+                    || entry.Reason == PointLedgerReason.PredictionCancelledRefund
+                    || entry.Reason == PointLedgerReason.AdminCorrection))
+            .GroupBy(entry => entry.PredictionId!.Value)
+            .Select(group => new { PredictionId = group.Key, Points = group.Sum(entry => entry.Points) })
+            .ToDictionary(item => item.PredictionId, item => item.Points);
+        var predictionsByEvent = predictions
+            .Where(prediction => markets.GetValueOrDefault(prediction.MarketId)?.Status is MarketStatus.Settled or MarketStatus.Voided)
+            .GroupBy(prediction => markets[prediction.MarketId].EventId)
+            .ToDictionary(group => group.Key, group => group.ToArray());
+        var cumulativeWinLoss = rankedMembers.ToDictionary(member => member.MemberId, _ => 0);
+
+        var timelineEvents = events.Select((matchEvent, index) =>
+            {
+                if (predictionsByEvent.TryGetValue(matchEvent.Id, out var eventPredictions))
+                {
+                    foreach (var prediction in eventPredictions)
+                    {
+                        cumulativeWinLoss[prediction.MemberId] +=
+                            settlementCredits.GetValueOrDefault(prediction.Id) - prediction.Stake;
+                    }
+                }
+
+                return new LeaderboardTimelineEventResponse(
+                    matchEvent.Id,
+                    index + 1,
+                    matchEvent.EventName,
+                    matchEvent.StartsAt,
+                    rankedMembers
+                        .Select(member => new LeaderboardTimelinePointResponse(
+                            member.MemberId,
+                            cumulativeWinLoss.GetValueOrDefault(member.MemberId)))
+                        .ToArray());
+            })
+            .ToArray();
+
+        return new LeaderboardTimelineResponse(
+            rankedMembers.Select(ToLeaderboardTimelineMemberResponse).ToArray(),
+            timelineEvents);
+    }
+
     public PoolMemberPredictionProfileResponse? GetPoolMemberProfile(
         Guid poolId,
         Guid memberId,
@@ -1288,6 +1392,14 @@ public sealed class PredictionStore
     private static int GetVipLevel(int vipAdjustmentAmount, int startingBalance) =>
         startingBalance <= 0 ? 0 : Math.Max(0, vipAdjustmentAmount / startingBalance);
 
+    private static LeaderboardTimelineMemberResponse ToLeaderboardTimelineMemberResponse(LeaderboardEntryResponse entry) =>
+        new(
+            entry.MemberId,
+            entry.UserId,
+            entry.DisplayName,
+            entry.AvatarUrl,
+            entry.WinLoss);
+
     private static int GetEffectiveMaxTotalStakePerEvent(Pool pool, PoolMember member)
     {
         var vipLevel = GetVipLevel(member.VipAdjustmentAmount, pool.StartingBalance);
@@ -1342,6 +1454,28 @@ public sealed record LeaderboardEntryResponse(
     decimal SettledEventAverageStake,
     decimal MinimumEventAverageStake,
     bool IsStakeQualified);
+
+public sealed record LeaderboardTimelineResponse(
+    IReadOnlyCollection<LeaderboardTimelineMemberResponse> Members,
+    IReadOnlyCollection<LeaderboardTimelineEventResponse> Events);
+
+public sealed record LeaderboardTimelineMemberResponse(
+    Guid MemberId,
+    Guid UserId,
+    string DisplayName,
+    string? AvatarUrl,
+    int CurrentWinLoss);
+
+public sealed record LeaderboardTimelineEventResponse(
+    Guid EventId,
+    int Sequence,
+    string EventName,
+    DateTimeOffset StartsAt,
+    IReadOnlyCollection<LeaderboardTimelinePointResponse> Points);
+
+public sealed record LeaderboardTimelinePointResponse(
+    Guid MemberId,
+    int WinLoss);
 
 public sealed record MarketPredictionSummaryResponse(
     Guid MarketId,

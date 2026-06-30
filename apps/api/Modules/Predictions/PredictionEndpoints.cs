@@ -116,6 +116,19 @@ public static class PredictionEndpoints
                 : Results.Ok(predictions.GetLeaderboard(poolId, pool.StartingBalance));
         }).RequireAuthorization();
 
+        group.MapGet("/pool/{poolId:guid}/leaderboard/timeline", (Guid poolId, ClaimsPrincipal principal, PredictionStore predictions, PoolStore pools) =>
+        {
+            if (!TryGetUserId(principal, out var userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var pool = pools.GetPoolForUser(poolId, userId);
+            return pool is null
+                ? Results.Forbid()
+                : Results.Ok(predictions.GetLeaderboardTimeline(poolId, pool.StartingBalance));
+        }).RequireAuthorization();
+
         group.MapGet("/pool/{poolId:guid}/members/{memberId:guid}/profile", (Guid poolId, Guid memberId, ClaimsPrincipal principal, PredictionStore predictions, PoolStore pools) =>
         {
             if (!TryGetUserId(principal, out var userId))

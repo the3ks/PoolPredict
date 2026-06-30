@@ -1130,6 +1130,12 @@ dd {
   margin-bottom: 12px;
 }
 
+.leaderboardTitleActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .iconButton {
   align-items: center;
   background: var(--tile-bg);
@@ -1177,8 +1183,110 @@ dd {
   margin: 0;
 }
 
+.leaderboardTrendModal {
+  width: min(1120px, calc(100vw - 48px));
+}
+
 .fullLeaderboardList {
   margin-bottom: 0;
+}
+
+.leaderboardTimelineChart {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.leaderboardTimelineScroller {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.leaderboardTimelineSvg {
+  display: block;
+  min-width: 760px;
+  width: 100%;
+}
+
+.leaderboardTimelineAxis {
+  stroke: var(--border-strong);
+  stroke-width: 1.5;
+}
+
+.leaderboardTimelineGridline {
+  stroke: var(--border);
+  stroke-dasharray: 4 6;
+  stroke-width: 1;
+}
+
+.leaderboardTimelineEventLine {
+  stroke: var(--border);
+  stroke-width: 1;
+  opacity: 0.45;
+}
+
+.leaderboardTimelineTick,
+.leaderboardTimelineEventTick {
+  fill: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.leaderboardTimelineLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.leaderboardTimelineLegendItem {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--tile-bg);
+  padding: 6px 10px;
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.leaderboardTimelineLegendItem span:not(.leaderboardTimelineLegendSwatch) {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leaderboardTimelineLegendItem strong {
+  color: var(--text);
+}
+
+.leaderboardTimelineLegendSwatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+}
+
+.leaderboardTimelineEvents {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.leaderboardTimelineEvents summary {
+  width: max-content;
+  color: var(--text-soft);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.leaderboardTimelineEvents summary:hover {
+  color: var(--accent);
 }
 
 .poolLeaderboardRow {
